@@ -17,6 +17,12 @@
     neovim
   ];
 
+  programs.nix-your-shell = {
+    enable = true;
+    enableZshIntegration = true;
+    package = pkgs.zsh;
+  };
+
   home.stateVersion = "25.05";
   programs.home-manager.enable = true;
 }
