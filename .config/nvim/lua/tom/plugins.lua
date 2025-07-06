@@ -181,7 +181,7 @@ return require('lazy').setup({
         'neovim/nvim-lspconfig',
       },
       config = function ()
-        require('rustaceanvim').setup {
+        vim.g.rustaceanvim = {
           server = {
             on_attach = require('tom.lsp').on_attach,
             capabilities = require('tom.lsp').capabilities,
