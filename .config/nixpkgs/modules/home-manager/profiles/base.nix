@@ -13,6 +13,8 @@
     ripgrep
     tmux
 
+    nix-your-shell
+
     # Terminal editing
     neovim
   ];

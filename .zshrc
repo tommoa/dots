@@ -75,3 +75,7 @@ autoload -U bashcompinit && bashcompinit
 setopt auto_cd
 stty -ixon
 export GIT_PROMPT=1
+
+if which nix-your-shell >/dev/null 2>/dev/null; then
+    nix-your-shell zsh | source /dev/stdin
+fi
