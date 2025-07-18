@@ -43,18 +43,6 @@ require('avante').setup {
         auto_approve_tool_permissions = true,
         auto_suggestions = true,
     },
-    disabled_tools = { -- These tools are all provided by MCP.
-        "list_files",    -- Built-in file operations
-        "search_files",
-        "read_file",
-        "create_file",
-        "rename_file",
-        "delete_file",
-        "create_dir",
-        "rename_dir",
-        "delete_dir",
-        "bash",         -- Built-in terminal access
-    },
     mappings = {
         sidebar = {
             edit_user_request = 'u',
