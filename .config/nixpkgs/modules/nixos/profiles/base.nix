@@ -15,8 +15,9 @@
   # Use latest kernel
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
-  # Networking
+  # Networking/interconnectivity
   networking.networkmanager.enable = true;
+  hardware.bluetooth.enable = true;
 
   # Timezone and locale
   time.timeZone = "Australia/Sydney";
