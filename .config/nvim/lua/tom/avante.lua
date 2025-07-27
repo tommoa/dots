@@ -35,7 +35,43 @@ require('avante').setup {
             },
         },
         ollama = {
-            model = 'gemini3:4b',
+            model = 'gemma3:4b',
+        },
+        claude_sonnet = {
+            __inherited_from = "openai",
+            model = "anthropic/claude-sonnet-4",
+            endpoint = "https://openrouter.ai/api/v1",
+            api_key_name = { 'cat', '~/.config/ai-keys/openrouter' },
+            timeout = 30000, -- Timeout in milliseconds
+            context_window = 200000,
+            extra_request_body = {
+                temperature = 0.75,
+                max_tokens = 64000,
+            },
+        },
+        claude_haiku = {
+            __inherited_from = "openai",
+            model = "anthropic/claude-3.5-haiku",
+            endpoint = "https://openrouter.ai/api/v1",
+            api_key_name = { 'cat', '~/.config/ai-keys/openrouter' },
+            timeout = 30000, -- Timeout in milliseconds
+            context_window = 200000,
+            extra_request_body = {
+                temperature = 0.75,
+                max_tokens = 64000,
+            },
+        },
+        kimi_k2 = {
+            __inherited_from = "openai",
+            model = "moonshotai/kimi-k2",
+            endpoint = "https://openrouter.ai/api/v1",
+            api_key_name = { 'cat', '~/.config/ai-keys/openrouter' },
+            timeout = 30000, -- Timeout in milliseconds
+            context_window = 120000,
+            extra_request_body = {
+                temperature = 0.75,
+                max_tokens = 64000,
+            },
         },
     },
     behaviour = {
