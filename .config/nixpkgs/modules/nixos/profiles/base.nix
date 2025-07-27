@@ -42,6 +42,9 @@
   };
   console.useXkbConfig = true;
 
+  # Turn on QMK for keyboards.
+  hardware.keyboard.qmk.enable = true;
+
   # Default shell
   users.defaultUserShell = pkgs.zsh;
 
