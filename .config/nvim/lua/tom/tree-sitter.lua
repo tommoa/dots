@@ -7,7 +7,7 @@ configs.setup {
         "ipkg",
         "norg",
     },
-    auto_install = true,
+    auto_install = false,
     sync_install = false,
     modules= {},
     highlight = {

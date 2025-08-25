@@ -11,12 +11,12 @@ require('lualine').setup {
         section_separators = { left = '', right = '' },
         component_separators = { left = '', right = '|' },
         disabled_filetypes = {
-            'AvanteTodos',
+            'Avante',
+            'AvanteInput',
+            'AvanteOutput',
             'AvanteSelectedFiles',
+            'AvanteTodos',
         },
-    },
-    extensions = {
-        'avante',
     },
     sections = {
         lualine_a = { 'mode' },

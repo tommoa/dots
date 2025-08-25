@@ -1,67 +1,38 @@
 local lspconfig = require('lspconfig')
-local lsp_status = require('lsp-status')
 
 local M = {}
 
--- Make sure that lsp status is all in plain text
-lsp_status.config {
-    indicator_errors = 'E',
-    indicator_warnings = 'W',
-    indicator_info = 'i',
-    indicator_hint = '?',
-    indicator_ok = '',
-    status_symbol = '',
-    current_function = false,
-}
-
--- Register for progress reports from the LSP server
-lsp_status.register_progress()
-
-local capabilities = vim.lsp.protocol.make_client_capabilities()
-capabilities.textDocument.completion.completionItem.snippetSupport = true
-capabilities.textDocument.completion.completionItem.resolveSupport = {
-    properties = {
-        'documentation',
-        'detail',
-        'additionalTextEdits',
-    }
-}
-capabilities = vim.tbl_extend('keep', capabilities or {}, lsp_status.capabilities)
-capabilities = require 'cmp_nvim_lsp'.default_capabilities(capabilities)
+local capabilities = vim.tbl_deep_extend(
+    'force',
+    vim.lsp.protocol.make_client_capabilities(),
+    require 'cmp_nvim_lsp'.default_capabilities()
+)
 M.capabilities = capabilities
 
 local on_attach = function(client, bufnr)
-    lsp_status.on_attach(client)
-    local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
-
-    -- local function buf_set_option(...) vim.api.nvim_buf_set_option(bufnr, ...) end
-
-    --Enable completion triggered by <c-x><c-o>
-    -- buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
-
-    -- Mappings.
-    local opts = { noremap = true, silent = true }
+    local opts = { buffer = bufnr, remap = false }
 
     -- See `:help vim.lsp.*` for documentation on any of the below functions
-    buf_set_keymap('n', '<leader>d', '<Cmd>lua vim.lsp.buf.declaration()<CR>', opts)
-    buf_set_keymap('n', 'gd', '<Cmd>lua vim.lsp.buf.definition()<CR>', opts)
-    buf_set_keymap('n', '<leader>h', '<Cmd>lua vim.lsp.buf.hover()<CR>', opts)
-    buf_set_keymap('n', 'gi', '<cmd>lua vim.lsp.buf.implementation()<CR>', opts)
-    buf_set_keymap('n', '<C-k>', '<cmd>lua vim.lsp.buf.signature_help()<CR>', opts)
-    buf_set_keymap('n', '<leader>wa', '<cmd>lua vim.lsp.buf.add_workspace_folder()<CR>', opts)
-    buf_set_keymap('n', '<leader>wr', '<cmd>lua vim.lsp.buf.remove_workspace_folder()<CR>', opts)
-    buf_set_keymap('n', '<leader>wl', '<cmd>lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>', opts)
-    buf_set_keymap('n', '<leader>D', '<cmd>lua vim.lsp.buf.type_definition()<CR>', opts)
-    buf_set_keymap('n', '<leader>r', '<cmd>lua vim.lsp.buf.rename()<CR>', opts)
-    buf_set_keymap('n', '<leader>a', '<cmd>lua vim.lsp.buf.code_action()<CR>', opts)
-    buf_set_keymap('n', 'gr', '<cmd>lua vim.lsp.buf.references()<CR>', opts)
-    buf_set_keymap('n', '<leader>e', '<cmd>lua vim.diagnostic.open_float()<CR>', opts)
-    buf_set_keymap('n', '[g', '<cmd>lua vim.diagnostic.goto_prev()<CR>', opts)
-    buf_set_keymap('n', ']g', '<cmd>lua vim.diagnostic.goto_next()<CR>', opts)
-    buf_set_keymap('n', '<leader>q', '<cmd>lua vim.diagnostic.setloclist()<CR>', opts)
-    buf_set_keymap("n", "<leader>o", "<cmd>lua vim.lsp.buf.formatting()<CR>", opts)
+    vim.keymap.set('n', '<leader>d', vim.lsp.buf.declaration, opts)
+    vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+    vim.keymap.set('n', '<leader>h', vim.lsp.buf.hover, opts)
+    vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
+    vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, opts)
+    vim.keymap.set('n', '<leader>wa', vim.lsp.buf.add_workspace_folder, opts)
+    vim.keymap.set('n', '<leader>wr', vim.lsp.buf.remove_workspace_folder, opts)
+    vim.keymap.set('n', '<leader>wl', function() print(vim.inspect(vim.lsp.buf.list_workspace_folders())) end, opts)
+    vim.keymap.set('n', '<leader>D', vim.lsp.buf.type_definition, opts)
+    vim.keymap.set('n', '<leader>r', vim.lsp.buf.rename, opts)
+    vim.keymap.set('n', '<leader>a', vim.lsp.buf.code_action, opts)
+    vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
+    vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, opts)
+    vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, opts)
+    vim.keymap.set("n", "<leader>o", vim.lsp.buf.format, opts)
     -- Run formatting synchronously before writing a file
-    vim.api.nvim_command('autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()')
+    vim.api.nvim_create_autocmd('BufWritePre', {
+        buffer = bufnr,
+        callback = vim.lsp.buf.format,
+    })
 end
 M.on_attach = on_attach
 
@@ -95,7 +66,6 @@ M.configs['lua_ls'] = {
 }
 -- Clangd
 M.configs['clangd'] = {
-    handlers = lsp_status.extensions.clangd.setup(),
     init_options = {
         clangdFileStatus = true
     },
@@ -113,10 +83,12 @@ M.configs['nixd'] = {
     capabilities = capabilities,
 }
 
--- Rust will be setup by `rust-tools.nvim`
+-- Rust will be setup by `rustaceanvim`
 
-for language, config in pairs(M.configs) do
-    lspconfig[language].setup(config)
+for server, config in pairs(M.configs) do
+    lspconfig[server].setup(config)
+    vim.lsp.config(server, config)
+    vim.lsp.enable(server)
 end
 
 return M

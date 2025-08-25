@@ -60,7 +60,7 @@ return require('lazy').setup({
     {
       'hrsh7th/nvim-cmp',
       -- Load cmp on InsertEnter
-      event = 'InsertEnter',
+      event = 'VeryLazy',
       config = function ()
         require('tom.completion')
       end,
@@ -85,7 +85,8 @@ return require('lazy').setup({
     -- AI completion.
     {
       'yetone/avante.nvim',
-      event = 'VeryLazy',
+      event = 'InsertEnter',
+      cmd = 'Avante',
       dependencies = {
         'nvim-treesitter/nvim-treesitter',
         'stevearc/dressing.nvim',
@@ -103,7 +104,8 @@ return require('lazy').setup({
     -- MCP
     {
       'ravitemer/mcphub.nvim',
-      event = 'VeryLazy',
+      event = 'InsertEnter',
+      cmd = 'MCPHub',
       dependencies = {
         'nvim-lua/plenary.nvim',
       },
@@ -118,12 +120,8 @@ return require('lazy').setup({
     {
       'neovim/nvim-lspconfig',
       lazy = false,
-    },
-    {
-      'nvim-lua/lsp-status.nvim',
-      dependencies = { 'neovim/nvim-lspconfig' },
-      config = function()
-        require('tom.lsp')
+      config = function ()
+          require('tom.lsp')
       end
     },
 
@@ -131,10 +129,6 @@ return require('lazy').setup({
     {
       'nvim-treesitter/nvim-treesitter',
       event = 'VeryLazy',
-      dependencies = {
-        'nvim-treesitter/nvim-treesitter-refactor',
-        'nvim-treesitter/nvim-treesitter-textobjects'
-      },
       config = function()
         require('tom.tree-sitter')
       end,
@@ -198,8 +192,6 @@ return require('lazy').setup({
       'kevinoid/vim-jsonc',
       ft = { 'jsonc' },
     },
-    { 'nathangrigg/vim-beancount' },
-    { 'sersorrel/vim-lilypond' },
     -- Obsidian
     {
       'epwalsh/obsidian.nvim',
