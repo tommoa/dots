@@ -104,8 +104,6 @@ return require('lazy').setup({
     -- MCP
     {
       'ravitemer/mcphub.nvim',
-      event = 'InsertEnter',
-      cmd = 'MCPHub',
       dependencies = {
         'nvim-lua/plenary.nvim',
       },
@@ -113,6 +111,11 @@ return require('lazy').setup({
       opts = {
         use_bundled_binary = true,  -- Use local `mcp-hub` binary
         auto_approve = true,
+        extensions = {
+            avante = {
+                make_slash_commands = false,
+            },
+        },
       },
     },
 

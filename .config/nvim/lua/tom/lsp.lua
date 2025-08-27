@@ -39,9 +39,6 @@ M.on_attach = on_attach
 M.configs = {}
 
 -- Lua
-local runtime_path = vim.split(package.path, ';')
-table.insert(runtime_path, "lua/?.lua")
-table.insert(runtime_path, "lua/?/init.lua")
 M.configs['lua_ls'] = {
     settings = {
         Lua = {
