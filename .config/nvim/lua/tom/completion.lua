@@ -7,16 +7,10 @@ end
 
 -- How this works:
 --  - If we can complete, complete
---  - If we can fill out a snipped, fill out a snippet
 --  - Otherwise, put in a tab
 _G.tab_complete = function(_)
     if cmp.visible() then
-        -- vim.fn['coc#_select_confirm']()
         return cmp.confirm()
-    -- elseif vim.fn['coc#expandableOrJumpable']() then
-    elseif require'luasnip'.expand_or_jumpable() then
-        -- return t "<C-r>=coc#rpc#request('doKeymap', ['snippets-expand-jump',''])\<CR>"
-        return require'luasnip'.expand_or_jump()
     else
         return t "<Tab>"
     end
@@ -35,21 +29,9 @@ _G.do_enter_key = function(_)
     return t '<C-g>u<CR>'
 end
 
--- remap('i', '<Tab>', 'v:lua.tab_complete()', { expr = true, silent = true, noremap = true})
--- remap('i', '<CR>',  "v:lua.do_enter_key()",  { expr = true, silent = true, noremap = true })
--- remap('i', '<C-e>', 'compe#close(\'<C-e>\')',   { silent = true, expr = true, noremap = true })
--- remap('i', '<C-f>', "compe#scroll({ 'delta': +4 })", { silent = true, expr = true, noremap = true })
--- remap('i', '<C-b>', "compe#scroll({ 'delta': -4 })", { silent = true, expr = true, noremap = true })
-
 cmp.setup {
   experimental = {
     ghost_text = true;
-  };
-
-  snippet = {
-    expand = function(args)
-      require('luasnip').lsp_expand(args.body)
-    end
   };
 
   completion = {
@@ -70,7 +52,6 @@ cmp.setup {
 
   sources = cmp.config.sources({
     { name = "nvim_lsp" },
-    { name = "luasnip" },
     { name = "path" },
     { name = "buffer" },
     { name = "calc" },

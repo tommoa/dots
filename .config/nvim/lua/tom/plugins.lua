@@ -72,15 +72,6 @@ return require('lazy').setup({
         'hrsh7th/cmp-nvim-lsp-document-symbol'
       },
     },
-    -- Snippets.
-    {
-      'l3mon4d3/luasnip',
-      event = 'InsertEnter',
-      dependencies = {
-        'hrsh7th/nvim-cmp',
-        'saadparwaiz1/cmp_luasnip',
-      },
-    },
 
     -- AI completion.
     {
