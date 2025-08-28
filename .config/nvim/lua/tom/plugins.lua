@@ -178,14 +178,6 @@ return require('lazy').setup({
       end,
       ft = { 'rust' },
     },
-    {
-      'lnl7/vim-nix',
-      ft = { 'nix' },
-    },
-    {
-      'kevinoid/vim-jsonc',
-      ft = { 'jsonc' },
-    },
     -- Obsidian
     {
       'epwalsh/obsidian.nvim',
