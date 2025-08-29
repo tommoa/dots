@@ -1,18 +1,37 @@
 return {
-  -- nvim-cmp
+  -- blink.cmp
   {
-    'hrsh7th/nvim-cmp',
-    -- Load cmp on InsertEnter
-    event = 'VeryLazy',
-    config = function()
-      require('tom.completion')
-    end,
-    dependencies = {
-      'hrsh7th/cmp-cmdline',
-      'hrsh7th/cmp-path',
-      'hrsh7th/cmp-buffer',
-      'hrsh7th/cmp-nvim-lsp',
-      'hrsh7th/cmp-nvim-lsp-document-symbol'
+    'saghen/blink.cmp',
+    version = "1.*",
+    opts = {
+      keymap = {
+        preset = "super-tab",
+      },
+      completion = {
+        documentation = {
+          auto_show = true,
+          auto_show_delay_ms = 50,
+        },
+        ghost_text = {
+          enabled = true,
+        },
+        menu = {
+          draw = {
+            treesitter = { 'lsp', },
+            columns = {
+              { 'kind' }, { 'label', 'label_description', gap = 1 },
+            },
+          },
+        },
+      },
+      cmdline = {
+        keymap = { preset = 'inherit' },
+        completion = {
+          menu = {
+            auto_show = true
+          },
+        },
+      },
     },
-  },
+  }
 }
