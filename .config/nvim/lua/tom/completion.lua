@@ -1,4 +1,3 @@
--- local remap = vim.api.nvim_set_keymap
 local cmp = require('cmp')
 
 local t = function(str)
