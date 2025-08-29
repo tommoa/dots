@@ -82,6 +82,15 @@ M.configs['nixd'] = {
     on_attach = on_attach,
     capabilities = capabilities,
 }
+-- Markdown
+M.configs['markdown_oxide'] = {
+    on_attach = on_attach,
+    capabilities = vim.tbl_deep_extend(
+        'force',
+        capabilities,
+        { workspace = { didChangeWatchedFiles = { dynamicRegistration = true, }, }, }
+    ),
+}
 
 -- Rust will be setup by `rustaceanvim`
 
