@@ -95,6 +95,7 @@ return require('lazy').setup({
     -- MCP
     {
       'ravitemer/mcphub.nvim',
+      event = 'VeryLazy',
       dependencies = {
         'nvim-lua/plenary.nvim',
       },
