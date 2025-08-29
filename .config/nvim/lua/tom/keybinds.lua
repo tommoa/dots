@@ -20,6 +20,10 @@ mapper("", "U", "I")
 -- Normal-mode specific
 mapper("n", "k", "nzzzv")
 mapper("n", "K", "Nzzzv")
+mapper("n", "<C-f>", "<C-u>zzzv")
+mapper("n", "<C-b>", "<C-u>zzzv")
+mapper("n", "<C-u>", "<C-u>zzzv")
+mapper("n", "<C-d>", "<C-d>zzzv")
 -- Moving between panes
 mapper("n", "<left>", "<c-w>h")
 mapper("n", "<right>", "<c-w>l")
