@@ -6,6 +6,8 @@ return {
     opts = {
       keymap = {
         preset = "super-tab",
+        ['<Up>'] = {},
+        ['<Down>'] = {},
       },
       completion = {
         documentation = {
@@ -25,7 +27,9 @@ return {
         },
       },
       cmdline = {
-        keymap = { preset = 'inherit' },
+        keymap = {
+          preset = 'inherit',
+        },
         completion = {
           menu = {
             auto_show = true
