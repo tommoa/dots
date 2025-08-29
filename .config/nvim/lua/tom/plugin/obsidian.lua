@@ -11,14 +11,18 @@ return {
     opts = {
       -- Only one obsidian workspace :)
       workspaces = {
-        {
+        { -- This is my configuration for Linux.
+          name = "personal",
+          path = "~/docs/Personal",
+        },
+        { -- This is my configuration for macOS.
           name = "personal",
           path = "~/Documents/Personal",
         },
       },
       -- Setup completion.
       completion = {
-        nvim_cmp = true,
+        blink = true,
         min_chars = 2,
       },
       -- Setup the picker.
@@ -35,7 +39,7 @@ return {
       daily_notes = {
         folder = "Calendar/Daily",
         date_format = "%Y-%m-%d",
-        -- template = nil
+        template = "Extras/Templates/daily-template.md",
       },
     },
   },
