@@ -75,6 +75,13 @@ vim.api.nvim_create_autocmd('LspAttach', {
 --     zf:         find_files
 --     zb:         buffers
 --     <leader>en  find neovim files
+--   harpoon:
+--     <leader>t   add to list
+--     <leader>s   toggle menu
+--     <C-n>       select 1
+--     <C-e>       select 2
+--     <C-i>       select 3
+--     <C-o>       select 4
 --   avante:
 --     <leader>aC  AvanteClear
 --     <leader>an  AvanteChatNew
