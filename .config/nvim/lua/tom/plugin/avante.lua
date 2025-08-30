@@ -139,5 +139,9 @@ return {
         return vim.tbl_deep_extend('keep', mcp_tools, result)
       end,
     },
+    keys = {
+      { '<leader>aC', '<cmd>AvanteClear<CR>' },
+      { '<leader>an', '<cmd>AvanteChatNew<CR>' },
+    },
   },
 }

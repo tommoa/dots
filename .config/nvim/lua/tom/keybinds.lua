@@ -41,14 +41,6 @@ mapper("n", "gV", "`[v`]")
 -- When using the nvim terminal, escape puts you back in normal mode
 mapper("t", "<Esc>", "<c-\\><c-n>")
 
--- Add a keybind for finding files with Telescope
-mapper("n", "zf", ":Telescope find_files<CR>")
-mapper("n", "zb", ":Telescope buffers<CR>")
-
--- Clear Avante chat history
-mapper("n", "<leader>aC", ":AvanteClear<CR>")
-mapper("n", "<leader>an", ":AvanteChatNew<CR>")
-
 -- LSP keybinds
 vim.api.nvim_create_autocmd('LspAttach', {
   callback = function(e)
@@ -77,3 +69,12 @@ vim.api.nvim_create_autocmd('LspAttach', {
     })
   end
 })
+
+-- Keymaps for plugins.
+--   telescope:
+--     zf:         find_files
+--     zb:         buffers
+--     <leader>en  find neovim files
+--   avante:
+--     <leader>aC  AvanteClear
+--     <leader>an  AvanteChatNew
