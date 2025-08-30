@@ -32,7 +32,12 @@ return {
           -- Treesitter doesn't have 32-bit binaries.
           enable = vim.uv.os_uname().machine ~= "i686",
           disable = {},
-        }
+        },
+        indent = {
+          -- Treesitter doesn't have 32-bit binaries.
+          enable = vim.uv.os_uname().machine ~= "i686",
+          disable = {},
+        },
       }
     end,
     build = ':TSUpdate'
