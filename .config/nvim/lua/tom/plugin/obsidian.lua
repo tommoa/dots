@@ -1,5 +1,15 @@
-return {
+local get_workspace = function()
+  local os_name = vim.uv.os_uname().sysname
+  if os_name == "Darwin" then -- macOS
+    return "~/Documents/Personal"
+  elseif os_name == "Linux" then -- Linux
+    return "~/docs/Personal"
+  else
+    return nil
+  end
+end
   -- Obsidian
+return {
   {
     'epwalsh/obsidian.nvim',
     lazy = true,
@@ -11,16 +21,11 @@ return {
     opts = {
       -- Only one obsidian workspace :)
       workspaces = {
-        { -- This is my configuration for Linux.
+        {
           name = "personal",
-          path = "~/docs/Personal",
-        },
-        { -- This is my configuration for macOS.
-          name = "personal",
-          path = "~/Documents/Personal",
+          path = get_workspace,
         },
       },
-      -- Setup completion.
       completion = {
         blink = true,
         min_chars = 2,
