@@ -1,12 +1,15 @@
 local get_workspace = function()
   local os_name = vim.uv.os_uname().sysname
+  local path = nil
   if os_name == "Darwin" then -- macOS
-    return "~/Documents/Personal"
+    path = vim.uv.os_homedir() .. "/Documents/Personal"
   elseif os_name == "Linux" then -- Linux
-    return "~/docs/Personal"
-  else
-    return nil
+    path = vim.uv.os_homedir() .. "/docs/Personal"
   end
+  if not vim.uv.fs_stat(path) then
+    return assert(vim.fs.dirname(vim.api.nvim_buf_get_name(0)))
+  end
+  return path
 end
   -- Obsidian
 return {
@@ -26,6 +29,7 @@ return {
           path = get_workspace,
         },
       },
+      disable_frontmatter = true,
       completion = {
         blink = true,
         min_chars = 2,
