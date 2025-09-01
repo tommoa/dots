@@ -59,7 +59,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
     vim.keymap.set('n', '<leader>r', vim.lsp.buf.rename, opts)
     vim.keymap.set('n', '<leader>ga', vim.lsp.buf.code_action, opts)
     vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
-    vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, opts)
+    vim.keymap.set('n', '<leader>n', vim.diagnostic.open_float, opts)
     vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, opts)
     vim.keymap.set("n", "<leader>o", vim.lsp.buf.format, opts)
     -- Run formatting synchronously before writing a file
@@ -80,8 +80,8 @@ vim.api.nvim_create_autocmd('LspAttach', {
 --     <leader>s   toggle menu
 --     <C-n>       select 1
 --     <C-e>       select 2
---     <C-i>       select 3
---     <C-o>       select 4
+--     <C-t>       select 3
+--     <C-s>       select 4
 --   avante:
 --     <leader>aC  AvanteClear
 --     <leader>an  AvanteChatNew
