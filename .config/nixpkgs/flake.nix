@@ -14,10 +14,18 @@
       url = "github:nix-darwin/nix-darwin/nix-darwin-25.05";
       inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
+
+    zen-browser = {
+      url = "github:0xc000022070/zen-browser-flake";
+      # IMPORTANT: we're using "libgbm" and is only available in unstable so ensure
+      # to have it up-to-date or simply don't specify the nixpkgs input
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ nixpkgs, nix-darwin, home-manager, ... }:
     let
+      zen-browser-module = inputs.zen-browser.homeModules.twilight-official;
       # Helper function to create home-manager configurations
       mkHomeConfig = { username, homeDirectory, system, profiles ? [ "base" "development" ] }:
         home-manager.lib.homeManagerConfiguration {
@@ -27,6 +35,7 @@
             overlays = [ (import ./overlays) ];
           };
           modules = [
+            zen-browser-module
             {
               home.username = username;
               home.homeDirectory = homeDirectory;
@@ -45,7 +54,9 @@
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.users.${username} = { ... }: {
-                imports = map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
+                imports = [
+                  zen-browser-module
+                ] ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
                 home.username = username;
                 home.homeDirectory = homeDirectory;
               };
@@ -64,7 +75,9 @@
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.users.${username} = { ... }: {
-                imports = map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
+                imports = [
+                  zen-browser-module
+                ] ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
                 home.username = username;
                 home.homeDirectory = homeDirectory;
               };

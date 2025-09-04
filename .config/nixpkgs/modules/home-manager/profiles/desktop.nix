@@ -15,6 +15,8 @@
     (if pkgs.stdenv.isLinux then whatsapp-for-linux else whatsapp-for-mac)
   ];
 
+  programs.zen-browser.enable = true;
+
   gtk = {
     enable = pkgs.stdenv.isLinux;
     iconTheme = {
