@@ -38,6 +38,12 @@ return {
           no_ignore = true,
         })
       end, desc = "Find files in nvim config" },
+      { "<leader>ec", function()
+        require('telescope.builtin').find_files({
+          cwd = vim.fn.expand('~/.config/nixpkgs'),
+          no_ignore = true,
+        })
+      end, desc = "Find files in nixpkgs config" },
     },
   },
 }
