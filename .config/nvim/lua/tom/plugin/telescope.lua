@@ -28,17 +28,16 @@ return {
         fzf = {},
       },
     },
-    config = function (_, opts)
-      require('telescope').setup(opts)
-      local telescope = require('telescope.builtin')
-      vim.keymap.set('n', 'zf', telescope.find_files)
-      vim.keymap.set('n', 'zb', telescope.buffers)
-      vim.keymap.set('n', '<leader>en', function ()
-          telescope.find_files({
-              cwd = vim.fn.stdpath('config'),
-              no_ignore = true,
-          })
-      end)
-    end,
+    keys = {
+      { "zf", "<cmd>Telescope find_files<cr>", desc = "Find files" },
+      { "zb", "<cmd>Telescope buffers<cr>", desc = "List buffers" },
+      { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find files" },
+      { "<leader>en", function()
+        require('telescope.builtin').find_files({
+          cwd = vim.fn.stdpath('config'),
+          no_ignore = true,
+        })
+      end, desc = "Find files in nvim config" },
+    },
   },
 }
