@@ -6,6 +6,7 @@
     alacritty
     
     # Desktop applications
+    bitwarden
     obsidian
     spotify
     
@@ -15,7 +16,13 @@
     (if pkgs.stdenv.isLinux then whatsapp-for-linux else whatsapp-for-mac)
   ];
 
-  programs.zen-browser.enable = true;
+  programs.zen-browser = {
+    enable = true;
+    nativeMessagingHosts = [
+      pkgs.bitwarden
+      (lib.mkIf pkgs.stdenv.isLinux pkgs.firefoxpwa)
+    ];
+  };
 
   gtk = {
     enable = pkgs.stdenv.isLinux;
