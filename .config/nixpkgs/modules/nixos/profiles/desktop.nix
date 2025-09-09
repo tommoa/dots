@@ -19,26 +19,11 @@
   services.printing.enable = true;
 
   # Desktop programs
-  programs.firefox.enable = true;
-  programs.sway = {
+  programs.hyprland = {
     enable = true;
-    wrapperFeatures.gtk = true;
-    extraPackages = with pkgs; [
-      alacritty
-      brightnessctl
-      grim
-      mako
-      pavucontrol
-      playerctl
-      swayidle
-      swaylock
-      wl-clipboard
-      wlsunset
-      wob
-      wofi
-    ];
+    withUWSM = true;
+    xwayland.enable = true;
   };
-  programs.waybar.enable = true;
 
   # Gaming
   programs.steam = {

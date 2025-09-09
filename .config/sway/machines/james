@@ -1,4 +1,4 @@
-# vim: filetype=conf
+# vim: filetype=swayconfig
 
 exec dbus-update-activation-environment --all
 
