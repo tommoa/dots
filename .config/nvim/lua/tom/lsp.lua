@@ -1,5 +1,3 @@
-local lspconfig = require('lspconfig')
-
 local M = {}
 
 local capabilities = vim.tbl_deep_extend(
@@ -71,7 +69,6 @@ M.configs['markdown_oxide'] = {
 -- Rust will be setup by `rustaceanvim`
 
 for server, config in pairs(M.configs) do
-    lspconfig[server].setup(config)
     vim.lsp.config(server, config)
     vim.lsp.enable(server)
 end
