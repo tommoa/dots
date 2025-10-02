@@ -28,11 +28,11 @@ return {
       providers = {
         gemini = {
           api_key_name = { 'cat', '~/.config/ai-keys/gemini' },
-          model = 'gemini-2.5-flash',
+          model = 'gemini-flash-latest',
         },
         gemini_pro = {
           __inherited_from = "gemini",
-          model = 'gemini-2.5-pro',
+          model = 'gemini-pro-latest',
         },
         openai = {
           api_key_name = { 'cat', '~/.config/ai-keys/openai' },
