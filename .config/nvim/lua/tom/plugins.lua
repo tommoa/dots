@@ -36,6 +36,9 @@ return require('lazy').setup({
     -- Load custom plugins.
     local_plugins()
   },
+  rocks = {
+    enabled = false,
+  },
   -- Configure any other settings here. See the documentation for more details.
   -- colorscheme that will be used when installing plugins.
   install = { colorscheme = { "onedark" } },
