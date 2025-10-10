@@ -65,6 +65,11 @@ M.configs['markdown_oxide'] = {
         { workspace = { didChangeWatchedFiles = { dynamicRegistration = true, }, }, }
     ),
 }
+-- Typescript
+M.configs['ts_ls'] = {
+    on_attach = on_attach,
+    capabilities = capabilities
+}
 
 -- Rust will be setup by `rustaceanvim`
 
