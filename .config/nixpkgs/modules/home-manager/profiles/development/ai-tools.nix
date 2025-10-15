@@ -2,7 +2,7 @@
 
 {
   home.packages = with pkgs; [
-    codex
+    google-cloud-sdk # This is required for using Vertex AI.
     ollama
     opencode
   ];

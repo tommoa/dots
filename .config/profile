@@ -52,6 +52,12 @@ then
     export OPENROUTER_API_KEY=$(cat "${HOME}/.config/ai-keys/openrouter")
 fi
 
+if [ -e "${HOME}/.config/ai-keys/vertex" ]
+then
+    export GOOGLE_API_KEY=$(cat "${HOME}/.config/ai-keys/vertex")
+    export GOOGLE_CLOUD_PROJECT=$(cat "${HOME}/.config/ai-keys/vertex-project")
+fi
+
 case "$(uname)" in
     FreeBSD)
         export CARGO_HOME="${CARGO_HOME}_freebsd"
