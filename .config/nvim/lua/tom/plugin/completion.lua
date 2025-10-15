@@ -11,6 +11,11 @@ return {
         ['<Down>'] = {},
       },
       completion = {
+        list = {
+          selection = {
+            auto_insert = false,
+          },
+        },
         documentation = {
           auto_show = true,
           auto_show_delay_ms = 50,

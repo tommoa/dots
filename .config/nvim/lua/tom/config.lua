@@ -23,7 +23,7 @@ opt.expandtab = true -- Use spaces for indentation by default
 opt.spelllang = "en_au"
 
 opt.shortmess:append "c"
-opt.completeopt = "menuone,noselect"
+opt.completeopt = "menuone,noselect,noinsert"
 
 local has = function(x)
   return vim.fn.has(x) == 1
