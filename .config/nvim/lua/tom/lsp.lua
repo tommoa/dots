@@ -71,7 +71,7 @@ M.configs['ts_ls'] = {
     capabilities = capabilities
 }
 
-local ai_lsp_path = vim.uv.os_homedir() .. 'docs/ai-lsp/src/index.ts'
+local ai_lsp_path = vim.uv.os_homedir() .. '/docs/ai-lsp/src/index.ts'
 if (vim.uv or vim.loop).fs_stat(ai_lsp_path) then
     -- My own LSP check
     M.configs['ai-lsp'] = {
