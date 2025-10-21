@@ -76,10 +76,13 @@ vim.api.nvim_create_autocmd('LspAttach', {
 --     zb:         buffers
 --     <leader>en  find neovim files
 --     <leader>ec  find nix config files
---   harpoon:
+--   grapple:
 --     <leader>t   add to list
 --     <leader>s   toggle menu
 --     <C-n>       select 1
 --     <C-e>       select 2
 --     <C-t>       select 3
 --     <C-s>       select 4
+--   sidekick:
+--     <leader>y   accept next edit suggestion
+--     <leader>at  toggle AI side-panel
