@@ -31,6 +31,7 @@
 !/.config/fontconfig/fonts.conf
 /.config/fontconfig/conf.d/
 !/.config/git/
+!/.config/hypr/
 !/.config/imv/
 !/.config/kitty
 !/.config/nixpkgs/
