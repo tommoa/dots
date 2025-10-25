@@ -56,6 +56,7 @@ if [ -e "${HOME}/.config/ai-keys/vertex" ]
 then
     export GOOGLE_API_KEY=$(cat "${HOME}/.config/ai-keys/vertex")
     export GOOGLE_CLOUD_PROJECT=$(cat "${HOME}/.config/ai-keys/vertex-project")
+    export GOOGLE_CLOUD_LOCATION=global
 fi
 
 case "$(uname)" in
