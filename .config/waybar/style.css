@@ -1,7 +1,6 @@
 * {
     border: none;
     border-radius: 0;
-    /* `otf-font-awesome` is required to be installed for icons */
     font-family: monospace, sans-serif;
     font-size: 16px;
     min-height: 0;
@@ -44,7 +43,6 @@ window#waybar.chromium {
     border-bottom: 3px solid transparent;
 }
 
-/* https://github.com/Alexays/Waybar/wiki/FAQ#the-workspace-buttons-have-a-strange-hover-effect */
 #workspaces button:hover {
     background: rgba(0, 0, 0, 0.2);
     box-shadow: inherit;
@@ -78,111 +76,36 @@ window#waybar.chromium {
 #tray,
 #mode,
 #idle_inhibitor,
+#not-power,
+#group-power,
+#custom-quit,
+#custom-lock,
+#custom-reboot,
 #mpd {
-    padding: 0 10px;
-    margin: 0 4px;
-    color: #292d3e;
+    padding: 0 0.5em;
+    margin: 0 0px;
 }
 
-#clock {
-    background-color: #676e95;
-    color: #ffffff;
+#temperature.critical {
+    color: #e06c75;
 }
 
-#battery {
-    color: #959dcb;
-    background-color: #292d3e;
+#idle_inhibitor.activated {
+    color: #e5c07b;
 }
 
-#battery.charging {
-    background-color: #959dcb;
-    color: #292d3e;
-}
-
+/* Make the battery blink red if not charging and critical battery */
 @keyframes blink {
     to {
-        background-color: #ffffff;
-        color: #000000;
+        color: #ffffff;
     }
 }
 
 #battery.critical:not(.charging) {
-    background-color: #f07178;
-    color: #ffffff;
+    color: #e06c75;
     animation-name: blink;
     animation-duration: 0.5s;
     animation-timing-function: linear;
     animation-iteration-count: infinite;
     animation-direction: alternate;
-}
-
-label:focus {
-    background-color: #000000;
-}
-
-#cpu {
-    background-color: #2ecc71;
-    color: #000000;
-}
-
-#memory {
-    background-color: #9b59b6;
-}
-
-#backlight {
-    background-color: #c792ea;
-}
-
-#network {
-    background-color: #82aaff;
-}
-
-#network.disconnected {
-    background-color: #f53c3c;
-}
-
-#pulseaudio,#wireplumber {
-    background-color: #c3e88d;
-}
-
-#pulseaudio.muted,#wireplumber.muted {
-    background-color: #96b26c;
-}
-
-#custom-media {
-    background-color: #959dcb;
-    color: #292d3e;
-    min-width: 100px;
-}
-
-#custom-media.custom-spotify {
-    background-color: #66cc99;
-    color: #2a5c45;
-}
-
-#custom-media.custom-vlc {
-    background-color: #ffa000;
-    color: #2a5c45;
-}
-
-#temperature {
-    background-color: #f78c6c;
-}
-
-#temperature.critical {
-    background-color: #ff5370;
-}
-
-#tray {
-    background-color: #292d3e;
-}
-
-#idle_inhibitor {
-    background-color: #2d3436;
-    color: #ffffff
-}
-
-#idle_inhibitor.activated {
-    background-color: #959dcb;
-    color: #2d3436;
 }

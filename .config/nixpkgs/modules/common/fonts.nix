@@ -5,6 +5,7 @@
   fonts.packages = with pkgs; [
     dejavu_fonts # Normal fonts.
     fira-code    # Monospace.
-    font-awesome # Symbols.
+    # font-awesome # Symbols.
+    nerd-fonts.symbols-only # Symbols.
   ];
 }

@@ -32,13 +32,6 @@
     localNetworkGameTransfers.openFirewall = true;
   };
 
-  # Make sure that we have networkmanager.
-  environment.systemPackages = with pkgs; [
-    networkmanagerapplet
-  ];
-  # Bluetooth
-  services.blueman.enable = true;
-
   # Environment variables
   environment.sessionVariables = {
     NIXOS_OZONE_WL = "1";
