@@ -1,6 +1,8 @@
 { pkgs, ... }:
 
 {
+  nixpkgs.hostPlatform = "aarch64-darwin";
+
   imports = [
     ../modules/darwin/profiles/base.nix
     ../modules/darwin/profiles/desktop.nix

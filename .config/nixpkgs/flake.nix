@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/release-25.11";
     nixpkgs-darwin.url = "github:NixOS/nixpkgs/nixpkgs-25.11-darwin";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
@@ -17,8 +18,6 @@
 
     zen-browser = {
       url = "github:0xc000022070/zen-browser-flake";
-      # IMPORTANT: we're using "libgbm" and is only available in unstable so ensure
-      # to have it up-to-date or simply don't specify the nixpkgs input
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -26,13 +25,22 @@
   outputs = inputs@{ nixpkgs, nix-darwin, home-manager, ... }:
     let
       zen-browser-module = inputs.zen-browser.homeModules.twilight-official;
+
+      # Overlay that provides access to nixpkgs-unstable packages
+      unstablePackages = final: prev: {
+        unstable = import inputs.nixpkgs-unstable { inherit (prev) system; };
+      };
+
       # Helper function to create home-manager configurations
       mkHomeConfig = { username, homeDirectory, system, profiles ? [ "base" "development" ] }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
             config.allowUnfree = true;
-            overlays = [ (import ./overlays) ];
+            overlays = [
+              unstablePackages
+              (import ./overlays)
+            ];
           };
           modules = [
             zen-browser-module
@@ -47,9 +55,14 @@
       # Helper function to create darwin configurations
       mkDarwinConfig = { hostConfig, username, homeDirectory, homeProfiles ? [ "base" "development" "desktop" ] }:
         nix-darwin.lib.darwinSystem {
-          system = "aarch64-darwin";
           modules = [
             hostConfig
+            {
+              nixpkgs.overlays = [
+                unstablePackages
+                (import ./overlays)
+              ];
+            }
             home-manager.darwinModules.home-manager {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
@@ -68,9 +81,14 @@
       # Helper function to create nixos configurations  
       mkNixosConfig = { hostConfig, username, homeDirectory, homeProfiles ? [ "base" "development" "desktop" ] }:
         nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
           modules = [
             hostConfig
+            {
+              nixpkgs.overlays = [
+                unstablePackages
+                (import ./overlays)
+              ];
+            }
             home-manager.nixosModules.home-manager {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;

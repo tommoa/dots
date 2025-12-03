@@ -1,6 +1,8 @@
 { pkgs, ... }:
 
 {
+  nixpkgs.hostPlatform = "x86_64-linux";
+
   imports = [
     ../modules/nixos/hardware/james.nix
     ../modules/nixos/profiles/base.nix
