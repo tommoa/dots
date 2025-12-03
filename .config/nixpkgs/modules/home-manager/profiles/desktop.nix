@@ -3,9 +3,8 @@
 {
   home.packages = with pkgs; [
     # Desktop applications
-    bitwarden
+    bitwarden-desktop
     obsidian
-    spotify
     
     # Messaging
     caprine
@@ -40,7 +39,7 @@
       };
     };
     nativeMessagingHosts = [
-      pkgs.bitwarden
+      pkgs.bitwarden-desktop
       (lib.mkIf pkgs.stdenv.isLinux pkgs.firefoxpwa)
     ];
   };
