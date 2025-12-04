@@ -49,10 +49,10 @@
   users.defaultUserShell = pkgs.zsh;
 
   environment.loginShellInit = ''
-	if [ -e $HOME/.profile ]
-	then
-		. $HOME/.profile
-	fi
+    	if [ -e $HOME/.profile ]
+    	then
+    		. $HOME/.profile
+    	fi
   '';
 
   system.stateVersion = "25.05";

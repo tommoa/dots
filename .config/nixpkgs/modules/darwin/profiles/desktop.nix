@@ -8,29 +8,29 @@
 
     config = {
       # Global settings
-      mouse_follows_focus        = "on";
-      focus_follows_mouse        = "autoraise";
-      window_placement           = "second_child";
-      window_shadow              = "on";
-      window_opacity             = "off";
-      window_opacity_duration    = 0.0;
-      active_window_opacity      = 1.0;
-      normal_window_opacity      = 0.90;
-      insert_feedback_color      = "0xffd75f5f";
-      split_ratio                = 0.50;
-      auto_balance               = "off";
-      mouse_modifier             = "cmd";
-      mouse_action1              = "move";
-      mouse_action2              = "resize";
-      mouse_drop_action          = "swap";
+      mouse_follows_focus = "on";
+      focus_follows_mouse = "autoraise";
+      window_placement = "second_child";
+      window_shadow = "on";
+      window_opacity = "off";
+      window_opacity_duration = 0.0;
+      active_window_opacity = 1.0;
+      normal_window_opacity = 0.90;
+      insert_feedback_color = "0xffd75f5f";
+      split_ratio = 0.50;
+      auto_balance = "off";
+      mouse_modifier = "cmd";
+      mouse_action1 = "move";
+      mouse_action2 = "resize";
+      mouse_drop_action = "swap";
 
       # General space
-      layout                     = "bsp";
-      top_padding                = 12;
-      bottom_padding             = 12;
-      left_padding               = 12;
-      right_padding              = 12;
-      window_gap                 = 06;
+      layout = "bsp";
+      top_padding = 12;
+      bottom_padding = 12;
+      left_padding = 12;
+      right_padding = 12;
+      window_gap = 06;
     };
 
     extraConfig = ''

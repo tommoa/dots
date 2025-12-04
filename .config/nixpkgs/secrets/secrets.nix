@@ -23,7 +23,8 @@ let
   # Combined: users (for editing) + systems (for runtime decryption)
   all = users ++ allSystems;
 
-in {
+in
+{
   # AI API keys
   "ai/anthropic.age".publicKeys = all;
   "ai/gemini.age".publicKeys = all;

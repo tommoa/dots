@@ -82,7 +82,10 @@
 
     imapnotify = {
       enable = true;
-      boxes = [ "INBOX" "[Gmail]/Sent Mail" ];
+      boxes = [
+        "INBOX"
+        "[Gmail]/Sent Mail"
+      ];
       onNotify = "account=gmail ${config.home.homeDirectory}/bin/update-mail";
       extraConfig = {
         tls = true;

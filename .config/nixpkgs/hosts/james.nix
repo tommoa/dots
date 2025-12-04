@@ -14,7 +14,10 @@
   users.users.tommoa = {
     isNormalUser = true;
     description = "Tom Hill Almeida";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+    ];
     shell = pkgs.zsh;
     packages = [ ];
   };

@@ -30,7 +30,13 @@
     };
   };
 
-  outputs = inputs@{ nixpkgs, nix-darwin, home-manager, ... }:
+  outputs =
+    inputs@{
+      nixpkgs,
+      nix-darwin,
+      home-manager,
+      ...
+    }:
     let
       zen-browser-module = inputs.zen-browser.homeModules.twilight-official;
 
@@ -38,20 +44,22 @@
       secretsPath = ./secrets;
 
       # Agenix home-manager module that also adds the CLI and defines secretsPath option
-      agenix-module = { pkgs, lib, ... }: {
-        imports = [ inputs.agenix.homeManagerModules.default ];
+      agenix-module =
+        { pkgs, lib, ... }:
+        {
+          imports = [ inputs.agenix.homeManagerModules.default ];
 
-        options.my.secretsPath = lib.mkOption {
-          type = lib.types.path;
-          default = secretsPath;
-          readOnly = true;
-          description = "Path to agenix secrets directory";
-        };
+          options.my.secretsPath = lib.mkOption {
+            type = lib.types.path;
+            default = secretsPath;
+            readOnly = true;
+            description = "Path to agenix secrets directory";
+          };
 
-        config = {
-          home.packages = [ inputs.agenix.packages.${pkgs.system}.default ];
+          config = {
+            home.packages = [ inputs.agenix.packages.${pkgs.system}.default ];
+          };
         };
-      };
 
       # Overlay that provides access to nixpkgs-unstable packages
       unstablePackages = final: prev: {
@@ -59,7 +67,16 @@
       };
 
       # Helper function to create home-manager configurations
-      mkHomeConfig = { username, homeDirectory, system, profiles ? [ "base" "development" ] }:
+      mkHomeConfig =
+        {
+          username,
+          homeDirectory,
+          system,
+          profiles ? [
+            "base"
+            "development"
+          ],
+        }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -77,11 +94,22 @@
               home.homeDirectory = homeDirectory;
               nixpkgs.config.allowUnfree = true;
             }
-          ] ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) profiles;
+          ]
+          ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) profiles;
         };
 
       # Helper function to create darwin configurations
-      mkDarwinConfig = { hostConfig, username, homeDirectory, homeProfiles ? [ "base" "development" "desktop" ] }:
+      mkDarwinConfig =
+        {
+          hostConfig,
+          username,
+          homeDirectory,
+          homeProfiles ? [
+            "base"
+            "development"
+            "desktop"
+          ],
+        }:
         nix-darwin.lib.darwinSystem {
           modules = [
             hostConfig
@@ -92,26 +120,40 @@
                 (import ./overlays)
               ];
             }
-            home-manager.darwinModules.home-manager {
+            home-manager.darwinModules.home-manager
+            {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.sharedModules = [
                 agenix-module
               ];
-              home-manager.users.${username} = { ... }: {
-                imports = [
-                  zen-browser-module
-                ] ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
-                home.username = username;
-                home.homeDirectory = homeDirectory;
-              };
+              home-manager.users.${username} =
+                { ... }:
+                {
+                  imports = [
+                    zen-browser-module
+                  ]
+                  ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
+                  home.username = username;
+                  home.homeDirectory = homeDirectory;
+                };
             }
           ];
           specialArgs = { inherit inputs; };
         };
 
       # Helper function to create nixos configurations
-      mkNixosConfig = { hostConfig, username, homeDirectory, homeProfiles ? [ "base" "development" "desktop" ] }:
+      mkNixosConfig =
+        {
+          hostConfig,
+          username,
+          homeDirectory,
+          homeProfiles ? [
+            "base"
+            "development"
+            "desktop"
+          ],
+        }:
         nixpkgs.lib.nixosSystem {
           modules = [
             hostConfig
@@ -122,19 +164,23 @@
                 (import ./overlays)
               ];
             }
-            home-manager.nixosModules.home-manager {
+            home-manager.nixosModules.home-manager
+            {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.sharedModules = [
                 agenix-module
               ];
-              home-manager.users.${username} = { ... }: {
-                imports = [
-                  zen-browser-module
-                ] ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
-                home.username = username;
-                home.homeDirectory = homeDirectory;
-              };
+              home-manager.users.${username} =
+                { ... }:
+                {
+                  imports = [
+                    zen-browser-module
+                  ]
+                  ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
+                  home.username = username;
+                  home.homeDirectory = homeDirectory;
+                };
             }
           ];
           specialArgs = { inherit inputs; };
@@ -232,6 +278,13 @@
           "ssh"
           "secrets/ai"
         ];
+      };
+
+      # Formatter for `nix fmt`
+      formatter = {
+        x86_64-linux = (import nixpkgs { system = "x86_64-linux"; }).nixfmt-rfc-style;
+        aarch64-darwin = (import nixpkgs { system = "aarch64-darwin"; }).nixfmt-rfc-style;
+        aarch64-linux = (import nixpkgs { system = "aarch64-linux"; }).nixfmt-rfc-style;
       };
     };
 }

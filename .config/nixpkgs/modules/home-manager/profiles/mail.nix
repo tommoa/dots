@@ -1,4 +1,9 @@
-{ pkgs, config, lib, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 
 {
   # Import account configurations
@@ -10,8 +15,8 @@
   ];
 
   home.packages = with pkgs; [
-    notmuch       # Email indexing and tagging
-    w3m           # HTML email viewing in aerc
+    notmuch # Email indexing and tagging
+    w3m # HTML email viewing in aerc
   ];
 
   # Configure base maildir path

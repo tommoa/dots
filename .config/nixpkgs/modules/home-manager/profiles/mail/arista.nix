@@ -81,7 +81,15 @@
 
     imapnotify = {
       enable = true;
-      boxes = [ "INBOX" "[Gmail]/Sent Mail" "Builds" "Escalation" "Work" "Reviews" "Packages" ];
+      boxes = [
+        "INBOX"
+        "[Gmail]/Sent Mail"
+        "Builds"
+        "Escalation"
+        "Work"
+        "Reviews"
+        "Packages"
+      ];
       onNotify = "account=arista ${config.home.homeDirectory}/bin/update-mail";
       extraConfig = {
         tls = true;

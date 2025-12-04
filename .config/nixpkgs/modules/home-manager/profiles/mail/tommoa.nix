@@ -71,7 +71,10 @@
 
     imapnotify = {
       enable = true;
-      boxes = [ "INBOX" "Sent Messages" ];
+      boxes = [
+        "INBOX"
+        "Sent Messages"
+      ];
       onNotify = "account=tommoa ${config.home.homeDirectory}/bin/update-mail";
       extraConfig = {
         tls = true;

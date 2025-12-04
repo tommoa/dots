@@ -55,6 +55,13 @@ M.configs['pyright'] = {
 M.configs['nixd'] = {
     on_attach = on_attach,
     capabilities = capabilities,
+    settings = {
+        nixd = {
+            formatting = {
+                command = { "nixfmt" },
+            },
+        },
+    },
 }
 -- Markdown
 M.configs['markdown_oxide'] = {
