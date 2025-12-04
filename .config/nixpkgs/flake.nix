@@ -19,12 +19,39 @@
     zen-browser = {
       url = "github:0xc000022070/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+    };
+
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+      inputs.darwin.follows = "nix-darwin";
     };
   };
 
   outputs = inputs@{ nixpkgs, nix-darwin, home-manager, ... }:
     let
       zen-browser-module = inputs.zen-browser.homeModules.twilight-official;
+
+      # Path to agenix secrets (relative to flake)
+      secretsPath = ./secrets;
+
+      # Agenix home-manager module that also adds the CLI and defines secretsPath option
+      agenix-module = { pkgs, lib, ... }: {
+        imports = [ inputs.agenix.homeManagerModules.default ];
+
+        options.my.secretsPath = lib.mkOption {
+          type = lib.types.path;
+          default = secretsPath;
+          readOnly = true;
+          description = "Path to agenix secrets directory";
+        };
+
+        config = {
+          home.packages = [ inputs.agenix.packages.${pkgs.system}.default ];
+        };
+      };
 
       # Overlay that provides access to nixpkgs-unstable packages
       unstablePackages = final: prev: {
@@ -43,6 +70,7 @@
             ];
           };
           modules = [
+            agenix-module
             zen-browser-module
             {
               home.username = username;
@@ -57,6 +85,7 @@
         nix-darwin.lib.darwinSystem {
           modules = [
             hostConfig
+            inputs.agenix.darwinModules.default
             {
               nixpkgs.overlays = [
                 unstablePackages
@@ -66,6 +95,9 @@
             home-manager.darwinModules.home-manager {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.sharedModules = [
+                agenix-module
+              ];
               home-manager.users.${username} = { ... }: {
                 imports = [
                   zen-browser-module
@@ -78,11 +110,12 @@
           specialArgs = { inherit inputs; };
         };
 
-      # Helper function to create nixos configurations  
+      # Helper function to create nixos configurations
       mkNixosConfig = { hostConfig, username, homeDirectory, homeProfiles ? [ "base" "development" "desktop" ] }:
         nixpkgs.lib.nixosSystem {
           modules = [
             hostConfig
+            inputs.agenix.nixosModules.default
             {
               nixpkgs.overlays = [
                 unstablePackages
@@ -92,6 +125,9 @@
             home-manager.nixosModules.home-manager {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.sharedModules = [
+                agenix-module
+              ];
               home-manager.users.${username} = { ... }: {
                 imports = [
                   zen-browser-module
