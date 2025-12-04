@@ -1,0 +1,17 @@
+# vim: ft=conf
+INBOX=tag:inbox
+Archive=tag:archive
+Flagged=tag:flagged
+Deleted=tag:deleted
+Sent=tag:sent
+Escalations=tag:escalation
+Reviews=tag:review
+Packages=tag:package
+CI=tag:ci
+indus=tag:indus-release
+quinn=tag:quinn-release
+seine=tag:seine-release
+Reviews Archive=tag:review-archive
+Packages Archive=tag:package-archive
+CI Archive=tag:ci-archive
+Design Reviews=tag:design-reviews

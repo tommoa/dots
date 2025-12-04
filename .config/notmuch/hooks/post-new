@@ -108,4 +108,4 @@ notmuch tag -archive -inbox -- tag:deleted and "(tag:archive or tag:inbox $(prin
 notmuch new --no-hooks
 
 count=$(notmuch count tag:unread)
-[ "${count}" -gt 0 ] && ${notification} "${mbdir}: ${count} new emails" || true
+[ "${count:-0}" -gt 0 ] && ${notification} "${mbdir}: ${count} new emails" || true

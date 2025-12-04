@@ -19,6 +19,7 @@
 !/bin/up
 !/bin/update-mail
 !/bin/update-nix
+!/bin/oauth2-gmail
 !/lib
 /lib/python/__pycache__/*
 !/.config

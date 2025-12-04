@@ -1,0 +1,333 @@
+#!/usr/bin/env -S uv run --script
+"""
+OAuth2 management for Gmail accounts.
+Handles both initial setup and daily token retrieval.
+
+Usage:
+  oauth2-gmail setup <account> <email>  - Initial OAuth2 authorization
+  oauth2-gmail <account>                - Get access token (for mbsync/imapnotify)
+
+Arguments:
+  <account>  Account name matching the agenix secret prefix (e.g., "gmail", "arista")
+  <email>    Email address for the account. Used during setup for:
+             1. Displaying which Google account to authorize
+             2. GPG encryption recipient for the refresh token
+
+Secrets layout:
+  - Client ID/Secret: Read from agenix (decrypted at login)
+    - Darwin: $(getconf DARWIN_USER_TEMP_DIR)/agenix/<account>-oauth2-client-{id,secret}
+    - Linux: $XDG_RUNTIME_DIR/agenix/<account>-oauth2-client-{id,secret}
+  - Refresh token: Stored locally per-machine (GPG encrypted)
+    - ~/.local/state/oauth2-gmail/<account>-refresh-token.gpg
+
+Requires: coreutils 8.30+ for the -S shebang option.
+"""
+import sys
+import json
+import os
+import platform
+import urllib.request
+import urllib.parse
+import webbrowser
+import subprocess
+from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import parse_qs, urlparse
+
+def get_agenix_dir():
+    """Get the agenix secrets directory based on platform."""
+    if platform.system() == "Darwin":
+        # macOS: use getconf DARWIN_USER_TEMP_DIR
+        result = subprocess.run(
+            ["getconf", "DARWIN_USER_TEMP_DIR"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return Path(result.stdout.strip()) / "agenix"
+    else:
+        # Linux: use XDG_RUNTIME_DIR
+        xdg_runtime = os.environ.get("XDG_RUNTIME_DIR")
+        if not xdg_runtime:
+            print("Error: XDG_RUNTIME_DIR not set", file=sys.stderr)
+            sys.exit(1)
+        return Path(xdg_runtime) / "agenix"
+
+
+def get_state_dir():
+    """Get the local state directory for refresh tokens."""
+    state_dir = Path.home() / ".local" / "state" / "oauth2-gmail"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    return state_dir
+
+class OAuthCallbackHandler(BaseHTTPRequestHandler):
+    """HTTP server to handle OAuth2 callback."""
+
+    auth_code = None  # Class attribute to store the authorization code
+
+    def do_GET(self):
+        query = parse_qs(urlparse(self.path).query)
+
+        if 'code' in query:
+            OAuthCallbackHandler.auth_code = query['code'][0]
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b"""
+                <html>
+                <head><title>Authorization Successful</title></head>
+                <body>
+                    <h1>Authorization Successful!</h1>
+                    <p>You can close this window and return to the terminal.</p>
+                </body>
+                </html>
+            """)
+        else:
+            self.send_response(400)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b"<html><body><h1>Authorization Failed</h1></body></html>")
+
+    def log_message(self, format, *args):
+        pass  # Suppress log messages
+
+def get_access_token(client_id, client_secret, refresh_token):
+    """Exchange refresh token for access token."""
+    url = 'https://oauth2.googleapis.com/token'
+    data = {
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'refresh_token': refresh_token,
+        'grant_type': 'refresh_token',
+    }
+
+    encoded_data = urllib.parse.urlencode(data).encode('utf-8')
+    req = urllib.request.Request(url, data=encoded_data)
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            return result.get('access_token')
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return None
+
+def get_auth_url(client_id, redirect_uri, scope):
+    """Generate OAuth2 authorization URL."""
+    params = {
+        'client_id': client_id,
+        'redirect_uri': redirect_uri,
+        'response_type': 'code',
+        'scope': scope,
+        'access_type': 'offline',
+        'prompt': 'consent',
+    }
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' + urllib.parse.urlencode(params)
+
+def exchange_code_for_token(client_id, client_secret, code, redirect_uri):
+    """Exchange authorization code for refresh and access tokens."""
+    url = 'https://oauth2.googleapis.com/token'
+    data = {
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'code': code,
+        'redirect_uri': redirect_uri,
+        'grant_type': 'authorization_code',
+    }
+
+    encoded_data = urllib.parse.urlencode(data).encode('utf-8')
+    req = urllib.request.Request(url, data=encoded_data)
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            return result
+    except Exception as e:
+        print(f"Error exchanging code for token: {e}", file=sys.stderr)
+        return None
+
+def get_token(account):
+    """Get access token for account (daily use)."""
+    # Client ID/Secret from agenix
+    agenix_dir = get_agenix_dir()
+    client_id_file = agenix_dir / f'{account}-oauth2-client-id'
+    client_secret_file = agenix_dir / f'{account}-oauth2-client-secret'
+
+    # Refresh token stored locally per-machine
+    state_dir = get_state_dir()
+    refresh_token_file = state_dir / f'{account}-refresh-token.gpg'
+
+    # Check if agenix secrets are available
+    if not client_id_file.exists() or not client_secret_file.exists():
+        print(f"Error: OAuth2 client credentials not found in agenix", file=sys.stderr)
+        print(f"Expected: {client_id_file}", file=sys.stderr)
+        print(f"Expected: {client_secret_file}", file=sys.stderr)
+        print("Make sure you have activated your nix configuration.", file=sys.stderr)
+        return False
+
+    # Check if refresh token exists
+    if not refresh_token_file.exists():
+        print(f"Error: Refresh token not found for {account}", file=sys.stderr)
+        print(f"Run: oauth2-gmail setup {account} <email>", file=sys.stderr)
+        return False
+
+    # Read credentials from agenix
+    client_id = client_id_file.read_text().strip()
+    client_secret = client_secret_file.read_text().strip()
+
+    # Decrypt refresh token using GPG
+    try:
+        result = subprocess.run(
+            ['gpg', '-q', '--for-your-eyes-only', '--no-tty', '-d', str(refresh_token_file)],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        refresh_token = result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Error decrypting refresh token: {e}", file=sys.stderr)
+        return False
+
+    # Get access token
+    token = get_access_token(client_id, client_secret, refresh_token)
+    if token:
+        print(token)
+        return True
+    else:
+        print("Error: Failed to obtain access token", file=sys.stderr)
+        print(f"Your refresh token may have expired. Run: oauth2-gmail setup {account} <email>", file=sys.stderr)
+        return False
+
+def setup(account, email):
+    """Setup OAuth2 for account (one-time per machine)."""
+    # Client ID/Secret from agenix
+    agenix_dir = get_agenix_dir()
+    client_id_file = agenix_dir / f'{account}-oauth2-client-id'
+    client_secret_file = agenix_dir / f'{account}-oauth2-client-secret'
+
+    # Refresh token stored locally per-machine
+    state_dir = get_state_dir()
+    refresh_token_file = state_dir / f'{account}-refresh-token.gpg'
+
+    print(f"=== OAuth2 Setup for {account} ({email}) ===\n")
+
+    # Step 1: Check for Client ID and Secret in agenix
+    if not client_id_file.exists() or not client_secret_file.exists():
+        print("Step 1: Configure OAuth2 Client Credentials")
+        print("-------------------------------------------\n")
+        print("Client credentials are managed via agenix and not found.")
+        print(f"Expected: {client_id_file}")
+        print(f"Expected: {client_secret_file}\n")
+        print("To configure:")
+        print("  1. Create OAuth2 credentials in Google Cloud Console:")
+        print("     - Go to https://console.cloud.google.com/apis/credentials")
+        print("     - Create a project, enable Gmail API")
+        print("     - Create OAuth client ID (Desktop app)")
+        print("  2. Add secrets to your nix config:")
+        print(f"     agenix -e secrets/mail/{account}-oauth2-client-id.age")
+        print(f"     agenix -e secrets/mail/{account}-oauth2-client-secret.age")
+        print("  3. Rebuild your nix configuration")
+        print("  4. Re-run this setup command\n")
+        return False
+
+    print("Step 1: Client credentials found in agenix\n")
+    client_id = client_id_file.read_text().strip()
+    client_secret = client_secret_file.read_text().strip()
+
+    # Step 2: Perform OAuth2 Authorization
+    print("Step 2: Authorize Access")
+    print("------------------------\n")
+    print("This will open a browser window for you to authorize access.")
+    print(f"Make sure you're logged in as {email} in your browser.\n")
+    input("Press Enter to continue...")
+    print()
+
+    redirect_uri = 'http://localhost:8080'
+    scope = 'https://mail.google.com/'
+
+    # Generate and open authorization URL
+    auth_url = get_auth_url(client_id, redirect_uri, scope)
+    print("Opening browser for authorization...")
+    print(f"If the browser doesn't open, visit this URL:\n{auth_url}\n")
+
+    webbrowser.open(auth_url)
+
+    # Start local HTTP server to receive callback
+    print("Waiting for authorization callback...")
+    server = HTTPServer(('localhost', 8080), OAuthCallbackHandler)
+    server.handle_request()
+
+    if not OAuthCallbackHandler.auth_code:
+        print("Error: No authorization code received", file=sys.stderr)
+        return False
+
+    # Exchange authorization code for tokens
+    print("Exchanging authorization code for tokens...")
+    tokens = exchange_code_for_token(client_id, client_secret, OAuthCallbackHandler.auth_code, redirect_uri)
+
+    if not tokens or 'refresh_token' not in tokens:
+        print("Error: Failed to obtain refresh token", file=sys.stderr)
+        if tokens:
+            print(f"Response: {tokens}", file=sys.stderr)
+        return False
+
+    refresh_token = tokens['refresh_token']
+
+    # Remove old refresh token file if it exists
+    if refresh_token_file.exists():
+        refresh_token_file.unlink()
+
+    # Encrypt and save refresh token using GPG
+    # First check if the email has a GPG key, otherwise fall back to default
+    gpg_recipient_args = ['--recipient', email]
+    check_key = subprocess.run(
+        ['gpg', '--list-keys', email],
+        capture_output=True
+    )
+    if check_key.returncode != 0:
+        print(f"Note: No GPG key found for {email}, using default recipient", file=sys.stderr)
+        gpg_recipient_args = ['--default-recipient-self']
+
+    try:
+        subprocess.run(
+            ['gpg', '--encrypt'] + gpg_recipient_args + ['--output', str(refresh_token_file)],
+            input=refresh_token.encode(),
+            check=True,
+            capture_output=True
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error encrypting refresh token: {e}", file=sys.stderr)
+        if e.stderr:
+            print(f"GPG stderr: {e.stderr.decode()}", file=sys.stderr)
+        return False
+
+    refresh_token_file.chmod(0o600)
+
+    print(f"\n Refresh token saved (encrypted) to {refresh_token_file}\n")
+    print("=== Setup Complete ===\n")
+    print(f"OAuth2 is now configured for {account} on this machine!\n")
+    print(f"Test with: oauth2-gmail {account}\n")
+
+    return True
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage:", file=sys.stderr)
+        print("  oauth2-gmail setup <account> <email>  - Initial OAuth2 authorization", file=sys.stderr)
+        print("  oauth2-gmail <account>                - Get access token", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse arguments
+    if sys.argv[1] == 'setup':
+        if len(sys.argv) < 4:
+            print("Usage: oauth2-gmail setup <account> <email>", file=sys.stderr)
+            sys.exit(1)
+        success = setup(sys.argv[2], sys.argv[3])
+    else:
+        # Assume first argument is the account name
+        success = get_token(sys.argv[1])
+
+    sys.exit(0 if success else 1)
+
+if __name__ == '__main__':
+    main()
