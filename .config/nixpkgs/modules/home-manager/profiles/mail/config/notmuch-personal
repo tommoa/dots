@@ -12,7 +12,8 @@
 #
 
 [database]
-path=.mail/gmail
+path=.mail/personal
+hook_dir=.config/notmuch/hooks
 
 # User configuration
 #

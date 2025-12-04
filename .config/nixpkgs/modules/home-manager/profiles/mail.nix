@@ -9,8 +9,8 @@
   # Import account configurations
   # Each account file includes its own secrets
   imports = [
-    ./mail/gmail.nix
-    ./mail/arista.nix
+    ./mail/personal.nix
+    ./mail/work.nix
     ./mail/tommoa.nix
   ];
 

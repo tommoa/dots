@@ -4,21 +4,21 @@
 
 # It requires some special setup to work correctly:
 #  - notmuch configurations are in .config/notmuch/{name}
-#  - mail is kept in ..{name}
-#  - the database path is in ..{name}/.notmuch
+#  - mail is kept in ~/.mail/{name}
+#  - the database path is in ~/.mail/{name}/.notmuch
 #  - the mbsync channel that needs to be run is called {name}
 #  - if gmail is being used, `notmuch config set user.type gmail` has been run
+#  - hook_dir is set to ~/.config/notmuch/hooks in the notmuch config
 
-# We get called in the hooks dir of the notmuch database path.
-# Given that notmuch configurations are kept in `.config/notmuch/{name}`,
-# we can use this information to get the database path (the same as when
-# gotten by calling `notmuch config get database.path`) and the mbsync
-# channel.
-dir="${0%%/.notmuch/*}"
-mbdir="${dir##*/}"
-conf_file="${XDG_CONFIG_DIR:-${HOME}/.config}/notmuch/${mbdir}"
-[ -f "${conf_file}" ] &&
-    export NOTMUCH_CONFIG="${conf_file}"
+# NOTMUCH_CONFIG is set by notmuch when running hooks
+if [ -z "${NOTMUCH_CONFIG}" ]; then
+    echo "Error: NOTMUCH_CONFIG is not set. This hook must be run via notmuch." >&2
+    exit 1
+fi
+
+conf_file="${NOTMUCH_CONFIG}"
+mbdir="${conf_file##*/}"
+dir="${HOME}/.mail/${mbdir}"
 
 # Are we using gmail or not?
 gmail=$(notmuch config get user.type 2>/dev/null)

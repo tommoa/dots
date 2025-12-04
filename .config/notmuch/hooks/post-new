@@ -1,10 +1,14 @@
 #!/bin/sh
 
-dir="${0%%/.notmuch/*}"
-mbdir="${dir##*/}"
-conf_file="${XDG_CONFIG_DIR:-${HOME}/.config}/notmuch/${mbdir}"
-[ -f "${conf_file}" ] &&
-    export NOTMUCH_CONFIG="${conf_file}"
+# NOTMUCH_CONFIG is set by notmuch when running hooks
+if [ -z "${NOTMUCH_CONFIG}" ]; then
+    echo "Error: NOTMUCH_CONFIG is not set. This hook must be run via notmuch." >&2
+    exit 1
+fi
+
+conf_file="${NOTMUCH_CONFIG}"
+mbdir="${conf_file##*/}"
+dir="${HOME}/.mail/${mbdir}"
 
 notify_send() {
     osascript -e 'on run argv

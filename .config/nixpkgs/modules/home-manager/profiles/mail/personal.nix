@@ -1,25 +1,25 @@
 { config, ... }:
 
 {
-  # Gmail account configuration using home-manager
+  # Personal account configuration using home-manager
   # OAuth2 credentials are handled by oauth2-gmail script
 
-  # Gmail OAuth2 secrets (client credentials only)
+  # Personal OAuth2 secrets (client credentials only)
   # Note: Refresh token is stored locally per-machine in ~/.local/state/oauth2-gmail/
-  # and is obtained via: oauth2-gmail setup gmail
+  # and is obtained via: oauth2-gmail setup personal
   age.secrets = {
-    gmail-oauth2-client-id.file = "${config.my.secretsPath}/mail/gmail-oauth2-client-id.age";
-    gmail-oauth2-client-secret.file = "${config.my.secretsPath}/mail/gmail-oauth2-client-secret.age";
+    personal-oauth2-client-id.file = "${config.my.secretsPath}/mail/personal-oauth2-client-id.age";
+    personal-oauth2-client-secret.file = "${config.my.secretsPath}/mail/personal-oauth2-client-secret.age";
   };
 
-  accounts.email.accounts.gmail = {
+  accounts.email.accounts.personal = {
     primary = true;
     address = "tommoa256@gmail.com";
     userName = "tommoa256@gmail.com";
     realName = "Tom Almeida";
 
     # OAuth2 authentication via custom script
-    passwordCommand = "${config.home.homeDirectory}/bin/oauth2-gmail gmail";
+    passwordCommand = "${config.home.homeDirectory}/bin/oauth2-gmail personal";
 
     # IMAP configuration
     imap = {
@@ -38,7 +38,7 @@
       };
     };
 
-    maildir.path = "gmail";
+    maildir.path = "personal";
 
     mbsync = {
       enable = true;
@@ -64,11 +64,11 @@
     aerc = {
       enable = true;
       extraAccounts = {
-        source = "notmuch://~/.mail/gmail";
+        source = "notmuch://~/.mail/personal";
         query-map = "~/.config/aerc/notmuch-map";
         folders-sort = "INBOX";
         default = "INBOX";
-        outgoing = "msmtp -a gmail";
+        outgoing = "msmtp -a personal";
         from = "Tom Almeida <tommoa256@gmail.com>";
       };
     };
@@ -86,7 +86,7 @@
         "INBOX"
         "[Gmail]/Sent Mail"
       ];
-      onNotify = "account=gmail ${config.home.homeDirectory}/bin/update-mail";
+      onNotify = "account=personal ${config.home.homeDirectory}/bin/update-mail";
       extraConfig = {
         tls = true;
         tlsOptions = {
@@ -101,5 +101,5 @@
   home.file.".config/aerc/notmuch-map".source = ./config/aerc-notmuch-map;
 
   # Notmuch config
-  home.file.".config/notmuch/gmail".source = ./config/notmuch-gmail;
+  home.file.".config/notmuch/personal".source = ./config/notmuch-personal;
 }

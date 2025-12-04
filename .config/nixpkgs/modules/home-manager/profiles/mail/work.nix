@@ -1,24 +1,24 @@
 { config, ... }:
 
 {
-  # Arista (work) account configuration using home-manager
+  # Work account configuration using home-manager
   # OAuth2 credentials are handled by oauth2-gmail script
 
-  # Arista OAuth2 secrets (client credentials only)
+  # Work OAuth2 secrets (client credentials only)
   # Note: Refresh token is stored locally per-machine in ~/.local/state/oauth2-gmail/
-  # and is obtained via: oauth2-gmail setup arista
+  # and is obtained via: oauth2-gmail setup work
   age.secrets = {
-    arista-oauth2-client-id.file = "${config.my.secretsPath}/mail/arista-oauth2-client-id.age";
-    arista-oauth2-client-secret.file = "${config.my.secretsPath}/mail/arista-oauth2-client-secret.age";
+    work-oauth2-client-id.file = "${config.my.secretsPath}/mail/work-oauth2-client-id.age";
+    work-oauth2-client-secret.file = "${config.my.secretsPath}/mail/work-oauth2-client-secret.age";
   };
 
-  accounts.email.accounts.arista = {
+  accounts.email.accounts.work = {
     address = "toma@arista.com";
     userName = "toma@arista.com";
     realName = "Tom Almeida";
 
     # OAuth2 authentication via custom script
-    passwordCommand = "${config.home.homeDirectory}/bin/oauth2-gmail arista";
+    passwordCommand = "${config.home.homeDirectory}/bin/oauth2-gmail work";
 
     # IMAP configuration
     imap = {
@@ -37,7 +37,7 @@
       };
     };
 
-    maildir.path = "arista";
+    maildir.path = "work";
 
     mbsync = {
       enable = true;
@@ -63,11 +63,11 @@
     aerc = {
       enable = true;
       extraAccounts = {
-        source = "notmuch://~/.mail/arista";
+        source = "notmuch://~/.mail/work";
         query-map = "~/.config/aerc/work-map";
         folders-sort = "INBOX,Reviews,Escalations,CI,Packages,Archive";
         default = "INBOX";
-        outgoing = "msmtp -a arista";
+        outgoing = "msmtp -a work";
         from = "Tom Almeida <toma@arista.com>";
       };
     };
@@ -90,7 +90,7 @@
         "Reviews"
         "Packages"
       ];
-      onNotify = "account=arista ${config.home.homeDirectory}/bin/update-mail";
+      onNotify = "account=work ${config.home.homeDirectory}/bin/update-mail";
       extraConfig = {
         tls = true;
         tlsOptions = {
@@ -105,5 +105,5 @@
   home.file.".config/aerc/work-map".source = ./config/aerc-work-map;
 
   # Notmuch config
-  home.file.".config/notmuch/arista".source = ./config/notmuch-arista;
+  home.file.".config/notmuch/work".source = ./config/notmuch-work;
 }

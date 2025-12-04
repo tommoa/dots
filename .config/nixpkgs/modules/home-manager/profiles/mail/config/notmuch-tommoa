@@ -12,7 +12,7 @@
 #
 [database]
 path=.mail/tommoa
-hook_dir=~/.config/notmuch/hooks
+hook_dir=.config/notmuch/hooks
 
 # User configuration
 #

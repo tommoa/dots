@@ -36,10 +36,10 @@ in
   # Mail secrets
   # Note: Refresh tokens are stored locally per-machine in ~/.local/state/oauth2-gmail/
   # and are NOT managed by agenix (they are obtained via oauth2-gmail setup)
-  "mail/gmail-oauth2-client-id.age".publicKeys = all;
-  "mail/gmail-oauth2-client-secret.age".publicKeys = all;
-  "mail/arista-oauth2-client-id.age".publicKeys = all;
-  "mail/arista-oauth2-client-secret.age".publicKeys = all;
+  "mail/personal-oauth2-client-id.age".publicKeys = all;
+  "mail/personal-oauth2-client-secret.age".publicKeys = all;
+  "mail/work-oauth2-client-id.age".publicKeys = all;
+  "mail/work-oauth2-client-secret.age".publicKeys = all;
   "mail/tommoa-password.age".publicKeys = all;
   "mail/aerc-keyring.age".publicKeys = all;
 
