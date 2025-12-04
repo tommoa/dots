@@ -16,7 +16,6 @@
 !/bin
 /bin/*
 !/bin/currency-convert
-!/bin/up
 !/bin/update-mail
 !/bin/update-nix
 !/bin/oauth2-gmail

@@ -5,11 +5,11 @@
     # Desktop applications
     bitwarden-desktop
     obsidian
-    
+
     # Messaging
     caprine
     discord
-    (if pkgs.stdenv.isLinux then whatsapp-for-linux else whatsapp-for-mac)
+    (if pkgs.stdenv.isLinux then wasistlos else whatsapp-for-mac)
   ] ++ (if pkgs.stdenv.isLinux
           then [
             blueberry
