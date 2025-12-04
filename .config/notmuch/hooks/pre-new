@@ -94,6 +94,7 @@ eof
 
 tag_to_folder deleted "${trash}" "${trash_re}"
 tag_to_folder inbox INBOX
+tag_to_folder inbox Inbox
 tag_to_folder sent "${sent}"
 
 while IFS= read -r tag && [ -n "${tag}" ];

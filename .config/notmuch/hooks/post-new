@@ -66,9 +66,9 @@ notmuch tag +sent -unread -- folder:"\"${sent}\"" and not tag:sent
 # the IMAP folder
 notmuch search --output=files tag:inbox | grep 'T$' | xargs rm -f
 # If its already been archived, mark it as such
-notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not folder:'"/(INBOX|.*@.*)/"' and not tag:archive
+notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not folder:'"/(INBOX|Inbox|.*@.*)/"' and not tag:archive
 # If its not in an inbox, don't mark it as "inbox"
-notmuch tag -inbox -- tag:inbox and not folder:'"/(INBOX|.*@.*)/"'
+notmuch tag -inbox -- tag:inbox and not folder:'"/(INBOX|Inbox|.*@.*)/"'
 
 while IFS= read -r tag && [ -n "${tag}" ];
 do
