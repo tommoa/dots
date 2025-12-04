@@ -148,7 +148,14 @@
           username = "toma";
           homeDirectory = "/Users/toma";
           system = "aarch64-darwin";
-          profiles = [ "base" "development" "desktop" ];
+          profiles = [
+            "base"
+            "development"
+            "desktop"
+            "secrets/deploy-keys"
+            "ssh"
+            "secrets/ai"
+          ];
         };
 
         # Personal desktop (Linux)
@@ -156,7 +163,14 @@
           username = "tommoa";
           homeDirectory = "/home/tommoa";
           system = "x86_64-linux";
-          profiles = [ "base" "development" "desktop" ];
+          profiles = [
+            "base"
+            "development"
+            "desktop"
+            "secrets/deploy-keys"
+            "ssh"
+            "secrets/ai"
+          ];
         };
 
         # Server deployments (headless)
@@ -165,6 +179,7 @@
           homeDirectory = "/home/toma";
           system = "x86_64-linux";
           # c/cpp not allowed as they would shadow the work tools.
+          # Server only gets Vertex AI keys, no deploy keys.
           profiles = [
             "base"
             "development/ai-tools"
@@ -172,6 +187,7 @@
             "development/lua"
             "development/nix"
             "development/python"
+            "secrets/ai-vertex"
           ];
         };
 
@@ -179,7 +195,12 @@
           username = "tommoa";
           homeDirectory = "/home/tommoa";
           system = "x86_64-linux";
-          profiles = [ "base" "development" "server" ];
+          profiles = [
+            "base"
+            "development"
+            "server"
+            "secrets/ai-vertex"
+          ];
         };
       };
 
@@ -188,12 +209,29 @@
         hostConfig = ./hosts/apollo.nix;
         username = "toma";
         homeDirectory = "/Users/toma";
+        homeProfiles = [
+          "base"
+          "development"
+          "desktop"
+          "mail"
+          "secrets/deploy-keys"
+          "secrets/ai"
+          "ssh"
+        ];
       };
 
       nixosConfigurations."james" = mkNixosConfig {
         hostConfig = ./hosts/james.nix;
         username = "tommoa";
         homeDirectory = "/home/tommoa";
+        homeProfiles = [
+          "base"
+          "development"
+          "desktop"
+          "secrets/deploy-keys"
+          "ssh"
+          "secrets/ai"
+        ];
       };
     };
 }
