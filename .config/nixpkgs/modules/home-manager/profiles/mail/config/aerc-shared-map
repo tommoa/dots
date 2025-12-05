@@ -1,0 +1,11 @@
+# vim: ft=conf
+# Notmuch query map for aerc (shared account)
+INBOX=tag:inbox
+RSVP=tag:rsvp
+Archive=tag:archive
+Sent=tag:sent
+Drafts=tag:draft
+Flagged=tag:flagged
+Trash=tag:deleted
+Spam=tag:spam
+All=*

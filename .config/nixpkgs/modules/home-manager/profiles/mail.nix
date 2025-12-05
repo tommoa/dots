@@ -12,6 +12,7 @@
     ./mail/accounts/personal.nix
     ./mail/accounts/work.nix
     ./mail/accounts/tommoa.nix
+    ./mail/accounts/shared.nix
   ];
 
   home.packages = with pkgs; [
