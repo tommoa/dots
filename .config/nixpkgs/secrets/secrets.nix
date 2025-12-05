@@ -9,6 +9,7 @@ let
   # Host keys - for decryption on target machines
   # Get with: cat /etc/ssh/ssh_host_ed25519_key.pub
   apollo = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF8+lrFue2t9h3ABGeeQqNv9pIrZssrU81Nn/YErJfpE";
+  work = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBHPfVFfiXyMhtsZzuuoZq4Au8VIqODHKMxpE6RWLnJO";
 
   # TODO: Get james host key with: ssh-keyscan -t ed25519 james
   # james = "ssh-ed25519 AAAA...";
@@ -23,6 +24,9 @@ let
   # Combined: users (for editing) + systems (for runtime decryption)
   all = users ++ allSystems;
 
+  # Work-specific secrets (user + work host only)
+  workSecrets = users ++ [ work ];
+
 in
 {
   # AI API keys
@@ -30,8 +34,8 @@ in
   "ai/gemini.age".publicKeys = all;
   "ai/openai.age".publicKeys = all;
   "ai/openrouter.age".publicKeys = all;
-  "ai/vertex.age".publicKeys = all;
-  "ai/vertex-project.age".publicKeys = all;
+  "ai/vertex.age".publicKeys = all ++ workSecrets;
+  "ai/vertex-project.age".publicKeys = all ++ workSecrets;
 
   # Mail secrets
   # Note: Refresh tokens are stored locally per-machine in ~/.local/state/oauth2-gmail/
@@ -56,11 +60,11 @@ in
   # ~/.secrets and is symlinked by setup.sh.
   "ssh/github-deploy.age".publicKeys = all;
   "ssh/github-deploy-pub.age".publicKeys = all;
-  "ssh/srht-deploy.age".publicKeys = all;
-  "ssh/srht-deploy-pub.age".publicKeys = all;
+  "ssh/srht-deploy.age".publicKeys = all ++ workSecrets;
+  "ssh/srht-deploy-pub.age".publicKeys = all ++ workSecrets;
 
   # SSH config fragments (sensitive host configurations)
-  "ssh/config-work.age".publicKeys = all;
+  "ssh/config-work.age".publicKeys = all ++ workSecrets;
   "ssh/config-servers.age".publicKeys = all;
   "ssh/config-arista-bus.age".publicKeys = all;
 
