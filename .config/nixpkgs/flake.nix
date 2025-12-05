@@ -196,11 +196,12 @@
           system = "aarch64-darwin";
           profiles = [
             "base"
-            "development"
             "desktop"
+            "development"
+            "secrets/ai"
             "secrets/deploy-keys"
             "ssh"
-            "secrets/ai"
+            "ssh/work"
           ];
         };
 
@@ -211,11 +212,12 @@
           system = "x86_64-linux";
           profiles = [
             "base"
-            "development"
             "desktop"
+            "development"
+            "secrets/ai"
             "secrets/deploy-keys"
             "ssh"
-            "secrets/ai"
+            "ssh/personal"
           ];
         };
 
@@ -234,6 +236,7 @@
             "development/nix"
             "development/python"
             "secrets/ai-vertex"
+            "ssh"
           ];
         };
 
@@ -244,8 +247,9 @@
           profiles = [
             "base"
             "development"
-            "server"
             "secrets/ai-vertex"
+            "server"
+            "ssh"
           ];
         };
       };
@@ -257,12 +261,13 @@
         homeDirectory = "/Users/toma";
         homeProfiles = [
           "base"
-          "development"
           "desktop"
+          "development"
           "mail"
-          "secrets/deploy-keys"
           "secrets/ai"
+          "secrets/deploy-keys"
           "ssh"
+          "ssh/work"
         ];
       };
 
@@ -272,11 +277,12 @@
         homeDirectory = "/home/tommoa";
         homeProfiles = [
           "base"
-          "development"
           "desktop"
+          "development"
+          "secrets/ai"
           "secrets/deploy-keys"
           "ssh"
-          "secrets/ai"
+          "ssh/personal"
         ];
       };
 

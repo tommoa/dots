@@ -66,7 +66,7 @@ in
   # SSH config fragments (sensitive host configurations)
   "ssh/config-work.age".publicKeys = all ++ workSecrets;
   "ssh/config-servers.age".publicKeys = all;
-  "ssh/config-arista-bus.age".publicKeys = all;
+  "ssh/config-home-bus.age".publicKeys = workSecrets;
 
   # Misc secrets
   "misc/cargo-credentials.age".publicKeys = all;
