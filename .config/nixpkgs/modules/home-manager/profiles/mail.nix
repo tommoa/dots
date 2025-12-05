@@ -110,6 +110,7 @@
         "\\[t" = ":prev-tab<Enter>";
         "\\]t" = ":next-tab<Enter>";
         "<C-t>" = ":term<Enter>";
+        "<C-r>" = ":exec update-mail<Enter>";
         "?" = ":help keys<Enter>";
         "<C-c>" = ":prompt 'Quit?' quit<Enter>";
         "<C-q>" = ":prompt 'Quit?' quit<Enter>";
@@ -118,7 +119,7 @@
 
       # Message list bindings
       messages = {
-        "q" = ":prompt 'Quit?' quit<Enter>";
+        "q" = ":quit<Enter>";
 
         # Navigation
         "n" = ":next<Enter>";
@@ -166,17 +167,33 @@
 
         # Actions
         "<Enter>" = ":view<Enter>";
-        # Delete: remove inbox tag and add deleted tag (notmuch-based)
-        "d" = ":choose -o y 'Really delete this message' 'modify -inbox +deleted'<Enter>";
-        "D" = ":modify -inbox +deleted<Enter>";
-        # Archive: remove inbox tag and add archive tag (notmuch-based)
-        "a" = ":modify -inbox +archive<Enter>";
-        "A" = ":unmark -a<Enter>:mark -T<Enter>:modify -inbox +archive<Enter>";
+
+        # Tagging: single-key and dot-prefixed versions
+        # Archive
+        "a" = ":modify -inbox -deleted +archive<Enter>";
+        ".a" = ":modify -inbox -deleted +archive<Enter>";
+        # Delete
+        "d" = ":modify -inbox -archive +deleted<Enter>";
+        ".d" = ":modify -inbox -archive +deleted<Enter>";
+        # Restore to inbox
+        "u" = ":modify -deleted -archive +inbox<Enter>";
+        ".u" = ":modify -deleted -archive +inbox<Enter>";
+        # Toggle flags
+        ".f" = ":flag -t -x Flagged<Enter>";
+        ".s" = ":flag -t -x Seen<Enter>";
+        # Manual label editing
+        ".." = ":modify-labels<space>";
+
+        # Thread variants
+        "A" = ":mark -T<Enter>:modify -inbox -deleted +archive<Enter>";
+        "D" = ":mark -T<Enter>:modify -inbox -archive +deleted<Enter>";
+        "U" = ":mark -T<Enter>:modify -deleted -archive +inbox<Enter>";
 
         # Compose
         "C" = ":compose<Enter>";
         "m" = ":compose<Enter>";
         "b" = ":bounce<space>";
+        "F" = ":forward<Enter>";
 
         # Reply
         "rr" = ":reply -a<Enter>";
@@ -223,15 +240,27 @@
         "o" = ":open<Enter>";
         "S" = ":save<space>";
         "|" = ":pipe<space>";
-        # Delete: remove inbox tag and add deleted tag (notmuch-based)
-        "D" = ":modify -inbox +deleted<Enter>";
-        # Archive: remove inbox tag and add archive tag (notmuch-based)
-        "A" = ":modify -inbox +archive<Enter>";
+
+        # Tagging: single-key and dot-prefixed versions
+        # Archive
+        "a" = ":modify -inbox -deleted +archive<Enter>";
+        ".a" = ":modify -inbox -deleted +archive<Enter>";
+        # Delete
+        "d" = ":modify -inbox -archive +deleted<Enter>";
+        ".d" = ":modify -inbox -archive +deleted<Enter>";
+        # Restore to inbox
+        "u" = ":modify -deleted -archive +inbox<Enter>";
+        ".u" = ":modify -deleted -archive +inbox<Enter>";
+        # Toggle flags
+        ".f" = ":flag -t -x Flagged<Enter>";
+        ".s" = ":flag -t -x Seen<Enter>";
+        # Manual label editing
+        ".." = ":modify-labels<space>";
 
         "<C-y>" = ":copy-link <space>";
         "<C-l>" = ":open-link <space>";
 
-        "f" = ":forward<Enter>";
+        "F" = ":forward<Enter>";
         "rr" = ":reply -a<Enter>";
         "rq" = ":reply -aq<Enter>";
         "Rr" = ":reply<Enter>";
@@ -312,6 +341,26 @@
         "<C-n>" = ":next-tab<Enter>";
         "<C-PgUp>" = ":prev-tab<Enter>";
         "<C-PgDn>" = ":next-tab<Enter>";
+      };
+
+      # Work account-specific bindings (messages)
+      "messages:account=work" = {
+        ".r" = ":modify -review +review-archive<Enter>";
+        ".R" = ":modify +review -review-archive<Enter>";
+        ".p" = ":modify -package +package-archive<Enter>";
+        ".P" = ":modify +package -package-archive<Enter>";
+        ".c" = ":modify -ci +ci-archive<Enter>";
+        ".C" = ":modify +ci -ci-archive<Enter>";
+      };
+
+      # Work account-specific bindings (view)
+      "view:account=work" = {
+        ".r" = ":modify -review +review-archive<Enter>";
+        ".R" = ":modify +review -review-archive<Enter>";
+        ".p" = ":modify -package +package-archive<Enter>";
+        ".P" = ":modify +package -package-archive<Enter>";
+        ".c" = ":modify -ci +ci-archive<Enter>";
+        ".C" = ":modify +ci -ci-archive<Enter>";
       };
     };
   };
