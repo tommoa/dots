@@ -86,5 +86,5 @@
   };
 
   # Notmuch config
-  home.file.".config/notmuch/tommoa".source = ./config/notmuch-tommoa;
+  home.file.".config/notmuch/tommoa".source = ../config/notmuch-tommoa;
 }

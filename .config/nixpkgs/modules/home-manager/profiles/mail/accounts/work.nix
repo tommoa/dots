@@ -102,8 +102,8 @@
   };
 
   # Aerc query map
-  home.file.".config/aerc/work-map".source = ./config/aerc-work-map;
+  home.file.".config/aerc/work-map".source = ../config/aerc-work-map;
 
   # Notmuch config
-  home.file.".config/notmuch/work".source = ./config/notmuch-work;
+  home.file.".config/notmuch/work".source = ../config/notmuch-work;
 }

@@ -98,8 +98,8 @@
   };
 
   # Aerc query map (notmuch query syntax, shared across accounts)
-  home.file.".config/aerc/notmuch-map".source = ./config/aerc-notmuch-map;
+  home.file.".config/aerc/notmuch-map".source = ../config/aerc-notmuch-map;
 
   # Notmuch config
-  home.file.".config/notmuch/personal".source = ./config/notmuch-personal;
+  home.file.".config/notmuch/personal".source = ../config/notmuch-personal;
 }
