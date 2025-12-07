@@ -161,12 +161,14 @@
     },
     "cpu": {
         // TODO: Figure out something with states here.
-        "format": "",
-        "interval": 5,
-        "on-click": "alacritty --class TUI.float -e nix run nixpkgs#btop"
+        "interval": 1,
+        "format": " {icon0}{icon1}{icon2}{icon3} {usage:>2}%",
+        "format-icons": ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"],
+        // "format": "",
+        "on-click": "alacritty --class TUI.float -e nix run nixpkgs#btop",
     },
     "memory": {
-        "format": "",
+        "format": " {used:0.1f}G/{total:0.1f}G",
         "interval": 5,
         "on-click": "alacritty --class TUI.float -e nix run nixpkgs#btop"
     },
