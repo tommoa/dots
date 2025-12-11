@@ -10,5 +10,6 @@
     ./development/nix.nix
     ./development/python.nix
     ./development/rust.nix
+    ./development/zig.nix
   ];
 }

@@ -77,6 +77,11 @@ M.configs['ts_ls'] = {
     on_attach = on_attach,
     capabilities = capabilities
 }
+-- Zig
+M.configs['zls'] = {
+    on_attach = on_attach(),
+    capabilities = capabilities,
+}
 
 local ai_lsp_path = vim.uv.os_homedir() .. '/docs/ai-lsp/src/index.ts'
 if (vim.uv or vim.loop).fs_stat(ai_lsp_path) then
