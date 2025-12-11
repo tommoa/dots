@@ -45,6 +45,11 @@
   # Turn on QMK for keyboards.
   hardware.keyboard.qmk.enable = true;
 
+  # We need to enable nix-ld in order to use `uv` for Python executables.
+  programs.nix-ld = {
+    enable = pkgs.stdenv.isLinux;
+  };
+
   # Default shell
   users.defaultUserShell = pkgs.zsh;
 
