@@ -279,6 +279,7 @@
           "base"
           "desktop"
           "development"
+          "mail"
           "secrets/ai"
           "secrets/deploy-keys"
           "ssh"
