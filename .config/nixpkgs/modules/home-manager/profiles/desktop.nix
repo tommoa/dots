@@ -27,7 +27,27 @@
         [ ]
     );
 
-  programs.alacritty.enable = true;
+  programs.ghostty = {
+    enable = true;
+    package = (if pkgs.stdenv.isLinux then pkgs.ghostty else pkgs.ghostty-bin);
+    settings = {
+      # Set the theme to what I like (One Dark).
+      theme = "One Half Dark";
+      font-size = 15;
+      font-family = "monospace";
+      font-thicken = true;
+
+      # Turn off window decoration.
+      window-decoration = false;
+
+      # macOS: Ensure that left-option gives "alt" values
+      macos-option-as-alt = "left";
+
+      keybind = [
+        "global:super+enter=new_window"
+      ];
+    };
+  };
 
   programs.zen-browser = {
     enable = true;

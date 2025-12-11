@@ -96,4 +96,5 @@ lctrl + lalt - p : yabai -m window --toggle sticky;\
 lcmd + lalt - 0x18 : yabai -m space --balance
 
 # lcmd - return : open -n -a /Applications/Nix\ Apps/kitty.app --args -1
-lcmd - return : alacritty msg create-window || open -n -a ~/Applications/Home\ Manager\ Apps/Alacritty.app
+# lcmd - return : alacritty msg create-window || open -n -a ~/Applications/Home\ Manager\ Apps/Alacritty.app
+lcmd - return -> : open -a ~/Applications/Home\ Manager\ Apps/Ghostty.app --args --quit-after-last-window-closed=true
