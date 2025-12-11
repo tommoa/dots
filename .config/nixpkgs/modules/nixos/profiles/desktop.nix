@@ -1,9 +1,8 @@
 { pkgs, ... }:
 
 {
-  # X11 and display manager
-  services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
+  # Mako sure that GDM is running.
+  services.displayManager.gdm.enable = true;
 
   # Audio
   services.pulseaudio.enable = false;
