@@ -23,39 +23,46 @@ export RUSTUP_HOME="${HOME}/.rustup"
 
 if [ -e "${HOME}/.config/search-engines/google-api-key" ]
 then
-    export GOOGLE_SEARCH_API_KEY=$(cat "${HOME}/.config/search-engines/google-api-key")
-    export GOOGLE_SEARCH_ENGINE_ID=$(cat "${HOME}/.config/search-engines/google-engine-id")
+    read -r GOOGLE_SEARCH_API_KEY < "${HOME}/.config/search-engines/google-api-key"
+    read -r GOOGLE_SEARCH_ENGINE_ID < "${HOME}/.config/search-engines/google-engine-id"
+    export GOOGLE_SEARCH_API_KEY GOOGLE_SEARCH_ENGINE_ID
 fi
 
 if [ -e "${HOME}/.config/search-engines/tavily-api-key" ]
 then
-    export TAVILY_API_KEY=$(cat "${HOME}/.config/search-engines/tavily-api-key")
+    read -r TAVILY_API_KEY < "${HOME}/.config/search-engines/tavily-api-key"
+    export TAVILY_API_KEY
 fi
 
 if [ -e "${HOME}/.config/ai-keys/gemini" ]
 then
-    export GEMINI_API_KEY=$(cat "${HOME}/.config/ai-keys/gemini")
+    read -r GEMINI_API_KEY < "${HOME}/.config/ai-keys/gemini"
+    export GEMINI_API_KEY
 fi
 
 if [ -e "${HOME}/.config/ai-keys/openai" ]
 then
-    export OPENAI_API_KEY=$(cat "${HOME}/.config/ai-keys/openai")
+    read -r OPENAI_API_KEY < "${HOME}/.config/ai-keys/openai"
+    export OPENAI_API_KEY
 fi
 
 if [ -e "${HOME}/.config/ai-keys/anthropic" ]
 then
-    export ANTHROPIC_API_KEY=$(cat "${HOME}/.config/ai-keys/anthropic")
+    read -r ANTHROPIC_API_KEY < "${HOME}/.config/ai-keys/anthropic"
+    export ANTHROPIC_API_KEY
 fi
 
 if [ -e "${HOME}/.config/ai-keys/openrouter" ]
 then
-    export OPENROUTER_API_KEY=$(cat "${HOME}/.config/ai-keys/openrouter")
+    read -r OPENROUTER_API_KEY < "${HOME}/.config/ai-keys/openrouter"
+    export OPENROUTER_API_KEY
 fi
 
 if [ -e "${HOME}/.config/ai-keys/vertex" ]
 then
-    export GOOGLE_API_KEY=$(cat "${HOME}/.config/ai-keys/vertex")
-    export GOOGLE_CLOUD_PROJECT=$(cat "${HOME}/.config/ai-keys/vertex-project")
+    read -r GOOGLE_API_KEY < "${HOME}/.config/ai-keys/vertex"
+    read -r GOOGLE_CLOUD_PROJECT < "${HOME}/.config/ai-keys/vertex-project"
+    export GOOGLE_API_KEY GOOGLE_CLOUD_PROJECT
     export GOOGLE_CLOUD_LOCATION=global
 fi
 
