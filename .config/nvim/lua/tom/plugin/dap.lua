@@ -39,6 +39,9 @@ return {
       if vim.fn.executable('gdb') == 1 then
         require('tom.plugin.dap.gdb')
       end
+      if vim.fn.executable('lldb-dap') == 1 then
+        require('tom.plugin.dap.lldb')
+      end
       dap.listeners.before.attach.dapui_config = function()
         ui.open()
       end

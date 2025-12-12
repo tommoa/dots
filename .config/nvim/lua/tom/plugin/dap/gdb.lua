@@ -10,7 +10,11 @@ dap.adapters.gdb = {
   args = { '--quiet', '--interpreter=dap' },
 }
 
-dap.configurations.c = {
+dap.configurations.c = dap.configurations.c or {}
+dap.configurations.cpp = dap.configurations.cpp or {}
+dap.configurations.rust = dap.configurations.rust or {}
+
+local gdb_configs = {
   {
     name = 'Run executable (GDB)',
     type = 'gdb',
@@ -56,5 +60,10 @@ dap.configurations.c = {
     processId = require('dap.utils').pick_process,
   },
 }
-dap.configurations.cpp = dap.configurations.c
-dap.configurations.rust = dap.configurations.c
+
+-- Add GDB configurations to each language
+for _, config in ipairs(gdb_configs) do
+    table.insert(dap.configurations.c, config)
+    table.insert(dap.configurations.cpp, config)
+    table.insert(dap.configurations.rust, config)
+end
