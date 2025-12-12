@@ -278,14 +278,20 @@ def setup(account, email):
         refresh_token_file.unlink()
 
     # Encrypt and save refresh token using GPG
-    # First check if the email has a GPG key, otherwise fall back to default
+    # Check if the email has a usable encryption key, otherwise fall back to default.
+    # We use --dry-run to test if encryption would work without actually encrypting.
+    # This catches cases where a key exists but lacks encryption capability (no [E] subkey),
+    # is revoked/expired, or has insufficient trust - unlike --list-keys which only checks existence.
+    # Note: --batch is not needed here because subprocess.run() with input= and capture_output=True
+    # already prevents any interactive prompts by piping stdin and capturing stdout/stderr.
     gpg_recipient_args = ['--recipient', email]
     check_key = subprocess.run(
-        ['gpg', '--list-keys', email],
+        ['gpg', '--dry-run', '--encrypt', '--recipient', email],
+        input=b'test',
         capture_output=True
     )
     if check_key.returncode != 0:
-        print(f"Note: No GPG key found for {email}, using default recipient", file=sys.stderr)
+        print(f"Note: No usable GPG encryption key for {email}, using default recipient", file=sys.stderr)
         gpg_recipient_args = ['--default-recipient-self']
 
     try:
