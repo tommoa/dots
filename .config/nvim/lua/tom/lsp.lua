@@ -30,6 +30,9 @@ M.configs['lua_ls'] = {
                     "${3rd}/luv/library",
                 },
             },
+            format = {
+                enable = true,
+            },
             telemetry = {
                 enable = false
             }
