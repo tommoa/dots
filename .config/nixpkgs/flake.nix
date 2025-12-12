@@ -61,11 +61,6 @@
           };
         };
 
-      # Overlay that provides access to nixpkgs-unstable packages
-      unstablePackages = final: prev: {
-        unstable = import inputs.nixpkgs-unstable { inherit (prev) system; };
-      };
-
       # Helper function to create home-manager configurations
       mkHomeConfig =
         {
@@ -82,8 +77,7 @@
             inherit system;
             config.allowUnfree = true;
             overlays = [
-              unstablePackages
-              (import ./overlays)
+              (import ./overlays inputs)
             ];
           };
           modules = [
@@ -116,8 +110,7 @@
             inputs.agenix.darwinModules.default
             {
               nixpkgs.overlays = [
-                unstablePackages
-                (import ./overlays)
+                (import ./overlays inputs)
               ];
             }
             home-manager.darwinModules.home-manager
@@ -160,8 +153,7 @@
             inputs.agenix.nixosModules.default
             {
               nixpkgs.overlays = [
-                unstablePackages
-                (import ./overlays)
+                (import ./overlays inputs)
               ];
             }
             home-manager.nixosModules.home-manager

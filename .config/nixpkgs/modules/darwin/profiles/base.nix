@@ -7,11 +7,6 @@
     ../../common/fonts.nix
   ];
 
-  # Override packages with overlays
-  nixpkgs.overlays = [
-    (import ../../../overlays)
-  ];
-
   # Keyboard settings
   system.keyboard = {
     enableKeyMapping = true;

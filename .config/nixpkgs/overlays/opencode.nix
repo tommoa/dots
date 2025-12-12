@@ -1,3 +1,3 @@
 self: super: {
-  opencode = super.unstable.opencode;
+  opencode = self.unstable.opencode;
 }
