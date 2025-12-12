@@ -12,7 +12,6 @@
 !/.lesskey
 !/.tmux.conf
 !/.urlview
-!/.zshrc
 !/bin
 /bin/*
 !/bin/currency-convert
