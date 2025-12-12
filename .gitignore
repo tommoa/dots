@@ -34,6 +34,11 @@
 !/.config/hypr/
 !/.config/imv/
 !/.config/kitty
+!/.config/mako
+!/.config/mako/config
+!/.config/mpv
+/.config/mpv/*
+!/.config/mpv/mpv.conf
 !/.config/nixpkgs/
 !/.config/notmuch/
 /.config/notmuch/*
@@ -45,12 +50,10 @@
 !/.config/nvim/autoload
 !/.config/nvim/lua
 .config/nvim/lua/.luarc.json
-!/.config/waybar
-!/.config/mako
-!/.config/mako/config
-!/.config/mpv
-/.config/mpv/*
-!/.config/mpv/mpv.conf
+!/.config/opencode/
+/.config/opencode/*
+!/.config/opencode/config.json
+!/.config/opencode/command
 !/.config/skhd
 !/.config/sway/
 /.config/sway/*
@@ -58,4 +61,5 @@
 !/.config/sway/machines/
 !/.config/swaylock/
 !/.config/user-dirs.dirs
+!/.config/waybar
 !/.config/wofi
