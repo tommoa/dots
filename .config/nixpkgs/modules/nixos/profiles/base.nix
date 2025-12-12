@@ -50,6 +50,11 @@
     enable = pkgs.stdenv.isLinux;
   };
 
+  # Make sure that we have a secrets service running.
+  services.gnome.gnome-keyring.enable = true;
+  security.pam.services.login.enableGnomeKeyring = true;
+  programs.seahorse.enable = true;
+
   # Default shell
   users.defaultUserShell = pkgs.zsh;
 
