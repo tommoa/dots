@@ -79,7 +79,7 @@ M.configs['ts_ls'] = {
 }
 -- Zig
 M.configs['zls'] = {
-    on_attach = on_attach(),
+    on_attach = on_attach,
     capabilities = capabilities,
 }
 
