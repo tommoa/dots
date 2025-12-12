@@ -2,8 +2,8 @@
 
 {
   home.packages = with pkgs; [
-    uv
-    pyright
-    python3Packages.debugpy
+    python3Packages.debugpy # DAP adapter for debugging
+    pyright # Language server
+    uv # Fast Python package/project manager
   ];
 }
