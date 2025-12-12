@@ -30,6 +30,7 @@
   programs.ghostty = {
     enable = true;
     package = (if pkgs.stdenv.isLinux then pkgs.ghostty else pkgs.ghostty-bin);
+    systemd.enable = pkgs.stdenv.isLinux;
     settings = {
       # Set the theme to what I like (One Dark).
       theme = "One Half Dark";
