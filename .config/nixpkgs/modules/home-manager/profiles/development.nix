@@ -10,6 +10,7 @@
     ./development/nix.nix
     ./development/python.nix
     ./development/rust.nix
+    ./development/vhdl.nix
     ./development/zig.nix
   ];
 }
