@@ -74,22 +74,22 @@
       # Custom prompt with git integration
       prompt_git() {
           [[ "''${GIT_PROMPT}" == "1" ]] || return
-          git rev-parse --is-inside-work-tree &>/dev/null || return
 
           local branch
-          branch=$(git symbolic-ref --short -q HEAD 2>/dev/null) || \
-              branch=$(git rev-parse --short HEAD 2>/dev/null)
+          branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || return
+          case $branch in HEAD) branch=$(git rev-parse --short HEAD);; esac
 
-          local num_added=0 num_removed=0 total=0
-          while IFS=$'\t' read -r added removed _; do
-              (( num_added += added, num_removed += removed, total++ ))
-          done < <(git diff-files --numstat 2>/dev/null)
+          local stats total num_added num_removed tmp
+          stats=$(git diff-files --shortstat 2>/dev/null)
+          total="''${stats%% file*}"; total="''${total## }"
+          tmp="''${stats% ins*}"; [ "$tmp" != "$stats" ] && num_added="''${tmp##* }" || num_added=0
+          tmp="''${stats% del*}"; [ "$tmp" != "$stats" ] && num_removed="''${tmp##* }" || num_removed=0
 
           local totals=""
-          if (( total > 0 )); then
+          if [[ -n "$total" ]]; then
               totals=":%F{blue}''${total}"
-              (( num_added > 0 )) && totals+="%F{85}+''${num_added}"
-              (( num_removed > 0 )) && totals+="%F{red}-''${num_removed}"
+              [[ "$num_added" -gt 0 ]] && totals+="%F{85}+''${num_added}"
+              [[ "$num_removed" -gt 0 ]] && totals+="%F{red}-''${num_removed}"
           fi
 
           print -n "%B[%F{red}''${branch}%f''${totals}%f] %b"
