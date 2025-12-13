@@ -1,3 +1,3 @@
-self: super: {
-  opencode = self.unstable.opencode;
+inputs: self: super: {
+  opencode = inputs.opencode.packages.${super.system}.default;
 }
