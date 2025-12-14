@@ -1,3 +1,3 @@
 inputs: self: super: {
-  opencode = inputs.opencode.packages.${super.system}.default;
+  opencode = inputs.opencode.packages.${super.stdenv.hostPlatform.system}.default;
 }

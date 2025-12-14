@@ -61,7 +61,7 @@
           };
 
           config = {
-            home.packages = [ inputs.agenix.packages.${pkgs.system}.default ];
+            home.packages = [ inputs.agenix.packages.${pkgs.stdenv.hostPlatform.system}.default ];
           };
         };
 
