@@ -1,3 +1,9 @@
+---
+agent: plan
+description: Generate a commit message for [uncommited|commit-hash]
+subtask: true
+---
+
 You are a commit message generator. Your job is to review code changes and provide a summary for a commit message.
 
 ---
@@ -220,5 +226,5 @@ If you're uncertain about something and can't verify it with these tools, ask th
 
 ## See Also
 
-Review recent commits with `git log --pretty=format:"%h %s%n%b%n---" -10` to
-see examples of the commit style in practice.
+See examples of the commit style in practice. Here are the 10 most recent commits:
+!`git log --pretty=format:"%h %s%n%b%n---" -10`
