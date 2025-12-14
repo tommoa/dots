@@ -12,9 +12,13 @@ NIX_FLAGS="--extra-experimental-features nix-command --extra-experimental-featur
 blue=$'\033[38;5;4m'
 green=$'\033[38;5;85m'
 red=$'\033[38;5;1m'
+orange=$'\033[38;5;208m'
 cyan=$'\033[38;5;6m'
 bold=$'\033[1m'
 reset=$'\033[m'
+
+# Inputs excluded from updates by default (space-separated)
+DEFAULT_EXCLUDED_INPUTS="opencode"
 
 # Function to print colored output
 print_info() {
@@ -27,6 +31,60 @@ print_success() {
 
 print_error() {
     printf "${red}[ERROR]${reset} %s\n" "$1"
+}
+
+print_warning() {
+    printf "${orange}[WARNING]${reset} %s\n" "$1"
+}
+
+# Function to get all flake inputs from lockfile
+get_flake_inputs() {
+    local flake_dir="${HOME}/.config/nixpkgs"
+    jq -r '.nodes.root.inputs | keys[]' "${flake_dir}/flake.lock"
+}
+
+# Function to check if a value is in a space-separated list
+list_contains() {
+    local list="$1"
+    local item="$2"
+    for i in $list; do
+        if [ "$i" = "$item" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Function to add item to space-separated list (if not already present)
+list_add() {
+    local list="$1"
+    local item="$2"
+    if ! list_contains "$list" "$item"; then
+        if [ -z "$list" ]; then
+            echo "$item"
+        else
+            echo "$list $item"
+        fi
+    else
+        echo "$list"
+    fi
+}
+
+# Function to remove item from space-separated list
+list_remove() {
+    local list="$1"
+    local item="$2"
+    local result=""
+    for i in $list; do
+        if [ "$i" != "$item" ]; then
+            if [ -z "$result" ]; then
+                result="$i"
+            else
+                result="$result $i"
+            fi
+        fi
+    done
+    echo "$result"
 }
 
 # Function to detect system type and available configurations
@@ -57,7 +115,10 @@ detect_system() {
             ;;
     esac
 
-    # Check if we have home-manager
+    # Check if we have standalone home-manager CLI.
+    # When home-manager is integrated into darwin/nixos (via darwinModules or
+    # nixosModules), the CLI typically isn't available as a standalone command,
+    # so this check effectively distinguishes integrated vs standalone setups.
     if command -v home-manager >/dev/null 2>&1; then
         has_home_config=true
     fi
@@ -126,9 +187,49 @@ update_flake() {
     local flake_dir="${HOME}/.config/nixpkgs"
 
     print_info "Updating flake inputs..."
-    if ! nix flake update ${NIX_FLAGS} --flake "$flake_dir"; then
-        print_error "Failed to update flake inputs"
+
+    # First, sync flake.lock with flake.nix (adds new inputs, removes deleted ones)
+    if ! nix flake lock ${NIX_FLAGS} "$flake_dir"; then
+        print_error "Failed to lock flake"
         exit 1
+    fi
+
+    # Get current inputs from metadata
+    local all_inputs=$(get_flake_inputs)
+
+    # Validate explicitly mentioned inputs (error if not found)
+    validate_explicit_inputs "$all_inputs" "$MENTIONED_INPUTS"
+
+    # Validate default exclusions (warn if not found, remove from list)
+    validate_default_exclusions "$all_inputs"
+
+    # Build lists of inputs to update and skip
+    local to_update=""
+    local to_skip=""
+    for input in $all_inputs; do
+        if list_contains "$EXCLUDED_INPUTS" "$input"; then
+            to_skip=$(list_add "$to_skip" "$input")
+        else
+            to_update=$(list_add "$to_update" "$input")
+        fi
+    done
+
+    # Print what we're doing
+    if [ -n "$to_skip" ]; then
+        print_info "Skipping: ${cyan}${to_skip}${reset}"
+    fi
+    if [ -n "$to_update" ]; then
+        print_info "Updating: ${cyan}${to_update}${reset}"
+    fi
+
+    # Run the update if there are inputs to update
+    if [ -n "$to_update" ]; then
+        if ! nix flake update ${NIX_FLAGS} $to_update --flake "$flake_dir"; then
+            print_error "Failed to update flake inputs"
+            exit 1
+        fi
+    else
+        print_info "No inputs to update"
     fi
 }
 
@@ -270,10 +371,113 @@ main() {
     esac
 }
 
-# Show help if requested
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+# Parse input inclusion/exclusion flags
+# These must be parsed before other arguments
+# Uses two-pass approach so flag ordering doesn't matter
+parse_input_flags() {
+    USE_ALL=false
+    EXPLICIT_INCLUDES=""
+    EXPLICIT_EXCLUDES=""
+    MENTIONED_INPUTS=""
+    REMAINING_ARGS=""
+
+    # First pass: collect all flags
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --all)
+                USE_ALL=true
+                ;;
+            --no-*)
+                local input_name="${1#--no-}"
+                EXPLICIT_EXCLUDES=$(list_add "$EXPLICIT_EXCLUDES" "$input_name")
+                MENTIONED_INPUTS=$(list_add "$MENTIONED_INPUTS" "$input_name")
+                ;;
+            --help|-h)
+                # Show help and exit immediately
+                show_help
+                exit 0
+                ;;
+            --*)
+                local input_name="${1#--}"
+                EXPLICIT_INCLUDES=$(list_add "$EXPLICIT_INCLUDES" "$input_name")
+                MENTIONED_INPUTS=$(list_add "$MENTIONED_INPUTS" "$input_name")
+                ;;
+            *)
+                # Non-flag arguments (mode, config name)
+                if [ -z "$REMAINING_ARGS" ]; then
+                    REMAINING_ARGS="$1"
+                else
+                    REMAINING_ARGS="$REMAINING_ARGS $1"
+                fi
+                ;;
+        esac
+        shift
+    done
+
+    # Detect conflicts: input in both includes and excludes
+    for input in $EXPLICIT_INCLUDES; do
+        if list_contains "$EXPLICIT_EXCLUDES" "$input"; then
+            print_warning "'$input' was both included and excluded; excluding"
+            # Remove from includes (excludes take precedence)
+            EXPLICIT_INCLUDES=$(list_remove "$EXPLICIT_INCLUDES" "$input")
+        fi
+    done
+
+    # Second pass: build final exclusion list
+    if [ "$USE_ALL" = "true" ]; then
+        # Start with empty, only add explicit excludes
+        EXCLUDED_INPUTS="$EXPLICIT_EXCLUDES"
+    else
+        # Start with defaults
+        EXCLUDED_INPUTS="$DEFAULT_EXCLUDED_INPUTS"
+        # Add explicit excludes
+        for input in $EXPLICIT_EXCLUDES; do
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "$input")
+        done
+        # Remove explicit includes
+        for input in $EXPLICIT_INCLUDES; do
+            EXCLUDED_INPUTS=$(list_remove "$EXCLUDED_INPUTS" "$input")
+        done
+    fi
+}
+
+# Validate explicitly mentioned inputs exist (error if not)
+validate_explicit_inputs() {
+    local flake_inputs="$1"
+    local mentioned="$2"
+
+    for input in $mentioned; do
+        if ! list_contains "$flake_inputs" "$input"; then
+            print_error "Unknown input: '$input'"
+            # Convert newlines to spaces for display
+            local inputs_display=$(echo $flake_inputs | tr '\n' ' ')
+            print_info "Available inputs: $inputs_display"
+            exit 1
+        fi
+    done
+}
+
+# Validate default excluded inputs exist (warn if not, remove from list)
+validate_default_exclusions() {
+    local flake_inputs="$1"
+    local validated_exclusions=""
+
+    for input in $EXCLUDED_INPUTS; do
+        if list_contains "$flake_inputs" "$input"; then
+            validated_exclusions=$(list_add "$validated_exclusions" "$input")
+        elif list_contains "$DEFAULT_EXCLUDED_INPUTS" "$input" && ! list_contains "$EXPLICIT_EXCLUDES" "$input"; then
+            # Only warn for default exclusions, not explicit ones (those error in validate_explicit_inputs)
+            print_warning "Excluded input '$input' does not exist in flake"
+        fi
+    done
+
+    EXCLUDED_INPUTS="$validated_exclusions"
+}
+
+# Show help message
+show_help() {
     cat << EOF
-Usage: $0 [MODE] [CONFIG_NAME]
+Usage: $0 [OPTIONS] [MODE] [CONFIG_NAME]
 
 Detects and upgrades nix configurations (system and/or home-manager).
 
@@ -282,6 +486,13 @@ MODES:
   home      Update home-manager configuration
   both      Update both system and home-manager (default if both available)
 
+INPUT OPTIONS:
+  --all           Update all flake inputs (ignore default exclusions)
+  --<input>       Include <input> in update (override default exclusion)
+  --no-<input>    Exclude <input> from update
+
+By default, these inputs are excluded: ${DEFAULT_EXCLUDED_INPUTS}
+
 If CONFIG_NAME is provided, uses that configuration instead of auto-detection.
 
 Auto-detection logic:
@@ -289,15 +500,22 @@ Auto-detection logic:
   Home configs: toma@work (macOS), username@server (SSH), username@personal (default)
 
 Examples:
-  $0                        # Auto-detect mode and configs
+  $0                        # Auto-detect mode and configs (excludes: ${DEFAULT_EXCLUDED_INPUTS})
   $0 system                 # Update system only
   $0 home                   # Update home-manager only
   $0 both                   # Update both
   $0 home toma@server       # Update specific home config
   $0 system apollo          # Update specific system config
+  $0 --opencode             # Include opencode (overrides default exclusion)
+  $0 --all                  # Update all inputs
+  $0 --all --no-opencode    # Update all inputs except opencode
+  $0 --no-zen-browser       # Exclude zen-browser in addition to defaults
 
 EOF
-    exit 0
-fi
+}
 
-main "$@"
+# Parse input flags and extract remaining arguments
+parse_input_flags "$@"
+
+# shellcheck disable=SC2086
+main $REMAINING_ARGS
