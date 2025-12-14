@@ -41,6 +41,8 @@
       yabai -m rule --add app='Messenger' space=4
       yabai -m rule --add app='Messages' space=4
       yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
+      yabai -m signal --add app='^Ghostty$' event=window_created action='yabai -m space --layout bsp'
+      yabai -m signal --add app='^Ghostty$' event=window_destroyed action='yabai -m space --layout bsp'
       sudo yabai --load-sa
     '';
   };
