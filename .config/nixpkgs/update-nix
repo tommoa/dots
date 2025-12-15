@@ -376,6 +376,7 @@ main() {
 # Uses two-pass approach so flag ordering doesn't matter
 parse_input_flags() {
     USE_ALL=false
+    USE_NONE=false
     EXPLICIT_INCLUDES=""
     EXPLICIT_EXCLUDES=""
     MENTIONED_INPUTS=""
@@ -386,6 +387,9 @@ parse_input_flags() {
         case "$1" in
             --all)
                 USE_ALL=true
+                ;;
+            --none)
+                USE_NONE=true
                 ;;
             --no-*)
                 local input_name="${1#--no-}"
@@ -414,6 +418,12 @@ parse_input_flags() {
         shift
     done
 
+    # Detect conflicts: --all and --none
+    if [ "$USE_ALL" = "true" ] && [ "$USE_NONE" = "true" ]; then
+        print_warning "'--all' and '--none' both specified; using '--none'"
+        USE_ALL=false
+    fi
+
     # Detect conflicts: input in both includes and excludes
     for input in $EXPLICIT_INCLUDES; do
         if list_contains "$EXPLICIT_EXCLUDES" "$input"; then
@@ -424,7 +434,18 @@ parse_input_flags() {
     done
 
     # Second pass: build final exclusion list
-    if [ "$USE_ALL" = "true" ]; then
+    if [ "$USE_NONE" = "true" ]; then
+        # Start with all inputs excluded, only update explicit includes
+        EXCLUDED_INPUTS=$(get_flake_inputs | tr '\n' ' ')
+        # Add explicit excludes (redundant but consistent)
+        for input in $EXPLICIT_EXCLUDES; do
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "$input")
+        done
+        # Remove explicit includes
+        for input in $EXPLICIT_INCLUDES; do
+            EXCLUDED_INPUTS=$(list_remove "$EXCLUDED_INPUTS" "$input")
+        done
+    elif [ "$USE_ALL" = "true" ]; then
         # Start with empty, only add explicit excludes
         EXCLUDED_INPUTS="$EXPLICIT_EXCLUDES"
     else
@@ -488,6 +509,7 @@ MODES:
 
 INPUT OPTIONS:
   --all           Update all flake inputs (ignore default exclusions)
+  --none          Skip all flake input updates (use with --<input> to include specific inputs)
   --<input>       Include <input> in update (override default exclusion)
   --no-<input>    Exclude <input> from update
 
@@ -510,6 +532,8 @@ Examples:
   $0 --all                  # Update all inputs
   $0 --all --no-opencode    # Update all inputs except opencode
   $0 --no-zen-browser       # Exclude zen-browser in addition to defaults
+  $0 --none                 # Skip all flake updates (just rebuild)
+  $0 --none --nixpkgs       # Only update nixpkgs
 
 EOF
 }
