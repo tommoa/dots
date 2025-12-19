@@ -49,10 +49,6 @@
 !/.config/nvim/autoload
 !/.config/nvim/lua
 .config/nvim/lua/.luarc.json
-!/.config/opencode/
-/.config/opencode/*
-!/.config/opencode/config.json
-!/.config/opencode/command
 !/.config/skhd
 !/.config/sway/
 /.config/sway/*

@@ -75,6 +75,7 @@
             "base"
             "development"
           ],
+          extraModules ? [ ],
         }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
@@ -93,7 +94,8 @@
               nixpkgs.config.allowUnfree = true;
             }
           ]
-          ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) profiles;
+          ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) profiles
+          ++ extraModules;
         };
 
       # Helper function to create darwin configurations
@@ -233,6 +235,9 @@
             "development/python"
             "secrets/ai-vertex"
             "ssh"
+          ];
+          extraModules = [
+            { my.opencode.disablePythonFormatters = true; }
           ];
         };
 
