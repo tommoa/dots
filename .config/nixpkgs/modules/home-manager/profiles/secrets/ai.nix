@@ -1,8 +1,6 @@
-{ config, ... }:
-
-{
+{config, ...}: {
   # Import Vertex AI keys (shared with ai-vertex.nix)
-  imports = [ ./ai-vertex.nix ];
+  imports = [./ai-vertex.nix];
 
   # Additional AI API keys and search engine keys
   age.secrets = {

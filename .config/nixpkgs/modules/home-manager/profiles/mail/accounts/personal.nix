@@ -1,6 +1,4 @@
-{ config, ... }:
-
-{
+{config, ...}: {
   # Personal account configuration using home-manager
   # OAuth2 credentials are handled by oauth2-gmail script
 

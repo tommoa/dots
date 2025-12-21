@@ -1,6 +1,4 @@
-{ ... }:
-
-{
+{...}: {
   # SSH
   services.openssh = {
     enable = true;
@@ -13,6 +11,6 @@
   # Minimal firewall
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = [ 22 ];
+    allowedTCPPorts = [22];
   };
 }

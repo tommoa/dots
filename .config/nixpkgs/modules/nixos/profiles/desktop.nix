@@ -1,6 +1,4 @@
-{ pkgs, ... }:
-
-{
+{pkgs, ...}: {
   # Mako sure that GDM is running.
   services.displayManager.gdm.enable = true;
 

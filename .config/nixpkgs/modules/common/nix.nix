@@ -1,13 +1,10 @@
 # The common settings for the nix.
-
 {
   lib,
   config,
   pkgs,
   ...
-}:
-
-{
+}: {
   # Allow unfree packages (e.g. Discord, Obsidian, Spotify, Steam, etc...).
   nixpkgs.config.allowUnfree = true;
   # Settings for nix itself.
@@ -17,18 +14,18 @@
       "nix-command"
       "flakes"
     ];
-    gc = {
-      automatic = true;
-      options = "--delete-older-than 1w";
-    }
-    // (
-      if pkgs.stdenv.isLinux then
-        {
+    gc =
+      {
+        automatic = true;
+        options = "--delete-older-than 1w";
+      }
+      // (
+        if pkgs.stdenv.isLinux
+        then {
           # dates only exists on Linux.
           dates = "weekly";
         }
-      else
-        {
+        else {
           # We need to manually specify when this occurs on macOS.
           # I want to run the GC every week.
           interval = {
@@ -37,23 +34,23 @@
             Minute = 0;
           };
         }
-    );
-    optimise = {
-      automatic = true;
-    }
-    // (
-      if pkgs.stdenv.isLinux then
-        {
-          dates = [ "04:00" ];
+      );
+    optimise =
+      {
+        automatic = true;
+      }
+      // (
+        if pkgs.stdenv.isLinux
+        then {
+          dates = ["04:00"];
         }
-      else
-        {
+        else {
           # Optimise the store every day.
           interval = {
             Hour = 0;
             Minute = 0;
           };
         }
-    );
+      );
   };
 }

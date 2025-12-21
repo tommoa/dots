@@ -1,6 +1,4 @@
-{ ... }:
-
-{
+{...}: {
   # Ensure the config.d directory exists
   home.file.".ssh/config.d/.keep".text = "";
 
@@ -8,7 +6,7 @@
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    includes = [ "~/.ssh/config.d/*" ];
+    includes = ["~/.ssh/config.d/*"];
 
     matchBlocks = {
       "*" = {

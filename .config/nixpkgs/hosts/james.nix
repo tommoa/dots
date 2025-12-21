@@ -1,6 +1,4 @@
-{ pkgs, ... }:
-
-{
+{pkgs, ...}: {
   nixpkgs.hostPlatform = "x86_64-linux";
 
   imports = [
@@ -19,7 +17,7 @@
       "wheel"
     ];
     shell = pkgs.zsh;
-    packages = [ ];
+    packages = [];
   };
 
   # Auto login

@@ -1,6 +1,4 @@
-{ config, ... }:
-
-{
+{config, ...}: {
   # SSH deploy keys for GitHub and SourceHut
   # Only include on non-server configurations
   age.secrets = {

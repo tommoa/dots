@@ -1,6 +1,4 @@
-{ config, ... }:
-
-{
+{config, ...}: {
   # Work-specific SSH config fragments (agenix-managed)
   age.secrets = {
     ssh-config-work = {

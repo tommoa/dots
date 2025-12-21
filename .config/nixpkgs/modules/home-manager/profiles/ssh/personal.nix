@@ -1,6 +1,4 @@
-{ config, ... }:
-
-{
+{config, ...}: {
   # Personal SSH config fragments (agenix-managed)
   age.secrets = {
     ssh-config-servers = {

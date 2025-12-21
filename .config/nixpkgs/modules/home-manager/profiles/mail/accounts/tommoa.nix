@@ -1,6 +1,4 @@
-{ config, ... }:
-
-{
+{config, ...}: {
   # tommoa (iCloud) account configuration using home-manager
   # Password is read from agenix secret via passwordCommand
 
@@ -40,7 +38,7 @@
       enable = true;
       create = "both";
       expunge = "both";
-      patterns = [ "*" ];
+      patterns = ["*"];
       subFolders = "Verbatim";
       extraConfig = {
         account = {

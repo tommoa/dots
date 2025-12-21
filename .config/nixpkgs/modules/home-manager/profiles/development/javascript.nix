@@ -1,6 +1,4 @@
-{ pkgs, ... }:
-
-{
+{pkgs, ...}: {
   home.packages = with pkgs; [
     # Runtimes (use `bun --inspect` + debug.bun.sh for debugging)
     bun

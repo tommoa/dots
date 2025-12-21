@@ -1,6 +1,4 @@
-{ ... }:
-
-{
+{...}: {
   imports = [
     ./development/ai-tools.nix
     ./development/c-cpp.nix

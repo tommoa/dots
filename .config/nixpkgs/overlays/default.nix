@@ -1,5 +1,4 @@
 inputs: self: super:
-
 {
 }
 // (import ./yabai.nix self super)

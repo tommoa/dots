@@ -3,9 +3,7 @@
   config,
   lib,
   ...
-}:
-
-{
+}: {
   # Import account and program configurations
   imports = [
     ./mail/aerc.nix
