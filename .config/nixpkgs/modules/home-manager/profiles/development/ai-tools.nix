@@ -31,10 +31,6 @@
       settings = {
         theme = "one-dark";
         lsp = {
-          nixd = {
-            command = ["nixd"];
-            extensions = [".nix"];
-          };
           vhdl-ls = {
             command = ["vhdl_ls"];
             extensions = [
