@@ -96,7 +96,14 @@
 
           print -n "%B[%F{red}''${branch}%f''${totals}%f] %b"
       }
-      PROMPT=%F{85}%B%n''${SSH_CLIENT:+%F{red}@%F{cyan}%U%m%u}%f:%F{75}%~%f\#%b\ \$(prompt_git)
+      prompt_nix() {
+          [[ -n "$IN_NIX_SHELL" ]] || return
+          local name="''${name:-nix}"
+          local brackets
+          [[ "$IN_NIX_SHELL" == "pure" ]] && brackets="[%s]" || brackets="(%s)"
+          printf "%%F{magenta}%%B''${brackets}%%b%%f " "$name"
+      }
+      PROMPT=\$(prompt_nix)%F{85}%B%n''${SSH_CLIENT:+%F{red}@%F{cyan}%U%m%u}%f:%F{75}%~%f\#%b\ \$(prompt_git)
       RPROMPT=%T
 
       # Tab completion
