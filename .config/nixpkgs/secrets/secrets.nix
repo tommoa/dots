@@ -15,22 +15,24 @@ let
   # james = "ssh-ed25519 AAAA...";
 
   # All users who can edit secrets
-  users = [toma];
+  users = [ toma ];
 
   # All systems that need access to secrets
   # Add james here once you have the host key
-  allSystems = [apollo];
+  allSystems = [ apollo ];
 
   # Combined: users (for editing) + systems (for runtime decryption)
   all = users ++ allSystems;
 
   # Work-specific secrets (user + work host only)
-  workSecrets = users ++ [work];
-in {
+  workSecrets = users ++ [ work ];
+in
+{
   # AI API keys
   "ai/anthropic.age".publicKeys = all;
   "ai/gemini.age".publicKeys = all;
   "ai/openai.age".publicKeys = all;
+  "ai/opencode-zen.age".publicKeys = all;
   "ai/openrouter.age".publicKeys = all;
   "ai/vertex.age".publicKeys = all ++ workSecrets;
   "ai/vertex-project.age".publicKeys = all ++ workSecrets;
