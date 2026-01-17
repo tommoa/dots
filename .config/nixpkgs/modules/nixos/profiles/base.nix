@@ -13,6 +13,13 @@
   # Use latest kernel
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
+  # Improved scheduler for games.
+  services.scx = {
+    enable = true;
+    package = pkgs.scx.rustscheds;
+    scheduler = "scx_lavd";
+  };
+
   # Networking/interconnectivity
   networking.networkmanager.enable = true;
   hardware.bluetooth.enable = true;
