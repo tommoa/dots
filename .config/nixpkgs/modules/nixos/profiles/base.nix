@@ -58,7 +58,7 @@
   # Make sure that we have a secrets service running.
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.login.enableGnomeKeyring = true;
-  programs.seahorse.enable = true;
+  security.pam.services.gdm-autologin.enableGnomeKeyring = true;
 
   # Default shell
   users.defaultUserShell = pkgs.zsh;

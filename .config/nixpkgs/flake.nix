@@ -277,6 +277,7 @@
         "mail"
         "secrets/ai"
         "secrets/deploy-keys"
+        "secrets/keyring-unlock"
         "ssh"
         "ssh/personal"
       ];

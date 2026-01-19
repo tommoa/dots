@@ -70,4 +70,7 @@ in {
   # Misc secrets
   "misc/cargo-credentials.age".publicKeys = all;
   "misc/gpg-agent-conf.age".publicKeys = all;
+
+  # Keyring unlock password (for auto-login systems)
+  "misc/keyring-password.age".publicKeys = all;
 }
