@@ -1,5 +1,4 @@
-{ config, ... }:
-{
+{config, ...}: {
   # Vertex AI keys only (for server configurations)
   # Decrypted to ~/.config/ai-keys/ for use by profile
   age.secrets = {
