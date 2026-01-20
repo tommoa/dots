@@ -52,7 +52,7 @@
             # using it at (for example) my work, which follows a different style
             # guide.
             ruff.disabled = true;
-            "uv format".disabled = true;
+            uv.disabled = true;
           };
       };
       commands = {
