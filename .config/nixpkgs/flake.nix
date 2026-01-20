@@ -290,5 +290,20 @@
       aarch64-darwin = (import nixpkgs {system = "aarch64-darwin";}).alejandra;
       aarch64-linux = (import nixpkgs {system = "aarch64-linux";}).alejandra;
     };
+
+    # Packages
+    packages = let
+      systems = ["x86_64-linux" "aarch64-darwin" "aarch64-linux"];
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
+    in
+      forAllSystems (system: let
+        pkgs = import nixpkgs {inherit system;};
+      in {
+        claude-to-opencode =
+          (import ./packages/claude-to-opencode {
+            inherit (pkgs) lib python3 runCommand writeShellScriptBin symlinkJoin;
+          })
+        .package;
+      });
   };
 }
