@@ -10,6 +10,10 @@
   ];
 
   home.packages = with pkgs; [
+    # Nix package manager - ensures standalone home-manager configs
+    # don't depend on channel-installed nix
+    lix
+
     # Standard terminal tools
     bat
     eza
