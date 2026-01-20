@@ -7,6 +7,7 @@
 
     opencode = {
       url = "github:anomalyco/opencode";
+      inputs.nixpkgs.url = "github:NixOS/nixpkgs/61db79b0c6b838d9894923920b612048e1201926";
     };
 
     home-manager = {
