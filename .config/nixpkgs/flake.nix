@@ -4,9 +4,11 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/release-25.11";
     nixpkgs-darwin.url = "github:NixOS/nixpkgs/nixpkgs-25.11-darwin";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     opencode = {
       url = "github:anomalyco/opencode";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
     home-manager = {
@@ -292,17 +294,29 @@
 
     # Packages
     packages = let
-      systems = ["x86_64-linux" "aarch64-darwin" "aarch64-linux"];
+      systems = [
+        "x86_64-linux"
+        "aarch64-darwin"
+        "aarch64-linux"
+      ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
     in
-      forAllSystems (system: let
-        pkgs = import nixpkgs {inherit system;};
-      in {
-        claude-to-opencode =
-          (import ./packages/claude-to-opencode {
-            inherit (pkgs) lib python3 runCommand writeShellScriptBin symlinkJoin;
-          })
-        .package;
-      });
+      forAllSystems (
+        system: let
+          pkgs = import nixpkgs {inherit system;};
+        in {
+          claude-to-opencode =
+            (import ./packages/claude-to-opencode {
+              inherit
+                (pkgs)
+                lib
+                python3
+                runCommand
+                writeShellScriptBin
+                symlinkJoin
+                ;
+            }).package;
+        }
+      );
   };
 }
