@@ -44,7 +44,8 @@ TOOL_MAP = {
 }
 
 # Characters that need quoting in YAML values
-YAML_SPECIAL_CHARS = set('*&!|>\'\"{}[]#%@`')
+# Includes colon (:) because it's interpreted as key-value separator in YAML
+YAML_SPECIAL_CHARS = set('*&!|>\'\"{}[]#%@`:')
 
 
 def needs_yaml_quoting(value):
@@ -77,6 +78,112 @@ def yaml_safe_dump(data):
     
     return yaml.dump(data, Dumper=SafeDumper, default_flow_style=False, 
                      sort_keys=False, allow_unicode=True)
+
+
+def is_yaml_key_value(line):
+    """Check if a line looks like a YAML key: value pair.
+    
+    A valid YAML key starts with a letter or underscore, followed by
+    alphanumerics, hyphens, or underscores, then a colon.
+    """
+    stripped = line.strip()
+    return bool(re.match(r'^[a-zA-Z_][a-zA-Z0-9_-]*:', stripped))
+
+
+def fix_malformed_frontmatter(frontmatter_str):
+    """Fix malformed frontmatter where lines after a field aren't proper YAML.
+    
+    Some source files have malformed YAML like:
+    
+        ---
+        name: foo
+        description: Short description
+        
+        **CRITICAL: This must be done...
+        - Do NOT do this
+        **Why**: Because reasons
+        ---
+    
+    The lines starting with ** or - are intended to be part of the description
+    but aren't properly formatted as a YAML multi-line string. This function
+    detects such orphaned lines and merges them into the description field.
+    """
+    lines = frontmatter_str.strip().split('\n')
+    
+    # First pass: identify all key-value pairs and orphaned lines
+    key_values = {}  # key -> (line_index, value)
+    orphaned_lines = []  # (line_index, content)
+    last_key = None
+    
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        
+        if not stripped:
+            # Empty line - could be paragraph break in description
+            if last_key == 'description':
+                orphaned_lines.append((i, ''))
+            continue
+        
+        if is_yaml_key_value(stripped):
+            # Extract key and value
+            colon_idx = stripped.index(':')
+            key = stripped[:colon_idx]
+            value = stripped[colon_idx + 1:].strip()
+            key_values[key] = (i, value)
+            last_key = key
+        else:
+            # Orphaned line - not a valid key-value pair
+            orphaned_lines.append((i, stripped))
+    
+    # If no orphaned lines, return as-is
+    if not orphaned_lines:
+        return frontmatter_str
+    
+    # Check if orphaned lines should be merged into description
+    if 'description' not in key_values:
+        # No description field to merge into - return as-is
+        return frontmatter_str
+    
+    desc_idx, desc_value = key_values['description']
+    
+    # Find orphaned lines that come after the description
+    orphaned_after_desc = [(idx, content) for idx, content in orphaned_lines 
+                           if idx > desc_idx]
+    
+    if not orphaned_after_desc:
+        return frontmatter_str
+    
+    # Build the merged description as a multi-line string
+    desc_parts = [desc_value] if desc_value else []
+    for _, content in orphaned_after_desc:
+        desc_parts.append(content)
+    
+    merged_description = '\n'.join(desc_parts)
+    
+    # Rebuild the frontmatter with the merged description
+    result_lines = []
+    skip_indices = {idx for idx, _ in orphaned_after_desc}
+    
+    for i, line in enumerate(lines):
+        if i in skip_indices:
+            continue
+        
+        stripped = line.strip()
+        if not stripped:
+            # Only keep empty lines that aren't between description and orphaned content
+            if i < desc_idx or i > max(idx for idx, _ in orphaned_after_desc):
+                result_lines.append(line)
+            continue
+        
+        if stripped.startswith('description:'):
+            # Replace with multi-line description using literal block scalar
+            result_lines.append('description: |')
+            for desc_line in merged_description.split('\n'):
+                result_lines.append(f'  {desc_line}')
+        else:
+            result_lines.append(line)
+    
+    return '\n'.join(result_lines)
 
 
 def parse_tools_line(tools_line):
@@ -164,6 +271,12 @@ def transform_frontmatter_regex(frontmatter_str, plugin_name, file_type):
                 line = f'description: "{desc_clean}. Args: {argument_hint}"'
             else:
                 line = f'description: "Args: {argument_hint}"'
+        # Quote description if it contains special characters (colons, etc.)
+        elif i == description_line_idx and description:
+            if needs_yaml_quoting(description):
+                # Escape any existing double quotes
+                safe_desc = description.replace('"', '\\"')
+                line = f'description: "{safe_desc}"'
         
         # Transform tools field for agents
         if file_type == 'agent' and i == tools_line_idx and tools_line:
@@ -250,6 +363,10 @@ def transform_frontmatter(frontmatter_str, plugin_name, file_type):
     Returns:
         Transformed frontmatter as YAML string
     """
+    # Pre-process to fix malformed frontmatter (e.g., lines after description
+    # that aren't properly formatted as YAML multi-line strings)
+    frontmatter_str = fix_malformed_frontmatter(frontmatter_str)
+    
     try:
         fm = yaml.safe_load(frontmatter_str) or {}
     except yaml.YAMLError:
