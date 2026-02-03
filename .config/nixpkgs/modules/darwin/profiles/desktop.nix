@@ -1,4 +1,7 @@
 {pkgs, ...}: {
+  environment.systemPackages = [
+    pkgs.betterdisplay
+  ];
   services.yabai = {
     enable = true;
     package = pkgs.yabai;
