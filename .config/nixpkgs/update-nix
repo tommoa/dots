@@ -43,6 +43,48 @@ get_flake_inputs() {
     jq -r '.nodes.root.inputs | keys[]' "${flake_dir}/flake.lock"
 }
 
+# Function to apply config-specific exclusions based on system type and config name
+# This adds exclusions for inputs not needed by the specific configuration
+apply_config_specific_exclusions() {
+    local config_name="$1"
+    local system_type="$2"
+    local mode="$3"
+
+    # Skip if user explicitly requested all or none (respect user intent)
+    if [ "$USE_ALL" = "true" ] || [ "$USE_NONE" = "true" ]; then
+        return 0
+    fi
+
+    # Handle 'both' mode: we need to determine what inputs are needed by either config
+    if [ "$mode" = "both" ]; then
+        # For both mode, we'll compute this separately after we have both config names
+        return 0
+    fi
+
+    # Platform-specific exclusions
+    case "$system_type" in
+        linux)
+            # Linux configs don't need Darwin-specific inputs
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "nixpkgs-darwin")
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "nix-darwin")
+            print_info "Linux config detected: excluding nixpkgs-darwin, nix-darwin"
+            ;;
+        darwin)
+            # Darwin configs need both nixpkgs (via home-manager) and nixpkgs-darwin
+            # Don't exclude anything platform-specific for Darwin
+            ;;
+    esac
+
+    # Server vs Desktop detection
+    case "$config_name" in
+        *server*)
+            # Server configs don't need zen-browser (desktop-only)
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "zen-browser")
+            print_info "Server config detected: excluding zen-browser"
+            ;;
+    esac
+}
+
 # Function to check if a value is in a space-separated list
 list_contains() {
     local list="$1"
@@ -322,6 +364,110 @@ main() {
 
     print_info "Update mode: ${bold}${mode}${reset}"
 
+    # Determine configs and apply config-specific exclusions
+    local system_config=""
+    local home_config=""
+
+    case "$mode" in
+        system)
+            if [ "$has_system" = "true" ]; then
+                system_config="${config_override:-$(detect_system_config)}"
+                apply_config_specific_exclusions "$system_config" "$system_type" "$mode"
+            fi
+            ;;
+        home)
+            if [ "$has_home" = "true" ]; then
+                home_config="${config_override:-$(detect_home_config "$system_type")}"
+                apply_config_specific_exclusions "$home_config" "$system_type" "$mode"
+            fi
+            ;;
+        both)
+            # For 'both' mode, we need to compute the union of required inputs
+            # We'll handle this specially after we know both configs
+            ;;
+    esac
+
+    # Handle 'both' mode: compute union of inputs needed by both configs
+    if [ "$mode" = "both" ]; then
+        if [ "$has_system" = "true" ]; then
+            system_config="${config_override:-$(detect_system_config)}"
+        fi
+        if [ "$has_home" = "true" ]; then
+            home_config="${config_override:-$(detect_home_config "$system_type")}"
+        fi
+
+        # Build list of inputs to include (inverse of exclusion logic)
+        local all_inputs=$(get_flake_inputs)
+        local to_update=""
+
+        for input in $all_inputs; do
+            local should_include=true
+
+            # Check if excluded by defaults or CLI flags
+            if list_contains "$EXCLUDED_INPUTS" "$input"; then
+                should_include=false
+            fi
+
+            # Apply platform-specific filtering (only if not already excluded)
+            if [ "$should_include" = "true" ]; then
+                case "$system_type" in
+                    linux)
+                        # On Linux, we don't need Darwin inputs
+                        case "$input" in
+                            nixpkgs-darwin|nix-darwin)
+                                should_include=false
+                                ;;
+                        esac
+                        ;;
+                    darwin)
+                        # On Darwin, we need all inputs including nixpkgs-darwin
+                        # Don't exclude anything platform-specific
+                        ;;
+                esac
+            fi
+
+            # Check if input is needed by either config
+            # For 'both' mode, we include inputs needed by system OR home config
+            if [ "$should_include" = "true" ]; then
+                case "$input" in
+                    zen-browser)
+                        # Only include zen-browser if either config is NOT a server
+                        local system_is_server=false
+                        local home_is_server=false
+
+                        case "$system_config" in
+                            *server*) system_is_server=true ;;
+                        esac
+                        case "$home_config" in
+                            *server*) home_is_server=true ;;
+                        esac
+
+                        # Include if at least one is not a server (i.e., is a desktop)
+                        if [ "$system_is_server" = "true" ] && [ "$home_is_server" = "true" ]; then
+                            should_include=false
+                        fi
+                        ;;
+                esac
+            fi
+
+            if [ "$should_include" = "true" ]; then
+                to_update=$(list_add "$to_update" "$input")
+            fi
+        done
+
+        # Override EXCLUDED_INPUTS for 'both' mode: exclude everything except to_update
+        if [ -n "$to_update" ]; then
+            local new_exclusions=""
+            for input in $all_inputs; do
+                if ! list_contains "$to_update" "$input"; then
+                    new_exclusions=$(list_add "$new_exclusions" "$input")
+                fi
+            done
+            EXCLUDED_INPUTS="$new_exclusions"
+            print_info "Both mode: updating union of required inputs"
+        fi
+    fi
+
     # Update flake inputs once
     update_flake
 
@@ -333,7 +479,7 @@ main() {
                 exit 1
             fi
 
-            local system_config="${config_override:-$(detect_system_config "$system_type")}"
+            local system_config="${config_override:-$(detect_system_config)}"
             check_config_exists "system" "$system_config"
             update_system "$system_config"
             ;;
@@ -514,6 +660,11 @@ INPUT OPTIONS:
   --no-<input>    Exclude <input> from update
 
 By default, these inputs are excluded: ${DEFAULT_EXCLUDED_INPUTS}
+
+Additionally, inputs are intelligently filtered based on configuration:
+  - Linux configs exclude: nixpkgs-darwin, nix-darwin
+  - Server configs exclude: zen-browser
+Use --all to disable smart filtering and update all inputs.
 
 If CONFIG_NAME is provided, uses that configuration instead of auto-detection.
 
