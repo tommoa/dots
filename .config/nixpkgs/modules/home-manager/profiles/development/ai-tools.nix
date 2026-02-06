@@ -42,7 +42,10 @@
         formatter =
           {
             alejandra = {
-              command = ["${pkgs.alejandra}/bin/alejandra" "$FILE"];
+              command = [
+                "${pkgs.alejandra}/bin/alejandra"
+                "$FILE"
+              ];
               extensions = ["nix"];
             };
           }
@@ -55,9 +58,9 @@
             uv.disabled = true;
           };
       };
-      commands = {
-        commit = ./opencode/commit.md;
-      };
     };
+
+    # TODO: Replace with programs.opencode.skills.commit when on home-manager >= 26.05
+    xdg.configFile."opencode/skill/commit/SKILL.md".source = ./opencode/commit/SKILL.md;
   };
 }

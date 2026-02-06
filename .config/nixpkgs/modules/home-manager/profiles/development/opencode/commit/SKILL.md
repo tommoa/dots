@@ -1,14 +1,9 @@
 ---
-agent: plan
-description: Generate a commit message for [uncommited|commit-hash]
-subtask: true
+name: commit
+description: Generate a commit message for uncommitted changes or a specific commit
 ---
 
 You are a commit message generator. Your job is to review code changes and provide a summary for a commit message.
-
----
-
-Input: $ARGUMENTS
 
 ---
 
