@@ -20,5 +20,5 @@
 
   system.defaults.NSGlobalDomain.ApplePressAndHoldEnabled = false;
 
-  system.stateVersion = 5;
+  system.stateVersion = 6;
 }

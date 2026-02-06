@@ -132,6 +132,8 @@
                 ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
               home.username = username;
               home.homeDirectory = homeDirectory;
+              targets.darwin.copyApps.enable = false;
+              targets.darwin.linkApps.enable = true;
             };
           }
         ];
