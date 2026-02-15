@@ -75,7 +75,7 @@ fi
 case "$(uname)" in
     FreeBSD)
         export CARGO_HOME="${CARGO_HOME}_freebsd"
-        export RUSTUP_HOME= "${RUSTUP_HOME}_freebsd"
+        export RUSTUP_HOME="${RUSTUP_HOME}_freebsd"
         ;;
 esac
 case "$(uname -m)" in
