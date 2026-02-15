@@ -1,7 +1,11 @@
-{
+{pkgs, ...}: {
   # Enable aerc with complete configuration
   programs.aerc = {
     enable = true;
+
+    # Override aerc's bundled w3m (stock 0.5.5, no inline image support)
+    # with w3m-images (tats/w3m fork with kitty/sixel/iTerm2 protocols).
+    package = pkgs.aerc.override {w3m = pkgs.w3m-images;};
 
     # Main aerc configuration
     extraConfig = {
@@ -43,8 +47,14 @@
       };
 
       filters = {
-        # HTML email rendering
-        "text/html" = "w3m -dump -o display_link_number=1 -T text/html";
+        # HTML email rendering with inline images via kitty graphics protocol.
+        # "!" prefix = interactive mode (bypasses pager, gives w3m direct TTY access for images).
+        # html-unsafe = aerc's built-in w3m wrapper without network sandboxing (loads remote images).
+        # inline_img_protocol=4 = kitty graphics protocol (no negotiation, just output).
+        "text/html" = "! html-unsafe -o inline_img_protocol=4";
+
+        # Image attachments are handled by aerc's built-in Vaxis rendering
+        # (forced to kitty protocol via VAXIS_GRAPHICS=kitty env var).
 
         # Plain text and other filters
         "text/plain" = "colorize";

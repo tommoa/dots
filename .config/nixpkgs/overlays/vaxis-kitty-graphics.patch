@@ -1,0 +1,904 @@
+diff --git a/widgets/term/csi.go b/widgets/term/csi.go
+index c1fb462..3fae424 100644
+--- a/widgets/term/csi.go
++++ b/widgets/term/csi.go
+@@ -355,6 +355,7 @@ func (vt *Model) ed(ps int) {
+ 				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+ 			}
+ 		}
++		vt.clearGraphics()
+ 	}
+ }
+ 
+diff --git a/widgets/term/image.go b/widgets/term/image.go
+index c5e6dac..a7f34d7 100644
+--- a/widgets/term/image.go
++++ b/widgets/term/image.go
+@@ -11,8 +11,9 @@ type Image struct {
+ 		row int
+ 		col int
+ 	}
+-	img   image.Image
+-	vaxii []*vaxisImage
++	img     image.Image
++	vaxii   []*vaxisImage
++	kittyID uint32 // kitty graphics image ID (0 = sixel or unset)
+ }
+ 
+ type vaxisImage struct {
+diff --git a/widgets/term/kitty.go b/widgets/term/kitty.go
+new file mode 100644
+index 0000000..a5c46b3
+--- /dev/null
++++ b/widgets/term/kitty.go
+@@ -0,0 +1,373 @@
++package term
++
++import (
++	"bytes"
++	"encoding/base64"
++	"fmt"
++	"image"
++	"image/png"
++	"strconv"
++	"strings"
++
++	"git.sr.ht/~rockorager/vaxis/log"
++)
++
++// kittyParams holds parsed parameters from a kitty graphics APC payload.
++type kittyParams struct {
++	action byte   // 'T' (transmit+display), 't' (transmit), 'p' (place), 'd' (delete), 'q' (query)
++	format int    // 100=PNG, 32=RGBA, 24=RGB
++	id     uint32 // image ID (i=)
++	more   int    // 0=last chunk, 1=more chunks follow (m=)
++	quiet  int    // 0=normal, 1=suppress OK, 2=suppress all (q=)
++	width  int    // pixel width for raw formats (s=)
++	height int    // pixel height for raw formats (v=)
++	delete byte   // delete target: 'a'=all, 'i'=by id, 'I'=by id+placement (d=)
++}
++
++// kittyChunk tracks an in-progress multi-chunk image transmission.
++type kittyChunk struct {
++	data   strings.Builder // accumulated base64 data across chunks
++	action byte            // original action from first chunk
++	format int
++	quiet  int
++	width  int
++	height int
++	row    int // cursor position at first chunk
++	col    int
++}
++
++// kittyState holds state for kitty graphics protocol handling within the VT.
++type kittyState struct {
++	pending     map[uint32]*kittyChunk // in-progress multi-chunk transmissions
++	transmitted map[uint32]image.Image // completed transmissions (for a=p placement)
++}
++
++func newKittyState() kittyState {
++	return kittyState{
++		pending:     make(map[uint32]*kittyChunk),
++		transmitted: make(map[uint32]image.Image),
++	}
++}
++
++// parseKittyGraphics parses a kitty graphics APC payload.
++// The payload format is: G<key=value,key=value,...>;<base64data>
++// The leading 'G' must already be verified by the caller.
++func parseKittyGraphics(payload string) (kittyParams, string, error) {
++	p := kittyParams{
++		action: 'T', // default: transmit + display
++		format: 32,  // default: RGBA
++		delete: 'a', // default: delete all
++	}
++
++	// Strip leading 'G'
++	payload = payload[1:]
++
++	// Split on ';' to separate params from data
++	var paramStr, data string
++	if idx := strings.IndexByte(payload, ';'); idx >= 0 {
++		paramStr = payload[:idx]
++		data = payload[idx+1:]
++	} else {
++		paramStr = payload
++	}
++
++	// Parse key=value pairs
++	if paramStr != "" {
++		for _, kv := range strings.Split(paramStr, ",") {
++			parts := strings.SplitN(kv, "=", 2)
++			if len(parts) != 2 || len(parts[0]) == 0 {
++				continue
++			}
++			key := parts[0]
++			val := parts[1]
++
++			switch key {
++			case "a":
++				if len(val) > 0 {
++					p.action = val[0]
++				}
++			case "f":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.format = n
++				}
++			case "i":
++				n, err := strconv.ParseUint(val, 10, 32)
++				if err == nil {
++					p.id = uint32(n)
++				}
++			case "m":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.more = n
++				}
++			case "q":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.quiet = n
++				}
++			case "s":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.width = n
++				}
++			case "v":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.height = n
++				}
++			case "d":
++				if len(val) > 0 {
++					p.delete = val[0]
++				}
++			}
++		}
++	}
++
++	return p, data, nil
++}
++
++// decodeKittyImage decodes base64-encoded image data into an image.Image.
++func decodeKittyImage(b64data []byte, format, width, height int) (image.Image, error) {
++	if len(b64data) == 0 {
++		return nil, fmt.Errorf("empty image data")
++	}
++
++	raw := make([]byte, base64.StdEncoding.DecodedLen(len(b64data)))
++	n, err := base64.StdEncoding.Decode(raw, b64data)
++	if err != nil {
++		return nil, fmt.Errorf("base64 decode: %w", err)
++	}
++	raw = raw[:n]
++
++	switch format {
++	case 100: // PNG
++		img, err := png.Decode(bytes.NewReader(raw))
++		if err != nil {
++			return nil, fmt.Errorf("png decode: %w", err)
++		}
++		return img, nil
++
++	case 32: // RGBA
++		if width <= 0 || height <= 0 {
++			return nil, fmt.Errorf("raw RGBA requires s= and v= parameters")
++		}
++		expected := width * height * 4
++		if len(raw) < expected {
++			return nil, fmt.Errorf("RGBA data too short: got %d, want %d", len(raw), expected)
++		}
++		img := image.NewNRGBA(image.Rect(0, 0, width, height))
++		copy(img.Pix, raw[:expected])
++		return img, nil
++
++	case 24: // RGB
++		if width <= 0 || height <= 0 {
++			return nil, fmt.Errorf("raw RGB requires s= and v= parameters")
++		}
++		expected := width * height * 3
++		if len(raw) < expected {
++			return nil, fmt.Errorf("RGB data too short: got %d, want %d", len(raw), expected)
++		}
++		img := image.NewNRGBA(image.Rect(0, 0, width, height))
++		for i := 0; i < width*height; i++ {
++			img.Pix[i*4+0] = raw[i*3+0] // R
++			img.Pix[i*4+1] = raw[i*3+1] // G
++			img.Pix[i*4+2] = raw[i*3+2] // B
++			img.Pix[i*4+3] = 255        // A
++		}
++		return img, nil
++
++	default:
++		return nil, fmt.Errorf("unsupported kitty image format: %d", format)
++	}
++}
++
++// handleKittyGraphics processes a kitty graphics APC payload.
++// Called from Model.update() when an APC starting with 'G' is received.
++// The caller holds vt.mu.
++func (vt *Model) handleKittyGraphics(payload string) {
++	params, data, err := parseKittyGraphics(payload)
++	if err != nil {
++		log.Error("kitty graphics parse error: %v", err)
++		return
++	}
++
++	switch params.action {
++	case 'T', 't': // transmit (+ optional display)
++		vt.kittyTransmit(params, data)
++	case 'p': // place previously transmitted image
++		vt.kittyPlace(params)
++	case 'd': // delete
++		vt.kittyDelete(params)
++	case 'q': // query -- respond that we support kitty graphics
++		vt.kittyRespond(params, "OK")
++	default:
++		log.Trace("kitty graphics: ignoring action '%c'", params.action)
++	}
++}
++
++// kittyTransmit handles 'a=t' (transmit only) and 'a=T' (transmit + display).
++func (vt *Model) kittyTransmit(params kittyParams, data string) {
++	id := params.id
++
++	// Resolve ID for continuation chunks: if id is 0 and there are
++	// pending chunks, match the sole pending entry (per kitty spec,
++	// continuation chunks may omit the id).
++	if id == 0 && len(vt.kitty.pending) > 0 {
++		for pid := range vt.kitty.pending {
++			id = pid
++			break
++		}
++	}
++
++	if params.more == 1 {
++		// More data coming -- accumulate in pending
++		chunk, ok := vt.kitty.pending[id]
++		if !ok {
++			// First chunk: capture cursor position and params
++			chunk = &kittyChunk{
++				action: params.action,
++				format: params.format,
++				quiet:  params.quiet,
++				width:  params.width,
++				height: params.height,
++				row:    int(vt.cursor.row),
++				col:    int(vt.cursor.col),
++			}
++			vt.kitty.pending[id] = chunk
++		}
++		chunk.data.WriteString(data)
++		return
++	}
++
++	// m=0: last (or only) chunk -- decode the image
++	var fullData string
++	var action byte
++	var format, width, height, quiet int
++	var imgRow, imgCol int
++
++	if chunk, ok := vt.kitty.pending[id]; ok {
++		// Complete a multi-chunk transmission
++		chunk.data.WriteString(data)
++		fullData = chunk.data.String()
++		action = chunk.action
++		format = chunk.format
++		width = chunk.width
++		height = chunk.height
++		quiet = chunk.quiet
++		imgRow = chunk.row
++		imgCol = chunk.col
++		delete(vt.kitty.pending, id)
++	} else {
++		// Single-chunk transmission
++		fullData = data
++		action = params.action
++		format = params.format
++		width = params.width
++		height = params.height
++		quiet = params.quiet
++		imgRow = int(vt.cursor.row)
++		imgCol = int(vt.cursor.col)
++	}
++
++	if len(fullData) == 0 {
++		vt.kittyRespondErr(params, quiet, "no image data")
++		return
++	}
++
++	img, err := decodeKittyImage([]byte(fullData), format, width, height)
++	if err != nil {
++		log.Error("kitty graphics decode error: %v", err)
++		vt.kittyRespondErr(params, quiet, err.Error())
++		return
++	}
++
++	log.Info("KITTY image id=%d %dx%d at (%d,%d)",
++		id, img.Bounds().Dx(), img.Bounds().Dy(), imgCol, imgRow)
++
++	// Store for potential later placement via a=p
++	if id != 0 {
++		vt.kitty.transmitted[id] = img
++	}
++
++	// a=T means also display immediately
++	if action == 'T' {
++		termImg := &Image{
++			img:     img,
++			kittyID: id,
++		}
++		termImg.origin.row = imgRow
++		termImg.origin.col = imgCol
++		vt.graphics = append(vt.graphics, termImg)
++	}
++
++	vt.kittyRespond(params, "OK")
++}
++
++// kittyPlace handles 'a=p' -- place a previously transmitted image.
++func (vt *Model) kittyPlace(params kittyParams) {
++	img, ok := vt.kitty.transmitted[params.id]
++	if !ok {
++		log.Error("kitty graphics: no transmitted image with id=%d", params.id)
++		vt.kittyRespondErr(params, params.quiet, "ENOENT")
++		return
++	}
++
++	termImg := &Image{
++		img:     img,
++		kittyID: params.id,
++	}
++	termImg.origin.row = int(vt.cursor.row)
++	termImg.origin.col = int(vt.cursor.col)
++	vt.graphics = append(vt.graphics, termImg)
++
++	vt.kittyRespond(params, "OK")
++}
++
++// kittyDelete handles 'a=d' -- delete images.
++func (vt *Model) kittyDelete(params kittyParams) {
++	switch params.delete {
++	case 'a', 'A': // delete all
++		for _, img := range vt.graphics {
++			for _, vi := range img.vaxii {
++				vi.vxImage.Destroy()
++			}
++		}
++		vt.graphics = nil
++		vt.kitty.pending = make(map[uint32]*kittyChunk)
++		vt.kitty.transmitted = make(map[uint32]image.Image)
++
++	case 'i', 'I': // delete by ID
++		id := params.id
++		delete(vt.kitty.pending, id)
++		delete(vt.kitty.transmitted, id)
++
++		filtered := vt.graphics[:0]
++		for _, img := range vt.graphics {
++			if img.kittyID == id {
++				for _, vi := range img.vaxii {
++					vi.vxImage.Destroy()
++				}
++			} else {
++				filtered = append(filtered, img)
++			}
++		}
++		vt.graphics = filtered
++
++	default:
++		log.Trace("kitty graphics: unhandled delete target '%c'", params.delete)
++	}
++}
++
++// kittyRespond is intentionally a no-op. Writing responses to vt.pty while
++// holding vt.mu inside the parser goroutine causes a deadlock: the write can
++// block if the PTY buffer is full, and the response may trigger the child
++// process to write more data that the parser goroutine cannot process (it is
++// still inside update()). Clients like w3m use fire-and-forget transmission
++// and do not require responses.
++func (vt *Model) kittyRespond(params kittyParams, msg string) {}
++
++// kittyRespondErr is intentionally a no-op for the same reason as kittyRespond.
++func (vt *Model) kittyRespondErr(params kittyParams, quiet int, msg string) {}
++
++
+diff --git a/widgets/term/kitty_test.go b/widgets/term/kitty_test.go
+new file mode 100644
+index 0000000..5fa47b0
+--- /dev/null
++++ b/widgets/term/kitty_test.go
+@@ -0,0 +1,428 @@
++package term
++
++import (
++	"bytes"
++	"encoding/base64"
++	"image"
++	"image/color"
++	"image/png"
++	"testing"
++)
++
++func TestParseKittyGraphics(t *testing.T) {
++	tests := []struct {
++		name       string
++		payload    string
++		wantAction byte
++		wantFormat int
++		wantID     uint32
++		wantMore   int
++		wantQuiet  int
++		wantWidth  int
++		wantHeight int
++		wantDelete byte
++		wantData   string
++	}{
++		{
++			name:       "transmit+display PNG single chunk",
++			payload:    "Gf=100,a=T,i=1;iVBORw0KGgo=",
++			wantAction: 'T',
++			wantFormat: 100,
++			wantID:     1,
++			wantMore:   0,
++			wantData:   "iVBORw0KGgo=",
++		},
++		{
++			name:       "transmit only first chunk",
++			payload:    "Gf=100,a=t,i=42,m=1;AAAA",
++			wantAction: 't',
++			wantFormat: 100,
++			wantID:     42,
++			wantMore:   1,
++			wantData:   "AAAA",
++		},
++		{
++			name:       "defaults with no a= or f=",
++			payload:    "Gi=5;data",
++			wantAction: 'T',
++			wantFormat: 32,
++			wantID:     5,
++			wantMore:   0,
++			wantData:   "data",
++		},
++		{
++			name:       "delete all",
++			payload:    "Ga=d,d=a",
++			wantAction: 'd',
++			wantDelete: 'a',
++			wantData:   "",
++		},
++		{
++			name:       "delete by id",
++			payload:    "Ga=d,d=i,i=10",
++			wantAction: 'd',
++			wantDelete: 'i',
++			wantID:     10,
++			wantData:   "",
++		},
++		{
++			name:       "place by id",
++			payload:    "Ga=p,i=10",
++			wantAction: 'p',
++			wantID:     10,
++			wantData:   "",
++		},
++		{
++			name:       "no params just data",
++			payload:    "G;base64stuff",
++			wantAction: 'T',
++			wantFormat: 32,
++			wantData:   "base64stuff",
++		},
++		{
++			name:       "quiet mode 1",
++			payload:    "Gf=100,q=1,i=3;data",
++			wantAction: 'T',
++			wantFormat: 100,
++			wantQuiet:  1,
++			wantID:     3,
++			wantData:   "data",
++		},
++		{
++			name:       "raw RGBA with dimensions",
++			payload:    "Gf=32,s=100,v=50,i=7;data",
++			wantAction: 'T',
++			wantFormat: 32,
++			wantWidth:  100,
++			wantHeight: 50,
++			wantID:     7,
++			wantData:   "data",
++		},
++		{
++			name:       "params only no semicolon",
++			payload:    "Ga=d,d=a",
++			wantAction: 'd',
++			wantDelete: 'a',
++			wantData:   "",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			params, data, err := parseKittyGraphics(tt.payload)
++			if err != nil {
++				t.Fatalf("unexpected error: %v", err)
++			}
++			if params.action != tt.wantAction {
++				t.Errorf("action: got %c, want %c", params.action, tt.wantAction)
++			}
++			if tt.wantFormat != 0 && params.format != tt.wantFormat {
++				t.Errorf("format: got %d, want %d", params.format, tt.wantFormat)
++			}
++			if params.id != tt.wantID {
++				t.Errorf("id: got %d, want %d", params.id, tt.wantID)
++			}
++			if params.more != tt.wantMore {
++				t.Errorf("more: got %d, want %d", params.more, tt.wantMore)
++			}
++			if tt.wantQuiet != 0 && params.quiet != tt.wantQuiet {
++				t.Errorf("quiet: got %d, want %d", params.quiet, tt.wantQuiet)
++			}
++			if tt.wantWidth != 0 && params.width != tt.wantWidth {
++				t.Errorf("width: got %d, want %d", params.width, tt.wantWidth)
++			}
++			if tt.wantHeight != 0 && params.height != tt.wantHeight {
++				t.Errorf("height: got %d, want %d", params.height, tt.wantHeight)
++			}
++			if tt.wantDelete != 0 && params.delete != tt.wantDelete {
++				t.Errorf("delete: got %c, want %c", params.delete, tt.wantDelete)
++			}
++			if data != tt.wantData {
++				t.Errorf("data: got %q, want %q", data, tt.wantData)
++			}
++		})
++	}
++}
++
++func TestDecodeKittyImagePNG(t *testing.T) {
++	// Create a 4x4 red PNG
++	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
++	for y := 0; y < 4; y++ {
++		for x := 0; x < 4; x++ {
++			img.Set(x, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
++		}
++	}
++	var buf bytes.Buffer
++	if err := png.Encode(&buf, img); err != nil {
++		t.Fatal(err)
++	}
++	b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
++
++	decoded, err := decodeKittyImage([]byte(b64), 100, 0, 0)
++	if err != nil {
++		t.Fatalf("decode error: %v", err)
++	}
++	if decoded.Bounds().Dx() != 4 || decoded.Bounds().Dy() != 4 {
++		t.Errorf("size: got %dx%d, want 4x4",
++			decoded.Bounds().Dx(), decoded.Bounds().Dy())
++	}
++	// Verify a pixel is red
++	r, g, b, a := decoded.At(0, 0).RGBA()
++	if r>>8 != 255 || g>>8 != 0 || b>>8 != 0 || a>>8 != 255 {
++		t.Errorf("pixel: got RGBA(%d,%d,%d,%d), want (255,0,0,255)",
++			r>>8, g>>8, b>>8, a>>8)
++	}
++}
++
++func TestDecodeKittyImageRGBA(t *testing.T) {
++	// Create 2x2 RGBA raw data: all green
++	width, height := 2, 2
++	raw := make([]byte, width*height*4)
++	for i := 0; i < width*height; i++ {
++		raw[i*4+0] = 0   // R
++		raw[i*4+1] = 255 // G
++		raw[i*4+2] = 0   // B
++		raw[i*4+3] = 255 // A
++	}
++	b64 := base64.StdEncoding.EncodeToString(raw)
++
++	decoded, err := decodeKittyImage([]byte(b64), 32, width, height)
++	if err != nil {
++		t.Fatalf("decode error: %v", err)
++	}
++	if decoded.Bounds().Dx() != 2 || decoded.Bounds().Dy() != 2 {
++		t.Errorf("size: got %dx%d, want 2x2",
++			decoded.Bounds().Dx(), decoded.Bounds().Dy())
++	}
++	r, g, b, a := decoded.At(0, 0).RGBA()
++	if g>>8 != 255 {
++		t.Errorf("pixel green: got %d, want 255", g>>8)
++	}
++	_ = r
++	_ = b
++	_ = a
++}
++
++func TestDecodeKittyImageRGB(t *testing.T) {
++	// Create 2x2 RGB raw data: all blue
++	width, height := 2, 2
++	raw := make([]byte, width*height*3)
++	for i := 0; i < width*height; i++ {
++		raw[i*3+0] = 0   // R
++		raw[i*3+1] = 0   // G
++		raw[i*3+2] = 255 // B
++	}
++	b64 := base64.StdEncoding.EncodeToString(raw)
++
++	decoded, err := decodeKittyImage([]byte(b64), 24, width, height)
++	if err != nil {
++		t.Fatalf("decode error: %v", err)
++	}
++	if decoded.Bounds().Dx() != 2 || decoded.Bounds().Dy() != 2 {
++		t.Errorf("size: got %dx%d, want 2x2",
++			decoded.Bounds().Dx(), decoded.Bounds().Dy())
++	}
++	r, g, b, a := decoded.At(0, 0).RGBA()
++	if b>>8 != 255 {
++		t.Errorf("pixel blue: got %d, want 255", b>>8)
++	}
++	if a>>8 != 255 {
++		t.Errorf("pixel alpha: got %d, want 255", a>>8)
++	}
++	_ = r
++	_ = g
++}
++
++func TestDecodeKittyImageErrors(t *testing.T) {
++	// Empty data
++	_, err := decodeKittyImage([]byte{}, 100, 0, 0)
++	if err == nil {
++		t.Error("expected error for empty data")
++	}
++
++	// Invalid base64
++	_, err = decodeKittyImage([]byte("!!!not-base64!!!"), 100, 0, 0)
++	if err == nil {
++		t.Error("expected error for invalid base64")
++	}
++
++	// RGBA without dimensions
++	raw := make([]byte, 16)
++	b64 := base64.StdEncoding.EncodeToString(raw)
++	_, err = decodeKittyImage([]byte(b64), 32, 0, 0)
++	if err == nil {
++		t.Error("expected error for RGBA without dimensions")
++	}
++
++	// Unsupported format
++	_, err = decodeKittyImage([]byte(b64), 99, 2, 2)
++	if err == nil {
++		t.Error("expected error for unsupported format")
++	}
++}
++
++func TestKittyMultiChunkTransmit(t *testing.T) {
++	// Create a small PNG and split its base64 into two chunks
++	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
++	for y := 0; y < 2; y++ {
++		for x := 0; x < 2; x++ {
++			img.Set(x, y, color.RGBA{R: 128, G: 64, B: 32, A: 255})
++		}
++	}
++	var buf bytes.Buffer
++	if err := png.Encode(&buf, img); err != nil {
++		t.Fatal(err)
++	}
++	b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
++
++	// Split into two chunks
++	mid := len(b64) / 2
++	chunk1 := b64[:mid]
++	chunk2 := b64[mid:]
++
++	// Create a Model and simulate multi-chunk transmission
++	vt := New()
++
++	// First chunk (m=1)
++	vt.handleKittyGraphics("Gf=100,a=T,i=5,m=1;" + chunk1)
++
++	// Verify it's pending
++	if _, ok := vt.kitty.pending[5]; !ok {
++		t.Fatal("expected chunk to be pending after m=1")
++	}
++	if len(vt.graphics) != 0 {
++		t.Errorf("expected no graphics yet, got %d", len(vt.graphics))
++	}
++
++	// Second chunk (m=0)
++	vt.handleKittyGraphics("Gm=0;" + chunk2)
++
++	// Verify pending is cleared and image is in graphics
++	if _, ok := vt.kitty.pending[5]; ok {
++		t.Error("expected pending to be cleared after m=0")
++	}
++	if len(vt.graphics) != 1 {
++		t.Fatalf("expected 1 graphic, got %d", len(vt.graphics))
++	}
++	if vt.graphics[0].kittyID != 5 {
++		t.Errorf("kittyID: got %d, want 5", vt.graphics[0].kittyID)
++	}
++	if vt.graphics[0].img.Bounds().Dx() != 2 || vt.graphics[0].img.Bounds().Dy() != 2 {
++		t.Errorf("image size: got %dx%d, want 2x2",
++			vt.graphics[0].img.Bounds().Dx(), vt.graphics[0].img.Bounds().Dy())
++	}
++}
++
++func TestKittyTransmitAndPlace(t *testing.T) {
++	// Create a small PNG
++	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
++	for y := 0; y < 2; y++ {
++		for x := 0; x < 2; x++ {
++			img.Set(x, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
++		}
++	}
++	var buf bytes.Buffer
++	if err := png.Encode(&buf, img); err != nil {
++		t.Fatal(err)
++	}
++	b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
++
++	vt := New()
++
++	// Transmit only (a=t) — should not display
++	vt.handleKittyGraphics("Gf=100,a=t,i=10;" + b64)
++
++	if len(vt.graphics) != 0 {
++		t.Errorf("a=t should not add to graphics, got %d", len(vt.graphics))
++	}
++	if _, ok := vt.kitty.transmitted[10]; !ok {
++		t.Fatal("expected image to be in transmitted cache")
++	}
++
++	// Place (a=p) — should display
++	vt.handleKittyGraphics("Ga=p,i=10")
++
++	if len(vt.graphics) != 1 {
++		t.Fatalf("a=p should add to graphics, got %d", len(vt.graphics))
++	}
++	if vt.graphics[0].kittyID != 10 {
++		t.Errorf("kittyID: got %d, want 10", vt.graphics[0].kittyID)
++	}
++}
++
++func TestKittyDeleteAll(t *testing.T) {
++	vt := New()
++
++	// Add some images
++	vt.graphics = append(vt.graphics, &Image{kittyID: 1})
++	vt.graphics = append(vt.graphics, &Image{kittyID: 2})
++	vt.kitty.transmitted[1] = image.NewRGBA(image.Rect(0, 0, 1, 1))
++
++	// Delete all
++	vt.handleKittyGraphics("Ga=d,d=a")
++
++	if len(vt.graphics) != 0 {
++		t.Errorf("expected 0 graphics after delete all, got %d", len(vt.graphics))
++	}
++	if len(vt.kitty.transmitted) != 0 {
++		t.Errorf("expected 0 transmitted after delete all, got %d", len(vt.kitty.transmitted))
++	}
++}
++
++func TestKittyDeleteByID(t *testing.T) {
++	vt := New()
++
++	// Add images with different IDs
++	vt.graphics = append(vt.graphics, &Image{kittyID: 1})
++	vt.graphics = append(vt.graphics, &Image{kittyID: 2})
++	vt.graphics = append(vt.graphics, &Image{kittyID: 1})
++	vt.kitty.transmitted[1] = image.NewRGBA(image.Rect(0, 0, 1, 1))
++	vt.kitty.transmitted[2] = image.NewRGBA(image.Rect(0, 0, 1, 1))
++
++	// Delete by ID 1
++	vt.handleKittyGraphics("Ga=d,d=i,i=1")
++
++	if len(vt.graphics) != 1 {
++		t.Errorf("expected 1 graphic after delete by id, got %d", len(vt.graphics))
++	}
++	if vt.graphics[0].kittyID != 2 {
++		t.Errorf("remaining graphic should have id 2, got %d", vt.graphics[0].kittyID)
++	}
++	if _, ok := vt.kitty.transmitted[1]; ok {
++		t.Error("expected id 1 removed from transmitted")
++	}
++	if _, ok := vt.kitty.transmitted[2]; !ok {
++		t.Error("expected id 2 still in transmitted")
++	}
++}
++
++func TestKittySingleChunkTransmitDisplay(t *testing.T) {
++	// Create a small PNG
++	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
++	for y := 0; y < 3; y++ {
++		for x := 0; x < 3; x++ {
++			img.Set(x, y, color.RGBA{R: 100, G: 200, B: 50, A: 255})
++		}
++	}
++	var buf bytes.Buffer
++	if err := png.Encode(&buf, img); err != nil {
++		t.Fatal(err)
++	}
++	b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
++
++	vt := New()
++
++	// a=T single chunk — should transmit and display
++	vt.handleKittyGraphics("Gf=100,a=T,i=7;" + b64)
++
++	if len(vt.graphics) != 1 {
++		t.Fatalf("expected 1 graphic, got %d", len(vt.graphics))
++	}
++	if vt.graphics[0].kittyID != 7 {
++		t.Errorf("kittyID: got %d, want 7", vt.graphics[0].kittyID)
++	}
++	// Should also be in transmitted cache
++	if _, ok := vt.kitty.transmitted[7]; !ok {
++		t.Error("expected image in transmitted cache")
++	}
++}
+diff --git a/widgets/term/term.go b/widgets/term/term.go
+index 2de6435..85ebe73 100644
+--- a/widgets/term/term.go
++++ b/widgets/term/term.go
+@@ -3,6 +3,7 @@ package term
+ import (
+ 	"bytes"
+ 	"fmt"
++	"image"
+ 	"os"
+ 	"os/exec"
+ 	"runtime/debug"
+@@ -65,6 +66,7 @@ type Model struct {
+ 	events       chan vaxis.Event
+ 	focused      int32
+ 	graphics     []*Image
++	kitty        kittyState
+ 	timer        *time.Timer
+ }
+ 
+@@ -123,6 +125,7 @@ func New() *Model {
+ 		// Buffering to 2 events. If there is ever a case where one
+ 		// sequence can trigger two events, this should be increased
+ 		events: make(chan vaxis.Event, 2),
++		kitty:  newKittyState(),
+ 		timer:  time.NewTimer(0),
+ 	}
+ 	m.setDefaultTabStops()
+@@ -300,7 +303,11 @@ func (vt *Model) update(seq ansi.Sequence) {
+ 			vt.graphics = append(vt.graphics, img)
+ 		}
+ 	case ansi.APC:
+-		vt.postEvent(EventAPC{Payload: seq.Data})
++		if len(seq.Data) > 0 && seq.Data[0] == 'G' {
++			vt.handleKittyGraphics(seq.Data)
++		} else {
++			vt.postEvent(EventAPC{Payload: seq.Data})
++		}
+ 	}
+ }
+ 
+@@ -504,6 +511,21 @@ func (vt *Model) print(seq ansi.Print) {
+ 	}
+ }
+ 
++// clearGraphics destroys all vaxis images and resets the graphics list.
++// Called when the screen is erased (e.g. ED 2) so that stale image
++// placements are removed before the client re-transmits current images.
++// Also clears kitty state maps to avoid leaking pending/transmitted images.
++func (vt *Model) clearGraphics() {
++	for _, img := range vt.graphics {
++		for _, vi := range img.vaxii {
++			vi.vxImage.Destroy()
++		}
++	}
++	vt.graphics = nil
++	vt.kitty.pending = make(map[uint32]*kittyChunk)
++	vt.kitty.transmitted = make(map[uint32]image.Image)
++}
++
+ // scrollUp shifts all text upward by n rows. Semantically, this is backwards -
+ // usually scroll up would mean you shift rows down
+ func (vt *Model) scrollUp(n int) {

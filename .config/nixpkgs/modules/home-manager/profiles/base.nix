@@ -9,6 +9,12 @@
     "${config.home.homeDirectory}/.ssh/id_ed25519"
   ];
 
+  # Force kitty graphics protocol without negotiation (tmux intercepts detection).
+  # Used by aerc's Vaxis TUI library for rendering image/* attachments.
+  home.sessionVariables = {
+    VAXIS_GRAPHICS = "kitty";
+  };
+
   home.packages = with pkgs; [
     # Nix package manager - ensures standalone home-manager configs
     # don't depend on channel-installed nix
