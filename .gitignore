@@ -20,6 +20,7 @@
 !/bin/oauth2-gmail
 !/lib
 /lib/python/__pycache__/*
+/lib/python/arista_report/
 !/.config
 /.config/*
 !/.config/profile

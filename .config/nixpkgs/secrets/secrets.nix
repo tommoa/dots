@@ -48,6 +48,19 @@ in {
   "mail/tommoa-password.age".publicKeys = all;
   "mail/aerc-keyring.age".publicKeys = all;
 
+  # Arista status report pipeline
+  "arista-report/arista-report.age".publicKeys = workSecrets;
+  "arista-report/arista-report-passrates.age".publicKeys = workSecrets;
+  "arista-report/arista-report-bugs.age".publicKeys = workSecrets;
+  "arista-report/arista-report-bugdetail.age".publicKeys = workSecrets;
+  "arista-report/arista-report-merged.age".publicKeys = workSecrets;
+  "arista-report/arista-report-reviews.age".publicKeys = workSecrets;
+  "arista-report/arista-report-arastra.age".publicKeys = workSecrets;
+  "arista-report/arista-report-merge.age".publicKeys = workSecrets;
+  "arista-report/arista-report-format.age".publicKeys = workSecrets;
+  "arista-report/arista-report-lib.age".publicKeys = workSecrets;
+  "arista-report/arista-status-report-skill.age".publicKeys = workSecrets;
+
   # Search engine API keys
   "search-engines/google-api-key.age".publicKeys = all;
   "search-engines/google-engine-id.age".publicKeys = all;
