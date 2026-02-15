@@ -39,6 +39,13 @@
             ];
           };
         };
+        agent = {
+          orchestrator = {
+            description = "Orchestrates parallel subagents for multi-step remote data gathering";
+            mode = "subagent";
+            permission.task = "allow";
+          };
+        };
         formatter =
           {
             alejandra = {
