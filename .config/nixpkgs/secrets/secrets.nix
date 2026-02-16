@@ -15,18 +15,19 @@ let
   # james = "ssh-ed25519 AAAA...";
 
   # All users who can edit secrets
-  users = [toma];
+  users = [ toma ];
 
   # All systems that need access to secrets
   # Add james here once you have the host key
-  allSystems = [apollo];
+  allSystems = [ apollo ];
 
   # Combined: users (for editing) + systems (for runtime decryption)
   all = users ++ allSystems;
 
   # Work-specific secrets (user + work host only)
-  workSecrets = users ++ [work];
-in {
+  workSecrets = users ++ [ work ];
+in
+{
   # AI API keys
   "ai/anthropic.age".publicKeys = all;
   "ai/gemini.age".publicKeys = all;
@@ -56,7 +57,7 @@ in {
   "arista-report/arista-report-merged.age".publicKeys = workSecrets;
   "arista-report/arista-report-reviews.age".publicKeys = workSecrets;
   "arista-report/arista-report-arastra.age".publicKeys = workSecrets;
-  "arista-report/arista-report-merge.age".publicKeys = workSecrets;
+
   "arista-report/arista-report-format.age".publicKeys = workSecrets;
   "arista-report/arista-report-lib.age".publicKeys = workSecrets;
   "arista-report/arista-status-report-skill.age".publicKeys = workSecrets;

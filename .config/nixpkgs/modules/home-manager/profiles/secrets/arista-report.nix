@@ -1,4 +1,5 @@
-{config, ...}: {
+{ config, ... }:
+{
   # Arista status report pipeline scripts and skill
   # Scripts deployed to ~/bin/arista-report-*, shared lib to ~/lib/python/arista_report/
   age.secrets = {
@@ -37,11 +38,7 @@
       path = "${config.home.homeDirectory}/bin/arista-report-arastra";
       mode = "0700";
     };
-    arista-report-merge = {
-      file = "${config.my.secretsPath}/arista-report/arista-report-merge.age";
-      path = "${config.home.homeDirectory}/bin/arista-report-merge";
-      mode = "0700";
-    };
+
     arista-report-format = {
       file = "${config.my.secretsPath}/arista-report/arista-report-format.age";
       path = "${config.home.homeDirectory}/bin/arista-report-format";
