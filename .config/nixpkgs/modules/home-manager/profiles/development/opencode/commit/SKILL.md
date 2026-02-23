@@ -78,6 +78,8 @@ The commit body should explain the **why** and **context**, not just the what.
 7. **Optional sections:** Can include "Future improvements" or related notes
 8. **Wrap at 72 characters:** Keep body lines at or below 72 characters for
    proper display in git tools
+9. **Use markdown:** Consider that most commit messages will be viewed
+   in a markdown-rendering client.
 
 **Example body:**
 
