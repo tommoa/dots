@@ -65,6 +65,28 @@
             uv.disabled = true;
           };
       };
+      commands = {
+        rethink = ''
+          ---
+          description: Make sure that the agent rethinks its decisions for design
+          ---
+          Please carefully consider the following questions, then provide a thorough
+          response for each of them to the user.
+
+          - Is it the right way to solve this issue?
+          - Will it be the most maintainable option?
+          - Is this actually a bug in a different system that we should be fixing?
+          - Is this the right interface to use?
+          - What is the simplest interface that will cover all my current needs?
+          - In how many situations will this method be used?
+          - Is this API easy to use for my current needs?
+          - Does any information get used in multiple places?
+          - Will users be able to determine a better value than can be determined
+            here? (for configuration)
+          - Is there any code that needs to be written more than once?
+          - Can you hide any special cases?
+        '';
+      };
     };
 
     # TODO: Replace with programs.opencode.skills.commit when on home-manager >= 26.05
