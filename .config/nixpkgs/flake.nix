@@ -41,7 +41,7 @@
     home-manager,
     ...
   }: let
-    zen-browser-module = inputs.zen-browser.homeModules.twilight-official;
+    zen-browser-module = inputs.zen-browser.homeModules.beta;
 
     # Path to agenix secrets (relative to flake)
     secretsPath = ./secrets;
