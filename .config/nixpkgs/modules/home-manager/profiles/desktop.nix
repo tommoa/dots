@@ -2,8 +2,10 @@
   pkgs,
   lib,
   ...
-}: {
-  home.packages = with pkgs;
+}:
+{
+  home.packages =
+    with pkgs;
     [
       # Desktop applications
       bitwarden-desktop
@@ -12,31 +14,27 @@
       # Messaging
       caprine
       discord
-      (
-        if pkgs.stdenv.isLinux
-        then wasistlos
-        else whatsapp-for-mac
-      )
+      (if pkgs.stdenv.isLinux then wasistlos else whatsapp-for-mac)
     ]
     ++ (
-      if pkgs.stdenv.isLinux
-      then [
-        blueberry
-        swaybg
-        grim
-        pavucontrol
-        playerctl
-        wl-clipboard
-      ]
-      else []
+      if pkgs.stdenv.isLinux then
+        [
+          blueberry
+          brightnessctl
+          grim
+          hyprsunset
+          pavucontrol
+          playerctl
+          swaybg
+          wl-clipboard
+        ]
+      else
+        [ ]
     );
 
   programs.ghostty = {
     enable = true;
-    package =
-      if pkgs.stdenv.isLinux
-      then pkgs.ghostty
-      else pkgs.ghostty-bin;
+    package = if pkgs.stdenv.isLinux then pkgs.ghostty else pkgs.ghostty-bin;
     systemd.enable = pkgs.stdenv.isLinux;
     settings = {
       # Set the theme to what I like (One Dark).
@@ -59,22 +57,24 @@
 
   programs.zen-browser = {
     enable = true;
-    policies = let
-      mkExtensionSettings = builtins.mapAttrs (
-        _: pluginId: {
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/${pluginId}/latest.xpi";
-          installation_mode = "force_installed";
-        }
-      );
-    in {
-      Extensions = mkExtensionSettings {
-        "uBlock0@raymondhill.net" = "ublock-origin";
-        "{446900e4-71c2-419f-a6a7-df9c091e268b}" = "bitwarden-password-manager";
-        "@testpilot-containers" = "multi-account-containers";
-        "@contain-facebook" = "facebook-container";
-        "{04188724-64d3-497b-a4fd-7caffe6eab29}" = "rust-search-extension";
+    policies =
+      let
+        mkExtensionSettings = builtins.mapAttrs (
+          _: pluginId: {
+            install_url = "https://addons.mozilla.org/firefox/downloads/latest/${pluginId}/latest.xpi";
+            installation_mode = "force_installed";
+          }
+        );
+      in
+      {
+        Extensions = mkExtensionSettings {
+          "uBlock0@raymondhill.net" = "ublock-origin";
+          "{446900e4-71c2-419f-a6a7-df9c091e268b}" = "bitwarden-password-manager";
+          "@testpilot-containers" = "multi-account-containers";
+          "@contain-facebook" = "facebook-container";
+          "{04188724-64d3-497b-a4fd-7caffe6eab29}" = "rust-search-extension";
+        };
       };
-    };
     nativeMessagingHosts = [
       pkgs.bitwarden-desktop
       (lib.mkIf pkgs.stdenv.isLinux pkgs.firefoxpwa)
@@ -130,10 +130,19 @@
   services.swayosd = {
     enable = pkgs.stdenv.isLinux;
   };
-  services.wlsunset = {
+  services.hyprsunset = {
     enable = pkgs.stdenv.isLinux;
-    temperature.night = 3500;
-    latitude = -33.9;
-    longitude = 151.2;
+    settings = {
+      profile = [
+        {
+          time = "06:00";
+          temperature = 6500;
+        }
+        {
+          time = "19:00";
+          temperature = 4500;
+        }
+      ];
+    };
   };
 }

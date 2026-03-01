@@ -32,6 +32,7 @@
 /.config/fontconfig/conf.d/
 !/.config/git/
 !/.config/hypr/
+/.config/hypr/hyprsunset.conf
 !/.config/imv/
 !/.config/kitty
 !/.config/mako
@@ -40,6 +41,8 @@
 /.config/mpv/*
 !/.config/mpv/mpv.conf
 !/.config/nixpkgs/
+/.config/nixpkgs/result
+**/.opencode
 !/.config/notmuch/
 /.config/notmuch/*
 !/.config/notmuch/hooks
