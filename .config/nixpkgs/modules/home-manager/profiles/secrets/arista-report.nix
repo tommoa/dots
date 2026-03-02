@@ -1,5 +1,4 @@
-{ config, ... }:
-{
+{config, ...}: {
   # Arista status report pipeline scripts and skill
   # Scripts deployed to ~/bin/arista-report-*, shared lib to ~/lib/python/arista_report/
   age.secrets = {
