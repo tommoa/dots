@@ -14,7 +14,16 @@ inputs: self: super:
 
   mdiff = super.callPackage ../packages/mdiff {};
 
-  opencode = inputs.opencode.packages.${super.stdenv.hostPlatform.system}.default;
+  opencode =
+    inputs.opencode.packages.${super.stdenv.hostPlatform.system}.default.overrideAttrs
+    (old: {
+      preBuild =
+        (old.preBuild or "")
+        + ''
+          mkdir -p .github
+          cp ${inputs.opencode}/.github/TEAM_MEMBERS .github/TEAM_MEMBERS
+        '';
+    });
 }
 // (import ./yabai.nix self super)
 // (import ./whatsapp.nix self super)
