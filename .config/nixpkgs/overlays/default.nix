@@ -12,6 +12,8 @@ inputs: self: super:
       ;
   };
 
+  mdiff = super.callPackage ../packages/mdiff {};
+
   opencode = inputs.opencode.packages.${super.stdenv.hostPlatform.system}.default;
 }
 // (import ./yabai.nix self super)

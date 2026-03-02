@@ -16,6 +16,7 @@
     home.packages = with pkgs;
       [
         google-cloud-sdk # This is required for using Vertex AI.
+        mdiff # TUI git diff viewer with agent integration
         # ollama is broken on darwin with 25.11
         # https://github.com/NixOS/nixpkgs/issues/463131
       ]
@@ -91,5 +92,10 @@
 
     # TODO: Replace with programs.opencode.skills.commit when on home-manager >= 26.05
     xdg.configFile."opencode/skill/commit/SKILL.md".source = ./opencode/commit/SKILL.md;
+
+    # mdiff configuration
+    xdg.configFile."mdiff/config.toml".text = ''
+      theme = "one-dark"
+    '';
   };
 }
