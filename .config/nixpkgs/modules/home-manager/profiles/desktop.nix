@@ -3,6 +3,8 @@
   lib,
   ...
 }: {
+  my.opencode.desktop.enable = true;
+
   home.packages = with pkgs;
     [
       # Desktop applications

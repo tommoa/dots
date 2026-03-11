@@ -4,10 +4,18 @@
   config,
   ...
 }: {
-  options.my.opencode.disablePythonFormatters = lib.mkOption {
-    type = lib.types.bool;
-    default = false;
-    description = "Whether to disable Python formatters (ruff, uv) in opencode";
+  options.my.opencode = {
+    disablePythonFormatters = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Whether to disable Python formatters (ruff, uv) in opencode";
+    };
+
+    desktop.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Install the opencode desktop app alongside the CLI/TUI";
+    };
   };
 
   config = {
@@ -20,11 +28,8 @@
         # ollama is broken on darwin with 25.11
         # https://github.com/NixOS/nixpkgs/issues/463131
       ]
-      ++ (
-        if pkgs.stdenv.isLinux
-        then [ollama]
-        else []
-      );
+      ++ lib.optionals pkgs.stdenv.isLinux [ollama]
+      ++ lib.optionals config.my.opencode.desktop.enable [opencode-desktop];
 
     programs.opencode = {
       enable = true;
