@@ -54,6 +54,5 @@ inputs: self: super:
   };
 }
 // (import ./yabai.nix self super)
-// (import ./whatsapp.nix self super)
 // (import ./w3m.nix self super)
 // (import ./aerc.nix self super)

@@ -14,11 +14,6 @@
       # Messaging
       caprine
       discord
-      (
-        if pkgs.stdenv.isLinux
-        then wasistlos
-        else whatsapp-for-mac
-      )
     ]
     ++ (
       if pkgs.stdenv.isLinux
