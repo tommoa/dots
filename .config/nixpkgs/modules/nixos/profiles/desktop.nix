@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   # Make sure that GDM is running.
   services.displayManager.gdm.enable = true;
 
@@ -59,33 +58,31 @@
     };
     serviceConfig = {
       Type = "oneshot";
-      ExecStart =
-        let
-          stopScript = pkgs.writeShellScript "shutdown-steam" ''
-            # Check if the main Steam process is running
-            if ${pkgs.procps}/bin/pgrep -x steam > /dev/null 2>&1; then
-              echo "Stopping Steam gracefully..."
-              # Send TERM signal to Steam processes (exact match to avoid killing this script)
-              ${pkgs.procps}/bin/pkill -TERM -x steam || true
+      ExecStart = let
+        stopScript = pkgs.writeShellScript "shutdown-steam" ''
+          # Check if the main Steam process is running
+          if ${pkgs.procps}/bin/pgrep -x steam > /dev/null 2>&1; then
+            echo "Stopping Steam gracefully..."
+            # Send TERM signal to Steam processes (exact match to avoid killing this script)
+            ${pkgs.procps}/bin/pkill -TERM -x steam || true
 
-              # Wait up to 15 seconds for Steam to exit
-              for i in $(seq 1 15); do
-                if ! ${pkgs.procps}/bin/pgrep -x steam > /dev/null 2>&1; then
-                  echo "Steam stopped gracefully"
-                  exit 0
-                fi
-                sleep 1
-              done
-
-              # Force kill if still running
-              echo "Force killing remaining Steam processes..."
-              ${pkgs.procps}/bin/pkill -9 -x steam || true
+            # Wait up to 15 seconds for Steam to exit
+            for i in $(seq 1 15); do
+              if ! ${pkgs.procps}/bin/pgrep -x steam > /dev/null 2>&1; then
+                echo "Steam stopped gracefully"
+                exit 0
+              fi
               sleep 1
-            fi
-            echo "Steam shutdown complete"
-          '';
-        in
-        "${stopScript}";
+            done
+
+            # Force kill if still running
+            echo "Force killing remaining Steam processes..."
+            ${pkgs.procps}/bin/pkill -9 -x steam || true
+            sleep 1
+          fi
+          echo "Steam shutdown complete"
+        '';
+      in "${stopScript}";
       TimeoutStartSec = 25;
     };
   };
