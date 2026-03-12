@@ -6,7 +6,7 @@
 set -e
 
 # Nix command flags for experimental features
-NIX_FLAGS="--extra-experimental-features nix-command --extra-experimental-features flakes"
+NIX_FLAGS="--extra-experimental-features nix-command --extra-experimental-features flakes $NIX_FLAGS"
 
 # Colors for output
 blue=$'\033[38;5;4m'
@@ -19,6 +19,10 @@ reset=$'\033[m'
 
 # Inputs excluded from updates by default (space-separated)
 DEFAULT_EXCLUDED_INPUTS="opencode"
+
+# Pseudo-inputs: not real flake inputs but refreshable resources with the same
+# --<name>/--no-<name> flag UX. Skipped during flake input validation.
+PSEUDO_INPUTS="litellm"
 
 # Function to print colored output
 print_info() {
@@ -256,12 +260,39 @@ update_flake() {
         fi
     done
 
+    # Append pseudo-input status to the skip/update lists for display
+    local pseudo_skip=""
+    local pseudo_update=""
+    for pseudo in $PSEUDO_INPUTS; do
+        if list_contains "$EXCLUDED_INPUTS" "$pseudo"; then
+            pseudo_skip=$(list_add "$pseudo_skip" "$pseudo")
+        else
+            pseudo_update=$(list_add "$pseudo_update" "$pseudo")
+        fi
+    done
+
     # Print what we're doing
-    if [ -n "$to_skip" ]; then
-        print_info "Skipping: ${cyan}${to_skip}${reset}"
+    local skip_display="$to_skip"
+    if [ -n "$pseudo_skip" ]; then
+        if [ -n "$skip_display" ]; then
+            skip_display="$skip_display $pseudo_skip"
+        else
+            skip_display="$pseudo_skip"
+        fi
     fi
-    if [ -n "$to_update" ]; then
-        print_info "Updating: ${cyan}${to_update}${reset}"
+    local update_display="$to_update"
+    if [ -n "$pseudo_update" ]; then
+        if [ -n "$update_display" ]; then
+            update_display="$update_display $pseudo_update"
+        else
+            update_display="$pseudo_update"
+        fi
+    fi
+    if [ -n "$skip_display" ]; then
+        print_info "Skipping: ${cyan}${skip_display}${reset}"
+    fi
+    if [ -n "$update_display" ]; then
+        print_info "Updating: ${cyan}${update_display}${reset}"
     fi
 
     # Run the update if there are inputs to update
@@ -463,6 +494,12 @@ main() {
                     new_exclusions=$(list_add "$new_exclusions" "$input")
                 fi
             done
+            # Preserve pseudo-input exclusions (they aren't in $all_inputs)
+            for pseudo in $PSEUDO_INPUTS; do
+                if list_contains "$EXCLUDED_INPUTS" "$pseudo"; then
+                    new_exclusions=$(list_add "$new_exclusions" "$pseudo")
+                fi
+            done
             EXCLUDED_INPUTS="$new_exclusions"
             print_info "Both mode: updating union of required inputs"
         fi
@@ -515,6 +552,21 @@ main() {
             exit 1
             ;;
     esac
+
+    # Pseudo-inputs: refresh non-flake resources after rebuild
+    if ! list_contains "$EXCLUDED_INPUTS" "litellm"; then
+        local litellm_key="$HOME/.config/ai-keys/litellm"
+        if [ -f "$litellm_key" ]; then
+            print_info "Refreshing LiteLLM models..."
+            if "${HOME}/.config/nixpkgs/update-litellm-models" "$litellm_key"; then
+                print_success "LiteLLM models updated"
+            else
+                print_warning "Failed to refresh LiteLLM models (network issue?)"
+            fi
+        else
+            print_warning "LiteLLM API key not found, skipping model refresh"
+        fi
+    fi
 }
 
 # Parse input inclusion/exclusion flags
@@ -581,8 +633,11 @@ parse_input_flags() {
 
     # Second pass: build final exclusion list
     if [ "$USE_NONE" = "true" ]; then
-        # Start with all inputs excluded, only update explicit includes
+        # Start with all inputs excluded (flake + pseudo), only update explicit includes
         EXCLUDED_INPUTS=$(get_flake_inputs | tr '\n' ' ')
+        for pseudo in $PSEUDO_INPUTS; do
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "$pseudo")
+        done
         # Add explicit excludes (redundant but consistent)
         for input in $EXPLICIT_EXCLUDES; do
             EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "$input")
@@ -614,6 +669,10 @@ validate_explicit_inputs() {
     local mentioned="$2"
 
     for input in $mentioned; do
+        # Skip pseudo-inputs (not in flake.lock but handled separately)
+        if list_contains "$PSEUDO_INPUTS" "$input"; then
+            continue
+        fi
         if ! list_contains "$flake_inputs" "$input"; then
             print_error "Unknown input: '$input'"
             # Convert newlines to spaces for display
@@ -630,7 +689,10 @@ validate_default_exclusions() {
     local validated_exclusions=""
 
     for input in $EXCLUDED_INPUTS; do
-        if list_contains "$flake_inputs" "$input"; then
+        # Keep pseudo-inputs in the exclusion list (they're handled separately)
+        if list_contains "$PSEUDO_INPUTS" "$input"; then
+            validated_exclusions=$(list_add "$validated_exclusions" "$input")
+        elif list_contains "$flake_inputs" "$input"; then
             validated_exclusions=$(list_add "$validated_exclusions" "$input")
         elif list_contains "$DEFAULT_EXCLUDED_INPUTS" "$input" && ! list_contains "$EXPLICIT_EXCLUDES" "$input"; then
             # Only warn for default exclusions, not explicit ones (those error in validate_explicit_inputs)
@@ -661,6 +723,9 @@ INPUT OPTIONS:
 
 By default, these inputs are excluded: ${DEFAULT_EXCLUDED_INPUTS}
 
+Pseudo-inputs (not flake inputs but refreshable with the same flags):
+  litellm         Fetch LiteLLM model metadata (requires API key at ~/.config/ai-keys/litellm)
+
 Additionally, inputs are intelligently filtered based on configuration:
   - Linux configs exclude: nixpkgs-darwin, nix-darwin
   - Server configs exclude: zen-browser
@@ -680,11 +745,13 @@ Examples:
   $0 home toma@server       # Update specific home config
   $0 system apollo          # Update specific system config
   $0 --opencode             # Include opencode (overrides default exclusion)
+  $0 --litellm              # Include LiteLLM model refresh
   $0 --all                  # Update all inputs
   $0 --all --no-opencode    # Update all inputs except opencode
   $0 --no-zen-browser       # Exclude zen-browser in addition to defaults
   $0 --none                 # Skip all flake updates (just rebuild)
   $0 --none --nixpkgs       # Only update nixpkgs
+  $0 --none --litellm       # Skip flake updates, only refresh LiteLLM models
 
 EOF
 }

@@ -195,6 +195,7 @@
           "desktop"
           "development"
           "secrets/ai"
+          "secrets/ai-work"
           "secrets/arista-report"
           "secrets/deploy-keys"
           "ssh"
@@ -233,6 +234,7 @@
           "development/nix"
           "development/python"
           "secrets/ai-vertex"
+          "secrets/ai-work"
           "ssh"
         ];
         extraModules = [
@@ -265,6 +267,7 @@
         "development"
         "mail"
         "secrets/ai"
+        "secrets/ai-work"
         "secrets/arista-report"
         "secrets/deploy-keys"
         "ssh"

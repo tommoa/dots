@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""
+Fetches available models from the LiteLLM proxy and writes enriched metadata
+to ~/.config/opencode/opencode.json for runtime deep-merge with the Nix-managed
+config.json.
+
+Usage: ./update-litellm-models [API_KEY_PATH]
+"""
+
+import json
+import os
+import re
+import sys
+import urllib.request
+import urllib.error
+
+OUTPUT = os.path.join(
+    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+    "opencode",
+    "opencode.json",
+)
+BASE_URL = "https://ai-proxy.infra.corp.arista.io"
+
+# LiteLLM costs are per-token; opencode costs are per million tokens.
+COST_MULTIPLIER = 1_000_000
+
+# Month abbreviations for date-suffix formatting (YYYYMMDD → "Mon DD")
+_MONTHS = [
+    "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
+# Brand capitalisations / stylisations
+_BRAND_MAP = {
+    "claude": "Claude",
+    "gemini": "Gemini",
+    "gpt": "GPT",
+}
+
+# Sub-model tier capitalisations
+_TIER_WORDS = {
+    "opus": "Opus",
+    "sonnet": "Sonnet",
+    "haiku": "Haiku",
+    "pro": "Pro",
+    "flash": "Flash",
+    "ultra": "Ultra",
+    "nano": "Nano",
+    "codex": "Codex",
+    "mini": "Mini",
+    "preview": "Preview",
+}
+
+
+def friendly_name(model_id):
+    """Derive a user-friendly display name from a model ID string.
+
+    Examples:
+        claude-opus-4-6           → Claude Opus 4.6
+        claude-sonnet-4-5-20250929→ Claude Sonnet 4.5 (Sep 29)
+        gemini-2.5-pro            → Gemini 2.5 Pro
+        gemini-3-flash-preview    → Gemini 3 Flash Preview
+        gpt-5.2-codex             → GPT 5.2 Codex
+    """
+    # Strip a trailing date suffix (YYYYMMDD) and remember it
+    date_suffix = ""
+    m = re.match(r"^(.+?)-(\d{4})(\d{2})(\d{2})$", model_id)
+    if m:
+        month_num = int(m.group(3))
+        day = int(m.group(4))
+        if 1 <= month_num <= 12:
+            model_id = m.group(1)
+            date_suffix = f" ({_MONTHS[month_num]} {day})"
+
+    parts = model_id.split("-")
+    result = []
+    i = 0
+
+    # Leading brand word
+    if parts and parts[0].lower() in _BRAND_MAP:
+        result.append(_BRAND_MAP[parts[0].lower()])
+        i = 1
+
+    while i < len(parts):
+        word = parts[i]
+        lower = word.lower()
+
+        # Known tier word
+        if lower in _TIER_WORDS:
+            result.append(_TIER_WORDS[lower])
+            i += 1
+            continue
+
+        # Version-like token: a bare number that may combine with the next
+        # part to form "X.Y" (e.g., "4" + "5" → "4.5" for claude-opus-4-5,
+        # but only when both are short numeric tokens and the next token is
+        # NOT a date or tier word).
+        if re.match(r"^\d+(\.\d+)?$", word):
+            version = word
+            # Peek ahead: merge the next token as a minor version if it is a
+            # short bare number (≤2 digits) and not a tier word.
+            if (
+                i + 1 < len(parts)
+                and re.match(r"^\d{1,2}$", parts[i + 1])
+                and parts[i + 1].lower() not in _TIER_WORDS
+            ):
+                version = f"{version}.{parts[i + 1]}"
+                i += 1
+            result.append(version)
+            i += 1
+            continue
+
+        # Fallback: title-case
+        result.append(word.capitalize())
+        i += 1
+
+    name = " ".join(result) + date_suffix
+    return name
+
+
+def fetch_json(url, api_key):
+    """Fetch JSON from a URL with Bearer auth."""
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode())
+
+
+def build_opencode_model(model_id, model_info):
+    """Transform a LiteLLM model_info dict into an opencode model config."""
+    model = {"name": friendly_name(model_id)}
+
+    # Token limits
+    limit = {}
+    context = model_info.get("max_input_tokens") or model_info.get("max_tokens")
+    if context is not None:
+        limit["context"] = context
+    output = model_info.get("max_output_tokens")
+    if output is not None:
+        limit["output"] = output
+    if limit:
+        model["limit"] = limit
+
+    # Cost (convert per-token to per-million-tokens, round to avoid float noise)
+    cost = {}
+    input_cost = model_info.get("input_cost_per_token")
+    if input_cost is not None:
+        cost["input"] = round(input_cost * COST_MULTIPLIER, 4)
+    output_cost = model_info.get("output_cost_per_token")
+    if output_cost is not None:
+        cost["output"] = round(output_cost * COST_MULTIPLIER, 4)
+    cache_read = model_info.get("cache_read_input_token_cost")
+    if cache_read is not None:
+        cost["cache_read"] = round(cache_read * COST_MULTIPLIER, 4)
+    cache_write = model_info.get("cache_creation_input_token_cost")
+    if cache_write is not None:
+        cost["cache_write"] = round(cache_write * COST_MULTIPLIER, 4)
+    if cost:
+        model["cost"] = cost
+
+    # Capabilities
+    if model_info.get("supports_function_calling"):
+        model["tool_call"] = True
+    if model_info.get("supports_reasoning"):
+        model["reasoning"] = True
+    if model_info.get("supports_vision") or model_info.get("supports_pdf_input"):
+        model["attachment"] = True
+    if "temperature" in (model_info.get("supported_openai_params") or []):
+        model["temperature"] = True
+
+    # Modalities
+    input_mods = ["text"]
+    if model_info.get("supports_vision"):
+        input_mods.append("image")
+    if model_info.get("supports_pdf_input"):
+        input_mods.append("pdf")
+    if model_info.get("supports_audio_input"):
+        input_mods.append("audio")
+    output_mods = ["text"]
+    if model_info.get("supports_audio_output"):
+        output_mods.append("audio")
+    if len(input_mods) > 1 or len(output_mods) > 1:
+        model["modalities"] = {"input": input_mods, "output": output_mods}
+
+    return model
+
+
+def main():
+    key_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
+        "~/.config/ai-keys/litellm"
+    )
+
+    if not os.path.isfile(key_path):
+        print(f"Error: API key not found at {key_path}", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} [API_KEY_PATH]", file=sys.stderr)
+        sys.exit(1)
+
+    with open(key_path) as f:
+        api_key = f.read().strip()
+
+    models = {}
+
+    # Fetch rich metadata from /model/info
+    print(f"Fetching model info from {BASE_URL}/model/info...")
+    try:
+        info_data = fetch_json(f"{BASE_URL}/model/info", api_key)
+        for entry in info_data.get("data", []):
+            model_name = entry.get("model_name", "")
+            if not model_name:
+                continue
+            model_info = entry.get("model_info", {})
+
+            # Skip embedding models
+            mode = model_info.get("mode", "")
+            if mode == "embedding" or "embedding" in model_name:
+                continue
+
+            models[model_name] = build_opencode_model(model_name, model_info)
+    except urllib.error.HTTPError as e:
+        print(
+            f"Warning: /model/info returned {e.code}, "
+            f"falling back to /models (no metadata)",
+            file=sys.stderr,
+        )
+        print(f"Fetching models from {BASE_URL}/models...")
+        data = fetch_json(f"{BASE_URL}/models", api_key)
+        for m in data.get("data", []):
+            model_id = m.get("id", "")
+            if not model_id or "embedding" in model_id:
+                continue
+            models[model_id] = {}
+
+    # Wrap in opencode provider config structure for deep-merge with config.json.
+    # WARNING: This file is entirely overwritten on each run; do not manually edit.
+    config = {
+        "$schema": "auto-generated by update-litellm-models — do not edit",
+        "provider": {"litellm": {"models": models}},
+    }
+
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    with open(OUTPUT, "w") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+
+    print(f"Updated {OUTPUT} with {len(models)} chat models")
+
+    # Summary of metadata coverage
+    has_limits = sum(1 for m in models.values() if "limit" in m)
+    has_cost = sum(1 for m in models.values() if "cost" in m)
+    has_tools = sum(1 for m in models.values() if m.get("tool_call"))
+    print(
+        f"  {has_limits} with token limits, "
+        f"{has_cost} with cost info, "
+        f"{has_tools} with tool_call support"
+    )
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)

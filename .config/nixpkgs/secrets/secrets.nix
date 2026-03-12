@@ -33,6 +33,7 @@ in {
   "ai/openai.age".publicKeys = all;
   "ai/opencode-zen.age".publicKeys = all;
   "ai/openrouter.age".publicKeys = all;
+  "ai/litellm.age".publicKeys = workSecrets;
   "ai/vertex.age".publicKeys = all ++ workSecrets;
   "ai/vertex-project.age".publicKeys = all ++ workSecrets;
 
