@@ -25,7 +25,7 @@
 - **Hosts**: `hosts/{apollo,james}.nix` for system-specific configs
 - **Profiles**: Reusable modules in `modules/*/profiles/` (base, desktop, development, server)
 - **Common**: Shared modules in `modules/common/` (base, fonts, nix)
-- **Overlays**: Custom packages in `overlays/` directory, compose with `//` operator in `overlays/default.nix`
+- **Overlays**: Standard overlays (`self: super:`) in `overlays/`, compose with `//` operator in `overlays/default.nix`. Flake-input-dependent overlays (`inputs: self: super:`) in `flake-overlays/`
 - **Secrets**: Managed via agenix in `secrets/` directory; decrypted secrets defined in profile modules
 - **Flake outputs**: homeConfigurations, darwinConfigurations, nixosConfigurations
 

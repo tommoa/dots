@@ -82,7 +82,8 @@
           inherit system;
           config.allowUnfree = true;
           overlays = [
-            (import ./overlays inputs)
+            (import ./overlays)
+            (import ./flake-overlays inputs)
           ];
         };
         modules =
@@ -116,7 +117,8 @@
           inputs.agenix.darwinModules.default
           {
             nixpkgs.overlays = [
-              (import ./overlays inputs)
+              (import ./overlays)
+              (import ./flake-overlays inputs)
             ];
           }
           home-manager.darwinModules.home-manager
@@ -159,7 +161,8 @@
           inputs.agenix.nixosModules.default
           {
             nixpkgs.overlays = [
-              (import ./overlays inputs)
+              (import ./overlays)
+              (import ./flake-overlays inputs)
             ];
           }
           home-manager.nixosModules.home-manager
