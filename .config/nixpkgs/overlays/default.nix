@@ -9,6 +9,8 @@ self: super:
       runCommand
       writeShellScriptBin
       symlinkJoin
+      buildNpmPackage
+      nodejs
       ;
   };
 

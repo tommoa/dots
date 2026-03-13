@@ -14,14 +14,16 @@
 #       plugin = "my-plugin";
 #     };
 #   in {
-#     # plugin.derivation - the transformed plugin derivation
-#     # plugin.commands   - { "my-plugin.cmd" = "file content..."; }
-#     # plugin.skills     - { "my-plugin-skill" = /nix/store/.../skill/; }
-#     # plugin.agents     - { "my-plugin.agent" = "file content..."; }
+#     # plugin.derivation  - the transformed plugin derivation
+#     # plugin.commands    - { "my-plugin.cmd" = "file content..."; }
+#     # plugin.skills      - { "my-plugin-skill" = /nix/store/.../skill/; }
+#     # plugin.agents      - { "my-plugin.agent" = "file content..."; }
+#     # plugin.mcpServers  - { "server-name" = { type = "local"; command = [...]; }; }
 #
 # Note: commands and agents return file content (via IFD) for compatibility
 # with home-manager's programs.opencode module. Skills return paths since
-# they are directories that need recursive symlinking.
+# they are directories that need recursive symlinking. MCP servers return
+# attrsets ready for programs.opencode.settings.mcp.
 #   }
 {
   lib,
@@ -29,6 +31,8 @@
   runCommand,
   writeShellScriptBin,
   symlinkJoin,
+  buildNpmPackage,
+  nodejs,
 }: let
   pythonWithDeps = python3.withPackages (ps: [ps.pyyaml]);
   transformScript = ./transform-plugins.py;
@@ -47,11 +51,88 @@
     };
   };
 
-  # Library: transform a single plugin and return { derivation, commands, skills, agents }
+  # Build MCP server dependencies for a plugin using buildNpmPackage.
+  # Returns a derivation containing node_modules/ and servers/.
+  buildMcpServerDeps = {
+    pluginSrcDir,
+    plugin,
+    npmDepsHash,
+  }:
+    buildNpmPackage {
+      pname = "mcp-server-${plugin}";
+      version = "0.0.0";
+      src = pluginSrcDir;
+      inherit npmDepsHash;
+      dontNpmBuild = true;
+      installPhase = ''
+        runHook preInstall
+        mkdir -p $out
+        cp -r node_modules $out/
+        cp -r servers $out/
+        runHook postInstall
+      '';
+    };
+
+  # Parse plugin.json and resolve MCP server entries into OpenCode format.
+  # Returns { "server-name" = { type = "local"; command = [...]; }; }
+  resolveMcpServers = {
+    pluginSrcDir,
+    plugin,
+    npmDepsHash,
+  }: let
+    pluginJsonPath = pluginSrcDir + "/.claude-plugin/plugin.json";
+    hasPluginJson = builtins.pathExists pluginJsonPath;
+    pluginJson =
+      if hasPluginJson
+      then builtins.fromJSON (builtins.readFile pluginJsonPath)
+      else {};
+    rawServers = pluginJson.mcpServers or {};
+    hasServers = rawServers != {};
+
+    builtDeps =
+      if hasServers && npmDepsHash != null
+      then
+        buildMcpServerDeps {
+          inherit pluginSrcDir plugin npmDepsHash;
+        }
+      else null;
+
+    # Resolve ${CLAUDE_PLUGIN_ROOT}/... paths to the built derivation
+    resolveArg = arg:
+      builtins.replaceStrings
+      ["\${CLAUDE_PLUGIN_ROOT}/"]
+      ["${builtDeps}/"]
+      arg;
+
+    # Map well-known commands to their Nix store paths for hermeticity
+    resolveCommand = cmd:
+      if cmd == "node"
+      then "${nodejs}/bin/node"
+      else cmd;
+
+    resolveServer = name: server: {
+      type = "local";
+      command =
+        [(resolveCommand server.command)]
+        ++ map resolveArg (server.args or []);
+      enabled = true;
+    };
+  in
+    if hasServers && npmDepsHash != null
+    then lib.mapAttrs resolveServer rawServers
+    else if hasServers && npmDepsHash == null
+    then
+      lib.warn
+      "Plugin '${plugin}' defines MCP servers but no npmDepsHash was provided; servers will be skipped"
+      {}
+    else {};
+
+  # Library: transform a single plugin and return { derivation, commands, skills, agents, mcpServers }
   transformPlugin = {
     src,
     plugin,
     pluginsSubdir ? "",
+    npmDepsHash ? null,
   }: let
     pluginSrcDir =
       if pluginsSubdir == ""
@@ -114,9 +195,15 @@
           (builtins.readFile (agentsDir + "/${name}"))
       )
       agentFiles;
+
+    # Discover MCP servers from .claude-plugin/plugin.json
+    # Builds Node.js dependencies and resolves paths for OpenCode config
+    mcpServers = resolveMcpServers {
+      inherit pluginSrcDir plugin npmDepsHash;
+    };
   in {
     derivation = transformed;
-    inherit commands skills agents;
+    inherit commands skills agents mcpServers;
   };
 in {
   inherit package;

@@ -324,6 +324,8 @@
                 runCommand
                 writeShellScriptBin
                 symlinkJoin
+                buildNpmPackage
+                nodejs
                 ;
             }).package;
         }
