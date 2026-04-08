@@ -34,7 +34,7 @@
 
   programs.gamescope = {
     enable = true;
-    capSysNice = true;
+    capSysNice = false;
   };
 
   # Gracefully stop Steam before shutdown to prevent mount hangs.
