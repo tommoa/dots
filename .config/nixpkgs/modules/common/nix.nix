@@ -9,7 +9,10 @@
   nixpkgs.config.allowUnfree = true;
   # Settings for nix itself.
   nix = {
-    package = pkgs.lix;
+    package =
+      if pkgs.stdenv.isLinux
+      then pkgs.lix
+      else pkgs.nix;
     settings.experimental-features = [
       "nix-command"
       "flakes"

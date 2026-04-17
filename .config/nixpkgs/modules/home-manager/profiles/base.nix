@@ -18,7 +18,11 @@
   home.packages = with pkgs; [
     # Nix package manager - ensures standalone home-manager configs
     # don't depend on channel-installed nix
-    lix
+    (
+      if stdenv.isLinux
+      then lix
+      else nix
+    )
 
     # Standard terminal tools
     bat
