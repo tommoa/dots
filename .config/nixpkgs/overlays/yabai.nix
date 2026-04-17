@@ -1,9 +1,9 @@
 self: super: {
   yabai = super.yabai.overrideAttrs (o: rec {
-    version = "7.1.17";
+    version = "7.1.18";
     src = builtins.fetchTarball {
       url = "https://github.com/koekeishiya/yabai/releases/download/v${version}/yabai-v${version}.tar.gz";
-      sha256 = "LMR5YMNNmDDLOMhRKiFIE3+JaEZiRTyGAO1o0LSDVTQ=";
+      sha256 = "09g9rbf4mhfw4baglnz209c4j7ww8z88k29cvzz3c0xy0dn140qc";
     };
 
     postPatch = '''';
