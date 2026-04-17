@@ -7,22 +7,27 @@
     anthropic-key = {
       file = "${config.my.secretsPath}/ai/anthropic.age";
       path = "${config.home.homeDirectory}/.config/ai-keys/anthropic";
+      symlink = false;
     };
     gemini-key = {
       file = "${config.my.secretsPath}/ai/gemini.age";
       path = "${config.home.homeDirectory}/.config/ai-keys/gemini";
+      symlink = false;
     };
     openai-key = {
       file = "${config.my.secretsPath}/ai/openai.age";
       path = "${config.home.homeDirectory}/.config/ai-keys/openai";
+      symlink = false;
     };
     opencode-zen-key = {
       file = "${config.my.secretsPath}/ai/opencode-zen.age";
       path = "${config.home.homeDirectory}/.config/ai-keys/opencode-zen";
+      symlink = false;
     };
     openrouter-key = {
       file = "${config.my.secretsPath}/ai/openrouter.age";
       path = "${config.home.homeDirectory}/.config/ai-keys/openrouter";
+      symlink = false;
     };
 
     # Search engine keys - decrypted to ~/.config/search-engines/

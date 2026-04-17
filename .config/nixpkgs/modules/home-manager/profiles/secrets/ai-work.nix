@@ -5,6 +5,7 @@
     litellm-key = {
       file = "${config.my.secretsPath}/ai/litellm.age";
       path = "${config.home.homeDirectory}/.config/ai-keys/litellm";
+      symlink = false;
     };
   };
 
