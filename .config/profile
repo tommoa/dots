@@ -64,6 +64,12 @@ then
     export OPENCODE_API_KEY
 fi
 
+if [ -e "${HOME}/.config/ai-keys/litellm" ]
+then
+    read -r LITELLM_API_KEY < "${HOME}/.config/ai-keys/litellm"
+    export LITELLM_API_KEY
+fi
+
 if [ -e "${HOME}/.config/ai-keys/vertex" ]
 then
     read -r GOOGLE_API_KEY < "${HOME}/.config/ai-keys/vertex"

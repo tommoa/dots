@@ -22,8 +22,9 @@
     npm = "@ai-sdk/openai-compatible";
     name = "LiteLLM";
     options = {
-      baseURL = "https://ai-proxy.infra.corp.arista.io";
+      baseURL = "https://ai-proxy.infra.corp.arista.io/v1";
       apiKey = "{env:LITELLM_API_KEY}";
+      litellmProxy = true;
     };
   };
 }
