@@ -13,6 +13,9 @@
   # Used by aerc's Vaxis TUI library for rendering image/* attachments.
   home.sessionVariables = {
     VAXIS_GRAPHICS = "kitty";
+
+    # Use experimental features in opencode.
+    OPENCODE_EXPERIMENTAL = 1;
   };
 
   home.packages = with pkgs; [
