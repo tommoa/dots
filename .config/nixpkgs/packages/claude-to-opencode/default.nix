@@ -57,12 +57,20 @@
     pluginSrcDir,
     plugin,
     npmDepsHash,
+    npmRoot ? null,
   }:
     buildNpmPackage {
       pname = "mcp-server-${plugin}";
       version = "0.0.0";
       src = pluginSrcDir;
       inherit npmDepsHash;
+      # When the npm project lives in a subdirectory (npmRoot), copy its
+      # package.json and lock file to the source root so that fetchNpmDeps
+      # (which doesn't support npmRoot) can find them.
+      postPatch = lib.optionalString (npmRoot != null) ''
+        cp ${npmRoot}/package.json .
+        cp ${npmRoot}/package-lock.json .
+      '';
       dontNpmBuild = true;
       installPhase = ''
         runHook preInstall
@@ -79,6 +87,7 @@
     pluginSrcDir,
     plugin,
     npmDepsHash,
+    npmRoot ? null,
   }: let
     pluginJsonPath = pluginSrcDir + "/.claude-plugin/plugin.json";
     hasPluginJson = builtins.pathExists pluginJsonPath;
@@ -93,7 +102,7 @@
       if hasServers && npmDepsHash != null
       then
         buildMcpServerDeps {
-          inherit pluginSrcDir plugin npmDepsHash;
+          inherit pluginSrcDir plugin npmDepsHash npmRoot;
         }
       else null;
 
@@ -133,6 +142,7 @@
     plugin,
     pluginsSubdir ? "",
     npmDepsHash ? null,
+    npmRoot ? null,
   }: let
     pluginSrcDir =
       if pluginsSubdir == ""
@@ -199,7 +209,7 @@
     # Discover MCP servers from .claude-plugin/plugin.json
     # Builds Node.js dependencies and resolves paths for OpenCode config
     mcpServers = resolveMcpServers {
-      inherit pluginSrcDir plugin npmDepsHash;
+      inherit pluginSrcDir plugin npmDepsHash npmRoot;
     };
   in {
     derivation = transformed;
