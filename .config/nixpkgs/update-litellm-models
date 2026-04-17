@@ -20,6 +20,7 @@ OUTPUT = os.path.join(
     "opencode.json",
 )
 BASE_URL = "https://ai-proxy.infra.corp.arista.io"
+MODELS_DEV_URL = "https://models.dev/api.json"
 
 # LiteLLM costs are per-token; opencode costs are per million tokens.
 COST_MULTIPLIER = 1_000_000
@@ -51,6 +52,207 @@ _TIER_WORDS = {
     "preview": "Preview",
 }
 
+_OPENAI_EFFORTS = ("low", "medium", "high")
+
+
+def split_date_suffix(model_id):
+    """Split an optional trailing YYYYMMDD suffix from a model ID."""
+    match = re.match(r"^(.+?)-(\d{4})(\d{2})(\d{2})$", model_id)
+    if not match:
+        return model_id, None, None
+
+    year = match.group(2)
+    month = int(match.group(3))
+    day = int(match.group(4))
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return model_id, None, None
+
+    base_id = match.group(1)
+    return base_id, f"{year}-{month:02d}-{day:02d}", (month, day)
+
+
+def canonical_model_id(model_id):
+    """Return the stable model ID used for metadata lookups."""
+    base_id, _, _ = split_date_suffix(model_id)
+    return base_id
+
+
+def normalize_release_date(value):
+    """Normalize release dates to YYYY-MM-DD when possible."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        return value
+    match = re.match(r"^(\d{4})(\d{2})(\d{2})$", value)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    return None
+
+
+def preferred_models_dev_providers(model_id, provider_ids):
+    """Choose canonical providers first when reusing models.dev metadata."""
+    base_id = canonical_model_id(model_id).lower()
+    preferred = []
+    if base_id.startswith("claude"):
+        preferred = ["anthropic", "opencode"]
+    elif base_id.startswith("gpt"):
+        preferred = ["openai", "opencode"]
+    elif base_id.startswith("gemini"):
+        preferred = ["google", "opencode"]
+    else:
+        preferred = ["opencode"]
+
+    rest = sorted(provider_id for provider_id in provider_ids if provider_id not in preferred)
+    return preferred + rest
+
+
+def lookup_models_dev_model(models_dev, model_id):
+    """Merge matching models.dev entries with canonical providers first."""
+    if not models_dev:
+        return None
+
+    candidate_ids = [model_id]
+    base_id = canonical_model_id(model_id)
+    if base_id != model_id:
+        candidate_ids.append(base_id)
+
+    provider_ids = tuple(models_dev.keys())
+    for candidate_id in candidate_ids:
+        merged = None
+        for provider_id in preferred_models_dev_providers(candidate_id, provider_ids):
+            provider = models_dev.get(provider_id) or {}
+            model = (provider.get("models") or {}).get(candidate_id)
+            if model:
+                if merged is None:
+                    merged = dict(model)
+                    continue
+                for key, value in model.items():
+                    if key not in merged and value is not None:
+                        merged[key] = value
+        if merged:
+            return merged
+    return None
+
+
+def is_adaptive_claude_model(model_id):
+    """Detect Claude models that use adaptive thinking controls."""
+    base_id = canonical_model_id(model_id).lower().replace(".", "-")
+    match = re.match(r"^claude-(opus|sonnet)-4-(\d+)$", base_id)
+    return bool(match and int(match.group(2)) >= 6)
+
+
+def claude_reasoning_variants(model_id):
+    """Use Anthropic-native adaptive thinking fields for Claude via LiteLLM."""
+    base_id = canonical_model_id(model_id).lower().replace(".", "-")
+    efforts = ["low", "medium", "high"]
+
+    if base_id.startswith("claude-opus-4-7"):
+        efforts.extend(["xhigh", "max"])
+    elif base_id.startswith("claude-opus-4-6"):
+        efforts.append("max")
+
+    variants = {
+        # Disable inherited generic variants from opencode's provider synthesis.
+        "low": {"disabled": True},
+        "medium": {"disabled": True},
+        "high": {"disabled": True},
+    }
+    if "xhigh" in efforts:
+        variants["xhigh"] = {"disabled": True}
+    if "max" in efforts:
+        variants["max"] = {"disabled": True}
+
+    thinking = {"type": "adaptive"}
+    if base_id.startswith("claude-opus-4-7"):
+        # Anthropic documents summarized display for Opus 4.7 adaptive thinking,
+        # and the proxy can surface it on /v1/messages for some prompts.
+        thinking["display"] = "summarized"
+
+    for effort in efforts:
+        variants[f"adaptive-{effort}"] = {
+            "thinking": dict(thinking),
+            "output_config": {"effort": effort},
+        }
+    return variants
+
+
+def gpt_reasoning_variants(model_id, release_date):
+    """Mirror opencode's GPT-5 reasoning variants with proxy-safe fields."""
+    base_id = canonical_model_id(model_id).lower()
+    if not base_id.startswith("gpt-5") or base_id == "gpt-5-pro":
+        return None
+
+    if "codex" in base_id:
+        efforts = list(_OPENAI_EFFORTS)
+        if "5.2" in base_id or "5.3" in base_id:
+            efforts.append("xhigh")
+        return {effort: {"reasoningEffort": effort} for effort in efforts}
+
+    efforts = list(_OPENAI_EFFORTS)
+    if "gpt-5-" in base_id or base_id == "gpt-5":
+        efforts.insert(0, "minimal")
+    if release_date and release_date >= "2025-11-13":
+        efforts.insert(0, "none")
+    if release_date and release_date >= "2025-12-04":
+        efforts.append("xhigh")
+    return {effort: {"reasoningEffort": effort} for effort in efforts}
+
+
+def gpt_summary_variants(model_id, release_date):
+    """Responses-style GPT variants with detailed summaries enabled."""
+    base = gpt_reasoning_variants(model_id, release_date)
+    if not base:
+        return None
+    return {
+        effort: {
+            **options,
+            "reasoningSummary": "detailed",
+            "include": ["reasoning.encrypted_content"],
+        }
+        for effort, options in base.items()
+    }
+
+
+def clone_for_gpt_responses(model_id, model):
+    """Override GPT models to use the OpenAI SDK Responses path."""
+    cloned = json.loads(json.dumps(model))
+    cloned["provider"] = {"npm": "@ai-sdk/openai"}
+    release_date = cloned.get("release_date")
+    variants = gpt_summary_variants(model_id, release_date)
+    if variants:
+        cloned["variants"] = variants
+    return cloned
+
+
+def infer_release_date(model_id, model_info, models_dev_model):
+    """Prefer real release metadata, then canonical models.dev data, then ID suffixes."""
+    for key in ("release_date", "releaseDate"):
+        value = normalize_release_date(model_info.get(key))
+        if value:
+            return value
+
+    if models_dev_model:
+        value = normalize_release_date(models_dev_model.get("release_date"))
+        if value:
+            return value
+
+    _, suffix_date, _ = split_date_suffix(model_id)
+    return suffix_date
+
+
+def merge_capability(litellm_value, models_dev_model, key, prefer_models_dev=False):
+    """Merge boolean capability metadata conservatively."""
+    models_dev_value = None
+    if models_dev_model and key in models_dev_model:
+        models_dev_value = bool(models_dev_model.get(key))
+
+    if prefer_models_dev and models_dev_value is not None:
+        return models_dev_value
+    if litellm_value is not None:
+        return bool(litellm_value)
+    return models_dev_value
+
 
 def friendly_name(model_id):
     """Derive a user-friendly display name from a model ID string.
@@ -64,13 +266,10 @@ def friendly_name(model_id):
     """
     # Strip a trailing date suffix (YYYYMMDD) and remember it
     date_suffix = ""
-    m = re.match(r"^(.+?)-(\d{4})(\d{2})(\d{2})$", model_id)
-    if m:
-        month_num = int(m.group(3))
-        day = int(m.group(4))
-        if 1 <= month_num <= 12:
-            model_id = m.group(1)
-            date_suffix = f" ({_MONTHS[month_num]} {day})"
+    model_id, _, display_date = split_date_suffix(model_id)
+    if display_date:
+        month_num, day = display_date
+        date_suffix = f" ({_MONTHS[month_num]} {day})"
 
     parts = model_id.split("-")
     result = []
@@ -118,22 +317,30 @@ def friendly_name(model_id):
     return name
 
 
-def fetch_json(url, api_key):
-    """Fetch JSON from a URL with Bearer auth."""
+def fetch_json(url, api_key=None, headers=None):
+    """Fetch JSON from a URL with optional Bearer auth."""
+    req_headers = {"Accept": "application/json"}
+    if headers:
+        req_headers.update(headers)
+    if api_key:
+        req_headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(
         url,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json",
-        },
+        headers=req_headers,
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read().decode())
 
 
-def build_opencode_model(model_id, model_info):
+def build_opencode_model(model_id, model_info, models_dev_model=None):
     """Transform a LiteLLM model_info dict into an opencode model config."""
     model = {"name": friendly_name(model_id)}
+
+    release_date = infer_release_date(model_id, model_info, models_dev_model)
+    if release_date:
+        model["release_date"] = release_date
+    if models_dev_model and models_dev_model.get("family"):
+        model["family"] = models_dev_model["family"]
 
     # Token limits
     limit = {}
@@ -164,14 +371,52 @@ def build_opencode_model(model_id, model_info):
         model["cost"] = cost
 
     # Capabilities
-    if model_info.get("supports_function_calling"):
-        model["tool_call"] = True
-    if model_info.get("supports_reasoning"):
-        model["reasoning"] = True
-    if model_info.get("supports_vision") or model_info.get("supports_pdf_input"):
-        model["attachment"] = True
-    if "temperature" in (model_info.get("supported_openai_params") or []):
-        model["temperature"] = True
+    tool_call = merge_capability(
+        model_info.get("supports_function_calling"),
+        models_dev_model,
+        "tool_call",
+    )
+    if tool_call is not None:
+        model["tool_call"] = tool_call
+
+    reasoning = merge_capability(
+        model_info.get("supports_reasoning"),
+        models_dev_model,
+        "reasoning",
+    )
+    if reasoning is not None:
+        model["reasoning"] = reasoning
+
+    attachment = None
+    if any(
+        key in model_info
+        for key in ("supports_vision", "supports_pdf_input", "supports_audio_input")
+    ):
+        attachment = bool(
+            model_info.get("supports_vision")
+            or model_info.get("supports_pdf_input")
+            or model_info.get("supports_audio_input")
+        )
+    elif models_dev_model and "attachment" in models_dev_model:
+        attachment = bool(models_dev_model.get("attachment"))
+    if attachment is not None:
+        model["attachment"] = attachment
+
+    supported_params = model_info.get("supported_openai_params")
+    temperature = None
+    if isinstance(supported_params, list):
+        temperature = "temperature" in supported_params
+    temperature = merge_capability(
+        temperature,
+        models_dev_model,
+        "temperature",
+        prefer_models_dev=canonical_model_id(model_id).lower().startswith(("claude", "gpt")),
+    )
+    if temperature is not None:
+        model["temperature"] = temperature
+
+    if models_dev_model and models_dev_model.get("interleaved") is not None:
+        model["interleaved"] = models_dev_model["interleaved"]
 
     # Modalities
     input_mods = ["text"]
@@ -184,8 +429,21 @@ def build_opencode_model(model_id, model_info):
     output_mods = ["text"]
     if model_info.get("supports_audio_output"):
         output_mods.append("audio")
+    if models_dev_model and len(input_mods) == 1 and len(output_mods) == 1:
+        modalities = models_dev_model.get("modalities") or {}
+        input_mods = modalities.get("input") or input_mods
+        output_mods = modalities.get("output") or output_mods
     if len(input_mods) > 1 or len(output_mods) > 1:
         model["modalities"] = {"input": input_mods, "output": output_mods}
+
+    if model.get("reasoning"):
+        variants = None
+        if is_adaptive_claude_model(model_id):
+            variants = claude_reasoning_variants(model_id)
+        elif canonical_model_id(model_id).lower().startswith("gpt-5"):
+            variants = gpt_reasoning_variants(model_id, release_date)
+        if variants:
+            model["variants"] = variants
 
     return model
 
@@ -204,6 +462,16 @@ def main():
         api_key = f.read().strip()
 
     models = {}
+    models_dev = {}
+
+    print(f"Fetching canonical metadata from {MODELS_DEV_URL}...")
+    try:
+        models_dev = fetch_json(
+            MODELS_DEV_URL,
+            headers={"User-Agent": "update-litellm-models"},
+        )
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
+        print(f"Warning: unable to fetch models.dev metadata: {e}", file=sys.stderr)
 
     # Fetch rich metadata from /model/info
     print(f"Fetching model info from {BASE_URL}/model/info...")
@@ -220,7 +488,15 @@ def main():
             if mode == "embedding" or "embedding" in model_name:
                 continue
 
-            models[model_name] = build_opencode_model(model_name, model_info)
+            built = build_opencode_model(
+                model_name,
+                model_info,
+                lookup_models_dev_model(models_dev, model_name),
+            )
+            base_id = canonical_model_id(model_name).lower()
+            if base_id.startswith("gpt-5"):
+                built = clone_for_gpt_responses(model_name, built)
+            models[model_name] = built
     except urllib.error.HTTPError as e:
         print(
             f"Warning: /model/info returned {e.code}, "
@@ -233,7 +509,15 @@ def main():
             model_id = m.get("id", "")
             if not model_id or "embedding" in model_id:
                 continue
-            models[model_id] = {}
+            built = build_opencode_model(
+                model_id,
+                {},
+                lookup_models_dev_model(models_dev, model_id),
+            )
+            base_id = canonical_model_id(model_id).lower()
+            if base_id.startswith("gpt-5"):
+                built = clone_for_gpt_responses(model_id, built)
+            models[model_id] = built
 
     # Wrap in opencode provider config structure for deep-merge with config.json.
     # WARNING: This file is entirely overwritten on each run; do not manually edit.
@@ -253,10 +537,20 @@ def main():
     has_limits = sum(1 for m in models.values() if "limit" in m)
     has_cost = sum(1 for m in models.values() if "cost" in m)
     has_tools = sum(1 for m in models.values() if m.get("tool_call"))
+    has_release_dates = sum(1 for m in models.values() if "release_date" in m)
+    has_variants = sum(1 for m in models.values() if "variants" in m)
+    gpt_response_models = sum(
+        1
+        for m in models.values()
+        if (m.get("provider") or {}).get("npm") == "@ai-sdk/openai"
+    )
     print(
         f"  {has_limits} with token limits, "
         f"{has_cost} with cost info, "
-        f"{has_tools} with tool_call support"
+        f"{has_tools} with tool_call support, "
+        f"{has_release_dates} with release dates, "
+        f"{has_variants} with custom variants, "
+        f"{gpt_response_models} using OpenAI Responses overrides"
     )
 
 

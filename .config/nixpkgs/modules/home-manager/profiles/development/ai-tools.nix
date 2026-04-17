@@ -36,21 +36,6 @@
       package = pkgs.opencode;
       settings = {
         theme = "one-dark";
-        provider = {
-          google-vertex-anthropic = {
-            options = {
-              anthropic_beta = "context-1m-2025-08-07";
-            };
-            models = {
-              "claude-opus-4-6@default" = {
-                limit = {
-                  context = 200000;
-                  output = 64000;
-                };
-              };
-            };
-          };
-        };
         lsp = {
           vhdl-ls = {
             command = ["vhdl_ls"];
