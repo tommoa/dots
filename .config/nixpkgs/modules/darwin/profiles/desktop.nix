@@ -9,8 +9,9 @@
 
     config = {
       # Global settings
-      mouse_follows_focus = "on";
-      focus_follows_mouse = "autoraise";
+      # Avoid cursor warping when focus changes; it can look like focus theft.
+      mouse_follows_focus = "off";
+      # focus_follows_mouse = "autoraise";
       window_placement = "second_child";
       window_shadow = "on";
       window_opacity = "off";
