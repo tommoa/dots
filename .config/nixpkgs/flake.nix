@@ -328,6 +328,7 @@
                 nodejs
                 ;
             }).package;
+          hunk = pkgs.callPackage ./packages/hunk {};
         }
       );
   };

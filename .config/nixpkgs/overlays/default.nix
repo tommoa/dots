@@ -14,7 +14,7 @@ self: super:
       ;
   };
 
-  mdiff = super.callPackage ../packages/mdiff {};
+  hunk = super.callPackage ../packages/hunk {};
 }
 // (import ./yabai.nix self super)
 // (import ./w3m.nix self super)
