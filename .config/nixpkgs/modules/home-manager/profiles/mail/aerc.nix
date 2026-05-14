@@ -71,10 +71,8 @@
     extraBinds = {
       # Global bindings
       global = {
-        "<C-p>" = ":prev-tab<Enter>";
-        "<C-PgUp>" = ":prev-tab<Enter>";
-        "<C-n>" = ":next-tab<Enter>";
-        "<C-PgDn>" = ":next-tab<Enter>";
+        "<C-l>" = ":prev-tab<Enter>";
+        "<C-u>" = ":next-tab<Enter>";
         "\\[t" = ":prev-tab<Enter>";
         "\\]t" = ":next-tab<Enter>";
         "<C-t>" = ":term<Enter>";
@@ -98,7 +96,7 @@
 
         "e" = ":prev<Enter>";
         "<Up>" = ":prev<Enter>";
-        "<C-u>" = ":prev 50%<Enter>";
+        "<C-g>" = ":prev 50%<Enter>";
         "<C-b>" = ":prev 100%<Enter>";
         "<PgUp>" = ":prev 100%<Enter>";
         "g" = ":select 0<Enter>";
