@@ -97,6 +97,6 @@
 
     # TODO: Replace with programs.opencode.skills.commit when on home-manager >= 26.05
     xdg.configFile."opencode/skill/commit/SKILL.md".source = ./opencode/commit/SKILL.md;
-    xdg.configFile."opencode/skill/hunk-review/SKILL.md".source = "${pkgs.hunk}/share/hunk/skills/hunk-review/SKILL.md";
+    xdg.configFile."opencode/skill/hunk-review/SKILL.md".source = "${pkgs.hunk}/skills/hunk-review/SKILL.md";
   };
 }

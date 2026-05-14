@@ -161,4 +161,6 @@ inputs: self: super: {
         };
       }
     );
+
+  hunk = inputs.hunk.packages.${super.stdenv.hostPlatform.system}.default;
 }

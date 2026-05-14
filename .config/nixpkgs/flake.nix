@@ -11,6 +11,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    hunk = {
+      url = "github:modem-dev/hunk";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -328,7 +333,7 @@
                 nodejs
                 ;
             }).package;
-          hunk = pkgs.callPackage ./packages/hunk {};
+          hunk = inputs.hunk.packages.${system}.default;
         }
       );
   };
