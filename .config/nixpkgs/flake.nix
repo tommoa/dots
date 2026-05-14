@@ -233,7 +233,7 @@
         homeDirectory = "/home/toma";
         system = "x86_64-linux";
         # c/cpp not allowed as they would shadow the work tools.
-        # Server only gets Vertex AI keys, no deploy keys.
+        # Server only gets work AI keys, no deploy keys.
         profiles = [
           "base"
           "development/ai-tools"
@@ -241,7 +241,6 @@
           "development/lua"
           "development/nix"
           "development/python"
-          "secrets/ai-vertex"
           "secrets/ai-work"
           "ssh"
         ];
@@ -257,7 +256,6 @@
         profiles = [
           "base"
           "development"
-          "secrets/ai-vertex"
           "server"
           "ssh"
         ];

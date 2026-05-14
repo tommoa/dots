@@ -20,10 +20,9 @@
 
   config = {
     # AI tool packages
-    # Secrets are defined in secrets/ai.nix or secrets/ai-vertex.nix
+    # Secrets are defined in secrets/ai.nix.
     home.packages = with pkgs;
       [
-        google-cloud-sdk # This is required for using Vertex AI.
         hunk # Review-first terminal diff viewer with agent skill integration
         # ollama is broken on darwin with 25.11
         # https://github.com/NixOS/nixpkgs/issues/463131

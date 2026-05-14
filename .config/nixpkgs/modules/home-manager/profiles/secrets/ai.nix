@@ -1,17 +1,9 @@
 {config, ...}: {
-  # Import Vertex AI keys (shared with ai-vertex.nix)
-  imports = [./ai-vertex.nix];
-
   # AI API keys - decrypted to ~/.config/ai-keys/ for use by profile
   age.secrets = {
     anthropic-key = {
       file = "${config.my.secretsPath}/ai/anthropic.age";
       path = "${config.home.homeDirectory}/.config/ai-keys/anthropic";
-      symlink = false;
-    };
-    gemini-key = {
-      file = "${config.my.secretsPath}/ai/gemini.age";
-      path = "${config.home.homeDirectory}/.config/ai-keys/gemini";
       symlink = false;
     };
     openai-key = {

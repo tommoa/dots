@@ -29,14 +29,10 @@ let
 in {
   # AI API keys
   "ai/anthropic.age".publicKeys = all;
-  "ai/gemini.age".publicKeys = all;
   "ai/openai.age".publicKeys = all;
   "ai/opencode-zen.age".publicKeys = all;
   "ai/openrouter.age".publicKeys = all;
   "ai/litellm.age".publicKeys = workSecrets;
-  "ai/vertex.age".publicKeys = all ++ workSecrets;
-  "ai/vertex-project.age".publicKeys = all ++ workSecrets;
-
   # Mail secrets
   # Note: Refresh tokens are stored locally per-machine in ~/.local/state/oauth2-gmail/
   # and are NOT managed by agenix (they are obtained via oauth2-gmail setup)
