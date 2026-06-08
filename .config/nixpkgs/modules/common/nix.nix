@@ -6,7 +6,13 @@
   ...
 }: {
   # Allow unfree packages (e.g. Discord, Obsidian, Spotify, Steam, etc...).
-  nixpkgs.config.allowUnfree = true;
+  nixpkgs.config = {
+    allowUnfree = true;
+    permittedInsecurePackages = [
+      # bitwarden-desktop still depends on electron_39 in nixpkgs 26.05.
+      "electron-39.8.10"
+    ];
+  };
   # Settings for nix itself.
   nix = {
     package =

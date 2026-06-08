@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Fetches available models from the LiteLLM proxy and writes enriched metadata
-to ~/.config/opencode/opencode.json for runtime deep-merge with the Nix-managed
-config.json.
+to ~/.config/opencode/litellm-models.json for runtime deep-merge with the
+Nix-managed opencode.json via OPENCODE_CONFIG.
 
 Usage: ./update-litellm-models [API_KEY_PATH]
 """
@@ -17,7 +17,7 @@ import urllib.error
 OUTPUT = os.path.join(
     os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
     "opencode",
-    "opencode.json",
+    "litellm-models.json",
 )
 BASE_URL = "https://ai-proxy.infra.corp.arista.io"
 MODELS_DEV_URL = "https://models.dev/api.json"

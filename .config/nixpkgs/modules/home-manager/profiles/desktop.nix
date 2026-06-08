@@ -6,9 +6,12 @@
   my.opencode.desktop.enable = true;
 
   home.packages = with pkgs;
-    [
+    lib.optionals pkgs.stdenv.isLinux [
       # Desktop applications
       bitwarden-desktop
+    ]
+    ++ [
+      # Desktop applications
       obsidian
 
       # Messaging
@@ -74,10 +77,11 @@
         "{04188724-64d3-497b-a4fd-7caffe6eab29}" = "rust-search-extension";
       };
     };
-    nativeMessagingHosts = [
-      pkgs.bitwarden-desktop
-      (lib.mkIf pkgs.stdenv.isLinux pkgs.firefoxpwa)
-    ];
+    nativeMessagingHosts =
+      [
+        (lib.mkIf pkgs.stdenv.isLinux pkgs.firefoxpwa)
+      ]
+      ++ lib.optionals pkgs.stdenv.isLinux [pkgs.bitwarden-desktop];
   };
 
   gtk = {
@@ -91,6 +95,10 @@
       package = pkgs.pop-gtk-theme;
     };
     theme = {
+      name = "Pop-dark";
+      package = pkgs.pop-gtk-theme;
+    };
+    gtk4.theme = {
       name = "Pop-dark";
       package = pkgs.pop-gtk-theme;
     };
