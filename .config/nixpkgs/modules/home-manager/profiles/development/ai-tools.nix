@@ -115,7 +115,14 @@
       enableMcpIntegration = true;
       package = pkgs.codex;
       settings = {
+        model = "gpt-5.5";
+        model_reasoning_effort = "high";
+
         analytics.enabled = false;
+        feedback.enabled = false;
+        features.js_repl = false;
+
+        projects.${config.home.homeDirectory}.trust_level = "trusted";
 
         tui = {
           theme = "one-dark";
