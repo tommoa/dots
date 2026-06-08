@@ -36,4 +36,14 @@
       litellmProxy = true;
     };
   };
+
+  programs.codex.settings = {
+    model_providers.ai_proxy = {
+      name = "Arista AI Proxy";
+      base_url = "https://ai-proxy.infra.corp.arista.io/";
+      env_key = "LITELLM_API_KEY";
+      wire_api = "responses";
+      supports_websockets = false;
+    };
+  };
 }
