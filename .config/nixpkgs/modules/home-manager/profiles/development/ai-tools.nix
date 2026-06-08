@@ -16,6 +16,12 @@
       default = false;
       description = "Install the opencode desktop app alongside the CLI/TUI";
     };
+
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the opencode package to be installed";
+    };
   };
 
   config = {
@@ -33,7 +39,7 @@
       ++ lib.optionals config.my.opencode.desktop.enable [opencode-desktop];
 
     programs.opencode = {
-      enable = true;
+      enable = config.my.opencode.enable;
       enableMcpIntegration = true;
       package = pkgs.opencode;
       tui = {

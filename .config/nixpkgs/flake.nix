@@ -262,7 +262,10 @@
           "ssh"
         ];
         extraModules = [
-          {my.opencode.disablePythonFormatters = true;}
+          {
+            my.opencode.enable = false;
+            my.opencode.disablePythonFormatters = true;
+          }
         ];
       };
 
