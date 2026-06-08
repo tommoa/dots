@@ -19,6 +19,8 @@
   };
 
   config = {
+    programs.mcp.enable = true;
+
     # AI tool packages
     # Secrets are defined in secrets/ai.nix.
     home.packages = with pkgs;
@@ -32,6 +34,7 @@
 
     programs.opencode = {
       enable = true;
+      enableMcpIntegration = true;
       package = pkgs.opencode;
       tui = {
         theme = "one-dark";
@@ -98,6 +101,47 @@
         commit = ./opencode/commit/SKILL.md;
         change-amplification = ./ai-skills/change-amplification/SKILL.md;
         hunk-review = "${pkgs.hunk}/skills/hunk-review";
+      };
+    };
+
+    programs.codex = {
+      enable = true;
+      enableMcpIntegration = true;
+      package = pkgs.codex;
+      settings = {
+        analytics.enabled = false;
+
+        tui = {
+          theme = "one-dark";
+          vim_mode_default = true;
+        };
+      };
+      skills = {
+        commit = ./opencode/commit/SKILL.md;
+        change-amplification = ./ai-skills/change-amplification/SKILL.md;
+        hunk-review = "${pkgs.hunk}/skills/hunk-review";
+        rethink = ''
+          ---
+          name: rethink
+          description: Make sure the agent rethinks its decisions for design
+          ---
+
+          Please carefully consider the following questions, then provide a thorough
+          response for each of them to the user.
+
+          - Is it the right way to solve this issue?
+          - Will it be the most maintainable option?
+          - Is this actually a bug in a different system that we should be fixing?
+          - Is this the right interface to use?
+          - What is the simplest interface that will cover all my current needs?
+          - In how many situations will this method be used?
+          - Is this API easy to use for my current needs?
+          - Does any information get used in multiple places?
+          - Will users be able to determine a better value than can be determined
+            here? (for configuration)
+          - Is there any code that needs to be written more than once?
+          - Can you hide any special cases?
+        '';
       };
     };
   };

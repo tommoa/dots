@@ -18,12 +18,12 @@
 #     # plugin.commands    - { "my-plugin.cmd" = "file content..."; }
 #     # plugin.skills      - { "my-plugin-skill" = /nix/store/.../skill/; }
 #     # plugin.agents      - { "my-plugin.agent" = "file content..."; }
-#     # plugin.mcpServers  - { "server-name" = { type = "local"; command = [...]; }; }
+#     # plugin.mcpServers  - { "server-name" = { command = "..."; args = [...]; }; }
 #
 # Note: commands and agents return file content (via IFD) for compatibility
 # with home-manager's programs.opencode module. Skills return paths since
 # they are directories that need recursive symlinking. MCP servers return
-# attrsets ready for programs.opencode.settings.mcp.
+# attrsets ready for home-manager's programs.mcp.servers.
 #   }
 {
   lib,
@@ -81,8 +81,8 @@
       '';
     };
 
-  # Parse plugin.json and resolve MCP server entries into OpenCode format.
-  # Returns { "server-name" = { type = "local"; command = [...]; }; }
+  # Parse plugin.json and resolve MCP server entries into programs.mcp.servers format.
+  # Returns { "server-name" = { command = "..."; args = [...]; }; }
   resolveMcpServers = {
     pluginSrcDir,
     plugin,
@@ -102,16 +102,17 @@
       if hasServers && npmDepsHash != null
       then
         buildMcpServerDeps {
-          inherit pluginSrcDir plugin npmDepsHash npmRoot;
+          inherit
+            pluginSrcDir
+            plugin
+            npmDepsHash
+            npmRoot
+            ;
         }
       else null;
 
     # Resolve ${CLAUDE_PLUGIN_ROOT}/... paths to the built derivation
-    resolveArg = arg:
-      builtins.replaceStrings
-      ["\${CLAUDE_PLUGIN_ROOT}/"]
-      ["${builtDeps}/"]
-      arg;
+    resolveArg = arg: builtins.replaceStrings ["\${CLAUDE_PLUGIN_ROOT}/"] ["${builtDeps}/"] arg;
 
     # Map well-known commands to their Nix store paths for hermeticity
     resolveCommand = cmd:
@@ -120,11 +121,8 @@
       else cmd;
 
     resolveServer = name: server: {
-      type = "local";
-      command =
-        [(resolveCommand server.command)]
-        ++ map resolveArg (server.args or []);
-      enabled = true;
+      command = resolveCommand server.command;
+      args = map resolveArg (server.args or []);
     };
   in
     if hasServers && npmDepsHash != null
@@ -150,10 +148,12 @@
       else "${src}/${pluginsSubdir}/${plugin}";
 
     transformed =
-      runCommand "opencode-plugin-${plugin}" {
+      runCommand "opencode-plugin-${plugin}"
+      {
         inherit pluginSrcDir;
         nativeBuildInputs = [pythonWithDeps];
-      } ''
+      }
+      ''
         mkdir -p $out/${plugin}
         cp -r $pluginSrcDir/* $out/${plugin}/
         chmod -R u+w $out
@@ -176,9 +176,9 @@
     commands =
       lib.mapAttrs' (
         name: _:
-          lib.nameValuePair
-          "${plugin}.${lib.removeSuffix ".md" name}"
-          (builtins.readFile (cmdDir + "/${name}"))
+          lib.nameValuePair "${plugin}.${lib.removeSuffix ".md" name}" (
+            builtins.readFile (cmdDir + "/${name}")
+          )
       )
       cmdFiles;
 
@@ -186,12 +186,7 @@
     # Note: skill directories are renamed by transform script to include plugin prefix
     skillsDir = transformed + "/${plugin}/skills";
     skillDirs = lib.filterAttrs isDirectory (safeReadDir skillsDir);
-    skills =
-      lib.mapAttrs' (
-        name: _:
-          lib.nameValuePair name (skillsDir + "/${name}")
-      )
-      skillDirs;
+    skills = lib.mapAttrs' (name: _: lib.nameValuePair name (skillsDir + "/${name}")) skillDirs;
 
     # Discover agents: plugin/agents/*.md -> { "plugin.agent" = "content"; }
     # Uses builtins.readFile (IFD) to return file content for home-manager compatibility
@@ -200,20 +195,30 @@
     agents =
       lib.mapAttrs' (
         name: _:
-          lib.nameValuePair
-          "${plugin}.${lib.removeSuffix ".md" name}"
-          (builtins.readFile (agentsDir + "/${name}"))
+          lib.nameValuePair "${plugin}.${lib.removeSuffix ".md" name}" (
+            builtins.readFile (agentsDir + "/${name}")
+          )
       )
       agentFiles;
 
     # Discover MCP servers from .claude-plugin/plugin.json
     # Builds Node.js dependencies and resolves paths for OpenCode config
     mcpServers = resolveMcpServers {
-      inherit pluginSrcDir plugin npmDepsHash npmRoot;
+      inherit
+        pluginSrcDir
+        plugin
+        npmDepsHash
+        npmRoot
+        ;
     };
   in {
     derivation = transformed;
-    inherit commands skills agents mcpServers;
+    inherit
+      commands
+      skills
+      agents
+      mcpServers
+      ;
   };
 in {
   inherit package;
