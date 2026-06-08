@@ -33,8 +33,10 @@
     programs.opencode = {
       enable = true;
       package = pkgs.opencode;
-      settings = {
+      tui = {
         theme = "one-dark";
+      };
+      settings = {
         lsp = {
           vhdl-ls = {
             command = ["vhdl_ls"];
@@ -92,10 +94,11 @@
           - Can you hide any special cases?
         '';
       };
+      skills = {
+        commit = ./opencode/commit/SKILL.md;
+        change-amplification = ./ai-skills/change-amplification/SKILL.md;
+        hunk-review = "${pkgs.hunk}/skills/hunk-review";
+      };
     };
-
-    # TODO: Replace with programs.opencode.skills.commit when on home-manager >= 26.05
-    xdg.configFile."opencode/skill/commit/SKILL.md".source = ./opencode/commit/SKILL.md;
-    xdg.configFile."opencode/skill/hunk-review/SKILL.md".source = "${pkgs.hunk}/skills/hunk-review/SKILL.md";
   };
 }

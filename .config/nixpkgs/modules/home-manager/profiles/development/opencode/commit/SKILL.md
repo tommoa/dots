@@ -65,20 +65,17 @@ The commit body should explain the **why** and **context**, not just the what.
 **Guidelines:**
 
 1. **Start with context:** Explain the motivation or problem being solved
-2. **Use imperative mood:** Describe what the code does, not what changed
-   - ✅ "The function routes to Chat or FIM implementations"
-   - ❌ "The function now routes to Chat or FIM implementations"
-3. **Avoid temporal words:** Don't use "new", "now", "currently"
+2. **Avoid temporal words:** Don't use "new", "now", "currently"
    - ✅ "A comprehensive test suite validates format detection"
    - ❌ "A new test suite now validates format detection"
-4. **Use flowing paragraphs:** Prefer explanations over bullet points when
+3. **Use flowing paragraphs:** Prefer explanations over bullet points when
    possible
-5. **Be specific:** Reference actual functions, modules, or patterns
-6. **Include impact:** Explain how the change affects the system
-7. **Optional sections:** Can include "Future improvements" or related notes
-8. **Wrap at 72 characters:** Keep body lines at or below 72 characters for
+4. **Be specific:** Reference actual functions, modules, or patterns
+5. **Include impact:** Explain how the change affects the system
+6. **Optional sections:** Can include "Future improvements" or related notes
+7. **Wrap at 72 characters:** Keep body lines at or below 72 characters for
    proper display in git tools
-9. **Use markdown:** Consider that most commit messages will be viewed
+8. **Use markdown:** Consider that most commit messages will be viewed
    in a markdown-rendering client.
 
 **Example body:**
@@ -91,9 +88,9 @@ with specialized models that support FIM formats.
 
 The FIM module automatically detects the correct format for popular
 models including CodeLlama, DeepSeek, StarCoder, and Qwen, while also
-supporting custom format configuration. The generate() function routes
-to Chat or FIM implementations based on a 'prompt' option, with
-graceful fallback handling via UnsupportedPromptError for incompatible
+supporting custom format configuration. The `generate()` function routes
+to Chat or FIM implementations based on a `prompt` option, with
+graceful fallback handling via `UnsupportedPromptError` for incompatible
 models.
 ```
 
@@ -131,6 +128,9 @@ Recent commits follow a consistent multi-paragraph structure:
 
 **For smaller changes:** A single focused paragraph is sufficient if it
 covers the motivation, approach, and impact concisely.
+
+When writing multi-paragraph commits, ensure that each paragraph flows
+into the next.
 
 ## Common Patterns
 
@@ -202,7 +202,6 @@ This prevents needing to amend or redo commits.
    - For refactors: include API changes and migration details
 6. **Review for style:**
    - Remove temporal words (now, new, currently)
-   - Use imperative mood consistently
    - Keep it concise but complete
    - Wrap lines at 72 characters
 7. **Structure multi-paragraph bodies:**
