@@ -7,6 +7,11 @@
       path = "${config.home.homeDirectory}/.config/ai-keys/litellm";
       symlink = false;
     };
+    ai-proxy-api-key = {
+      file = "${config.my.secretsPath}/ai/litellm.age";
+      path = "${config.home.homeDirectory}/.ai-proxy-api-key";
+      symlink = false;
+    };
   };
 
   home.sessionVariables = {

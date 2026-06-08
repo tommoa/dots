@@ -8,6 +8,8 @@ inputs: self: super: let
       '';
   };
 in {
+  codex = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.codex;
+
   opencode = inputs.opencode.packages.${super.stdenv.hostPlatform.system}.default.overrideAttrs (
     old:
       (patchOpencodeSource old)
