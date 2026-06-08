@@ -82,6 +82,7 @@ in {
       w3mTats.meta
       // {
         description = "w3m with imagemagick and libsixel for inline image protocols";
+        outputsToInstall = ["out"];
       };
   };
 }
