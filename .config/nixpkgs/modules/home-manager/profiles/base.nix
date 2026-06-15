@@ -40,6 +40,7 @@
 
     # Terminal editing
     neovim
+    tree-sitter
   ];
 
   programs.zsh = {
