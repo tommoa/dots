@@ -85,6 +85,7 @@
   # Returns { "server-name" = { command = "..."; args = [...]; }; }
   resolveMcpServers = {
     pluginSrcDir,
+    pluginRuntimeDir,
     plugin,
     npmDepsHash,
     npmRoot ? null,
@@ -111,13 +112,26 @@
         }
       else null;
 
+    hasNodeServers = lib.any (server: server.command or "" == "node") (builtins.attrValues rawServers);
+    canResolveServers = hasServers && (npmDepsHash != null || !hasNodeServers);
+    runtimeRoot =
+      if builtDeps != null
+      then builtDeps
+      else pluginRuntimeDir;
+
     # Resolve ${CLAUDE_PLUGIN_ROOT}/... paths to the built derivation
-    resolveArg = arg: builtins.replaceStrings ["\${CLAUDE_PLUGIN_ROOT}/"] ["${builtDeps}/"] arg;
+    resolveArg = arg:
+      builtins.replaceStrings
+      ["\${CLAUDE_PLUGIN_ROOT}/"]
+      ["${runtimeRoot}/"]
+      arg;
 
     # Map well-known commands to their Nix store paths for hermeticity
     resolveCommand = cmd:
       if cmd == "node"
       then "${nodejs}/bin/node"
+      else if cmd == "python3" || cmd == "python"
+      then "${pythonWithDeps}/bin/python3"
       else cmd;
 
     resolveServer = name: server: {
@@ -125,12 +139,12 @@
       args = map resolveArg (server.args or []);
     };
   in
-    if hasServers && npmDepsHash != null
+    if canResolveServers
     then lib.mapAttrs resolveServer rawServers
-    else if hasServers && npmDepsHash == null
+    else if hasServers
     then
       lib.warn
-      "Plugin '${plugin}' defines MCP servers but no npmDepsHash was provided; servers will be skipped"
+      "Plugin '${plugin}' defines node MCP servers but no npmDepsHash was provided; servers will be skipped"
       {}
     else {};
 
@@ -202,14 +216,10 @@
       agentFiles;
 
     # Discover MCP servers from .claude-plugin/plugin.json
-    # Builds Node.js dependencies and resolves paths for OpenCode config
+    # Builds Node.js dependencies when configured and resolves paths for OpenCode config
     mcpServers = resolveMcpServers {
-      inherit
-        pluginSrcDir
-        plugin
-        npmDepsHash
-        npmRoot
-        ;
+      pluginRuntimeDir = transformed + "/${plugin}";
+      inherit pluginSrcDir plugin npmDepsHash npmRoot;
     };
   in {
     derivation = transformed;
