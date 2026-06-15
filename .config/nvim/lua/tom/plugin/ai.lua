@@ -48,16 +48,4 @@ return {
       },
     },
   },
-  {
-    "zbirenbaum/copilot.lua",
-    opts = {
-      should_attach = function(_, buf)
-        if is_work_machine() then
-          -- On work machines, bail.
-          return false
-        end
-        return true
-      end,
-    },
-  },
 }
