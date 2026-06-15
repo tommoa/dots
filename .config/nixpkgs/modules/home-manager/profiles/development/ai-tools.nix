@@ -118,6 +118,9 @@
         model = "gpt-5.5";
         model_reasoning_effort = "high";
 
+        approval_policy = "on-request";
+        approvals_reviewer = "auto_review";
+
         analytics.enabled = false;
         feedback.enabled = false;
         features.js_repl = false;
@@ -125,7 +128,7 @@
         projects.${config.home.homeDirectory}.trust_level = "trusted";
 
         tui = {
-          theme = "one-dark";
+          theme = "one-half-dark";
           vim_mode_default = true;
         };
       };
