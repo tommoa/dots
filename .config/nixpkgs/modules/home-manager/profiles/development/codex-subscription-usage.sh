@@ -1,0 +1,374 @@
+#!/bin/sh
+
+set -eu
+
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+CODEX_AUTH_FILE="${CODEX_AUTH_FILE:-$CODEX_HOME/auth.json}"
+OPENCODE_AUTH_FILE="${OPENCODE_AUTH_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/opencode/auth.json}"
+AUTH_SOURCE="${CODEX_USAGE_AUTH_SOURCE:-auto}"
+USAGE_URL="${CODEX_USAGE_URL:-https://chatgpt.com/backend-api/wham/usage}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/codex-subscription-usage"
+CACHE_FILE="$CACHE_DIR/usage.json"
+CACHE_TTL_SECS="${CODEX_USAGE_CACHE_TTL_SECS:-60}"
+LOCK_DIR="$CACHE_DIR/refresh.lock"
+
+# This tmux helper only reads current access tokens. Refresh tokens are owned by
+# Codex/OpenCode, and refreshing here can rotate and race with their auth caches.
+
+case "$CACHE_TTL_SECS" in
+	''|*[!0-9]*) CACHE_TTL_SECS=60 ;;
+esac
+
+now_epoch() {
+	date +%s
+}
+
+file_mtime_epoch() {
+	stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
+}
+
+cache_age_secs() {
+	if [ ! -f "$CACHE_FILE" ]; then
+		echo 999999
+		return
+	fi
+
+	now=$(now_epoch)
+	mtime=$(file_mtime_epoch "$CACHE_FILE")
+	if [ "$mtime" -gt "$now" ]; then
+		echo 0
+	else
+		echo $((now - mtime))
+	fi
+}
+
+acquire_lock() {
+	mkdir -p "$CACHE_DIR"
+	if mkdir "$LOCK_DIR" 2>/dev/null; then
+		trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT HUP INT TERM
+		return 0
+	fi
+
+	return 1
+}
+
+format_seconds() {
+	seconds="${1:-0}"
+	case "$seconds" in
+		''|*[!0-9]*) seconds=0 ;;
+	esac
+
+	if [ "$seconds" -le 0 ]; then
+		printf 'now'
+	elif [ "$seconds" -ge 86400 ]; then
+		printf '%dd' "$((seconds / 86400))"
+	elif [ "$seconds" -ge 3600 ]; then
+		hours=$((seconds / 3600))
+		minutes=$(((seconds % 3600) / 60))
+		if [ "$minutes" -gt 0 ]; then
+			printf '%dh%dm' "$hours" "$minutes"
+		else
+			printf '%dh' "$hours"
+		fi
+	else
+		printf '%dm' "$((seconds / 60))"
+	fi
+}
+
+normalize_usage_json() {
+	jq '
+		(.rate_limit // .rateLimits) as $rate_limits
+		| if $rate_limits == null then empty else
+
+		def number_or($default):
+			if . == null then $default
+			elif type == "number" then .
+			elif type == "string" then (tonumber? // $default)
+			else $default end;
+
+		def window($snake; $camel):
+			.rate_limit[$snake]
+			// .rate_limit[$camel]
+			// .rateLimits[$camel]
+			// {};
+
+		def pct:
+			(
+				.used_percent
+				// .usedPercent
+				// .usage_percent
+				// .usagePercent
+			)
+			| number_or(0);
+
+		def reset_secs:
+			(
+				.reset_after_seconds
+				// .resetAfterSeconds
+				// (
+					(.reset_at // .resetsAt // null) as $reset_at
+					| if $reset_at == null then null else (($reset_at | fromdateiso8601?) // null | if . == null then null else . - now | floor end) end
+				)
+			)
+			| number_or(0)
+			| if . < 0 then 0 else . end;
+
+		{
+			rateLimits: {
+				primary: (window("primary_window"; "primary") | {usedPercent: pct, resetAfterSeconds: reset_secs}),
+				secondary: (window("secondary_window"; "secondary") | {usedPercent: pct, resetAfterSeconds: reset_secs})
+			}
+		}
+		end
+	'
+}
+
+print_usage_text() {
+	usage_rows="$(jq -er '
+		.rateLimits // empty
+		|
+		[
+			.primary,
+			.secondary
+		]
+		| .[]
+		| [((.resetAfterSeconds // 0) | tostring), ((.usedPercent // 0) | round | tostring)]
+		| @tsv
+	' "$CACHE_FILE")" || return 1
+	[ -n "$usage_rows" ] || return 1
+
+	printf '%s\n' "$usage_rows" | while IFS="$(printf '\t')" read -r reset pct; do
+		printf '%s:%s%% ' "$(format_seconds "$reset")" "$pct"
+	done | sed 's/[[:space:]]*$//'
+	printf '\n'
+}
+
+print_cache() {
+	if [ -s "$CACHE_FILE" ]; then
+		if print_usage_text 2>/dev/null; then
+			return 0
+		fi
+
+		if normalized_json="$(normalize_usage_json < "$CACHE_FILE" 2>/dev/null)"; then
+			[ -n "$normalized_json" ] || return 1
+			write_normalized_usage_cache "$normalized_json" || return 1
+			print_usage_text 2>/dev/null
+			return $?
+		fi
+	fi
+
+	return 1
+}
+
+auth_file_for_source() {
+	case "$1" in
+		codex) printf '%s\n' "$CODEX_AUTH_FILE" ;;
+		opencode) printf '%s\n' "$OPENCODE_AUTH_FILE" ;;
+		*) return 1 ;;
+	esac
+}
+
+auth_has_token() {
+	auth_source="$1"
+	auth_file="$(auth_file_for_source "$auth_source")" || return 1
+	[ -r "$auth_file" ] || return 1
+
+	case "$auth_source" in
+		codex)
+			jq -e '(.tokens.access_token // "") != ""' "$auth_file" >/dev/null 2>&1
+			;;
+		opencode)
+			jq -e '(.openai.type == "oauth") and ((.openai.access // "") != "")' "$auth_file" >/dev/null 2>&1
+			;;
+		*) return 1 ;;
+	esac
+}
+
+select_auth_source() {
+	case "$AUTH_SOURCE" in
+		codex|opencode)
+			if auth_has_token "$AUTH_SOURCE"; then
+				SELECTED_AUTH_SOURCE="$AUTH_SOURCE"
+				SELECTED_AUTH_FILE="$(auth_file_for_source "$AUTH_SOURCE")"
+				return 0
+			fi
+			return 1
+			;;
+		auto)
+			for candidate_source in codex opencode; do
+				if auth_has_token "$candidate_source"; then
+					SELECTED_AUTH_SOURCE="$candidate_source"
+					SELECTED_AUTH_FILE="$(auth_file_for_source "$candidate_source")"
+					return 0
+				fi
+			done
+			return 1
+			;;
+		*) return 1 ;;
+	esac
+}
+
+select_specific_auth_source() {
+	if auth_has_token "$1"; then
+		SELECTED_AUTH_SOURCE="$1"
+		SELECTED_AUTH_FILE="$(auth_file_for_source "$1")"
+		return 0
+	fi
+
+	return 1
+}
+
+load_token_field() {
+	jq -er "$1 // empty" "$SELECTED_AUTH_FILE" 2>/dev/null
+}
+
+load_access_token() {
+	case "$SELECTED_AUTH_SOURCE" in
+		codex) load_token_field '.tokens.access_token' ;;
+		opencode) load_token_field '.openai.access' ;;
+		*) return 1 ;;
+	esac
+}
+
+extract_account_id_from_json() {
+	printf '%s\n' "$1" | jq -er '
+		def jwt_claims:
+			try (
+				split(".")[1] as $payload
+				| ($payload | gsub("-"; "+") | gsub("_"; "/")) as $base64
+				| ($base64 + ("===="[0:((4 - ($base64 | length % 4)) % 4)]))
+				| @base64d
+				| fromjson
+			) catch empty;
+
+		def account_id:
+			.chatgpt_account_id
+			// ."https://api.openai.com/auth".chatgpt_account_id
+			// .organizations[0].id
+			// empty;
+
+		(.id_token? | jwt_claims | account_id)
+		// (.access_token? | jwt_claims | account_id)
+		// empty
+	' 2>/dev/null
+}
+
+load_account_id() {
+	account_id=''
+	case "$SELECTED_AUTH_SOURCE" in
+		codex) account_id_path='.tokens.account_id' ;;
+		opencode) account_id_path='.openai.accountId' ;;
+		*) account_id_path='' ;;
+	esac
+	if [ -n "$account_id_path" ]; then
+		account_id="$(load_token_field "$account_id_path" || true)"
+	fi
+	if [ -z "$account_id" ]; then
+		access_token="$(load_access_token || true)"
+		if [ -n "$access_token" ]; then
+			account_id="$(extract_account_id_from_json "$(jq -n --arg access_token "$access_token" '{access_token: $access_token}')" || true)"
+		fi
+	fi
+
+	printf '%s\n' "$account_id"
+}
+
+access_token_expired() {
+	if [ "$SELECTED_AUTH_SOURCE" != opencode ]; then
+		return 1
+	fi
+
+	expires_ms="$(load_token_field '.openai.expires' || true)"
+	case "$expires_ms" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+
+	now_ms=$((($(now_epoch) * 1000) + 30000))
+	[ "$expires_ms" -le "$now_ms" ]
+}
+
+fetch_usage() {
+	access_token="${1:?missing access token}"
+	account_id="${2:-}"
+
+	{
+		printf 'header = "Authorization: Bearer %s"\n' "$access_token"
+		if [ -n "$account_id" ]; then
+			printf 'header = "ChatGPT-Account-Id: %s"\n' "$account_id"
+		fi
+		printf 'header = "Accept: application/json"\n'
+	} | curl -sS --max-time 10 -K - "$USAGE_URL"
+}
+
+response_status() {
+	printf '%s\n' "$1" | jq -r '.statusCode // .status // empty' 2>/dev/null
+}
+
+write_normalized_usage_cache() {
+	normalized_json="$1"
+	[ -n "$normalized_json" ] || return 1
+
+	tmp_file="$CACHE_FILE.$$"
+	rm -f "$tmp_file"
+	chmod 700 "$CACHE_DIR" 2>/dev/null || true
+	if ! (umask 077; printf '%s\n' "$normalized_json" > "$tmp_file"); then
+		rm -f "$tmp_file"
+		return 1
+	fi
+	chmod 600 "$tmp_file" 2>/dev/null || true
+	if ! mv "$tmp_file" "$CACHE_FILE"; then
+		rm -f "$tmp_file"
+		return 1
+	fi
+	chmod 600 "$CACHE_FILE" 2>/dev/null || true
+}
+
+write_usage_cache() {
+	usage_json="$1"
+	normalized_json="$(printf '%s\n' "$usage_json" | normalize_usage_json)" || return 1
+	write_normalized_usage_cache "$normalized_json"
+}
+
+refresh_cache_from_selected_source() {
+	access_token="$(load_access_token || true)"
+	account_id="$(load_account_id || true)"
+	if [ -z "$access_token" ] || access_token_expired; then
+		return 1
+	fi
+
+	usage_json="$(fetch_usage "$access_token" "$account_id" 2>/dev/null || true)"
+	status="$(response_status "$usage_json")"
+	if [ "$status" = 401 ]; then
+		return 1
+	fi
+
+	write_usage_cache "$usage_json"
+}
+
+refresh_cache_from_source() {
+	select_specific_auth_source "$1" || return 1
+	refresh_cache_from_selected_source
+}
+
+refresh_cache() {
+	case "$AUTH_SOURCE" in
+		codex|opencode)
+			select_auth_source || return
+			refresh_cache_from_selected_source || true
+			;;
+		auto)
+			for candidate_source in codex opencode; do
+				refresh_cache_from_source "$candidate_source" && return
+			done
+			;;
+		*) return ;;
+	esac
+}
+
+if [ "$(cache_age_secs)" -ge "$CACHE_TTL_SECS" ] && acquire_lock; then
+	if [ "$(cache_age_secs)" -ge "$CACHE_TTL_SECS" ]; then
+		refresh_cache || true
+	fi
+fi
+
+print_cache || true

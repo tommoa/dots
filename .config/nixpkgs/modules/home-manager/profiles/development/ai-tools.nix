@@ -3,7 +3,31 @@
   lib,
   config,
   ...
-}: {
+}: let
+  codexSubscriptionUsage = pkgs.writeShellApplication {
+    name = "codex-subscription-usage";
+    runtimeInputs = with pkgs; [
+      coreutils
+      curl
+      jq
+      gnused
+    ];
+    text = builtins.readFile ./codex-subscription-usage.sh;
+  };
+
+  codexTmuxSegment = pkgs.writeShellApplication {
+    name = "codex-subscription-usage-tmux";
+    runtimeInputs = [
+      codexSubscriptionUsage
+    ];
+    text = ''
+      codex_usage="$(codex-subscription-usage 2>/dev/null || true)"
+      if [ -n "$codex_usage" ]; then
+        printf '#[fg=cyan] %s #[fg=white,nobold,noitalics,nounderscore]|' "$codex_usage"
+      fi
+    '';
+  };
+in {
   options.my.opencode = {
     disablePythonFormatters = lib.mkOption {
       type = lib.types.bool;
@@ -58,6 +82,7 @@
     home.packages = with pkgs;
       [
         hunk # Review-first terminal diff viewer with agent skill integration
+        codexSubscriptionUsage
         # ollama is broken on darwin with 25.11
         # https://github.com/NixOS/nixpkgs/issues/463131
       ]
@@ -65,28 +90,35 @@
       ++ lib.optionals config.my.pi.enable [config.my.pi.package]
       ++ lib.optionals config.my.opencode.desktop.enable [opencode-desktop];
 
-    home.file = lib.mkIf (config.my.pi.enable && config.my.pi.litellm.enable) {
-      ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" {
-        extensions = ["${./pi/litellm-provider}"];
-        litellmProvider = {
-          baseUrl = config.my.pi.litellm.baseUrl;
-          apiKey = "env:LITELLM_API_KEY";
-          authHeaderName = "x-litellm-api-key";
-          sendBearerAuth = true;
-          providerCompat = {
-            supportsDeveloperRole = false;
-            supportsReasoningEffort = false;
-            maxTokensField = "max_tokens";
+    home.file = lib.mkMerge [
+      (lib.mkIf (config.my.pi.enable && config.my.pi.litellm.enable) {
+        ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" {
+          extensions = ["${./pi/litellm-provider}"];
+          litellmProvider = {
+            baseUrl = config.my.pi.litellm.baseUrl;
+            apiKey = "env:LITELLM_API_KEY";
+            authHeaderName = "x-litellm-api-key";
+            sendBearerAuth = true;
+            providerCompat = {
+              supportsDeveloperRole = false;
+              supportsReasoningEffort = false;
+              maxTokensField = "max_tokens";
+            };
+            defaults = {
+              input = ["text"];
+              contextWindow = 128000;
+              maxTokens = 16384;
+            };
+            headers = {};
           };
-          defaults = {
-            input = ["text"];
-            contextWindow = 128000;
-            maxTokens = 16384;
-          };
-          headers = {};
         };
-      };
-    };
+      })
+      {
+        ".tmux-codex.conf".text = ''
+          set -g @codex_subscription_usage_segment "#(${codexTmuxSegment}/bin/codex-subscription-usage-tmux)"
+        '';
+      }
+    ];
 
     programs.opencode = {
       enable = config.my.opencode.enable;

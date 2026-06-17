@@ -1,4 +1,31 @@
-{config, ...}: {
+{
+  config,
+  pkgs,
+  ...
+}: let
+  aiKey = pkgs.writeShellApplication {
+    name = "ai-key";
+    runtimeInputs = with pkgs; [
+      coreutils
+      curl
+      jq
+    ];
+    text = builtins.readFile ./ai-key.sh;
+  };
+
+  aiKeyTmuxSegment = pkgs.writeShellApplication {
+    name = "ai-key-tmux";
+    runtimeInputs = [
+      aiKey
+    ];
+    text = ''
+      ai_spend="$(ai-key 2>/dev/null || true)"
+      if [ -n "$ai_spend" ]; then
+        printf '#[fg=yellow] %s #[fg=white,nobold,noitalics,nounderscore]|' "$ai_spend"
+      fi
+    '';
+  };
+in {
   # Work-specific AI keys and provider configuration
   # Only imported by profiles that can reach corp infrastructure
   age.secrets = {
@@ -17,6 +44,14 @@
   home.sessionVariables = {
     OPENCODE_CONFIG = "${config.home.homeDirectory}/.config/opencode/litellm-models.json";
   };
+
+  home.packages = [
+    aiKey
+  ];
+
+  home.file.".tmux-work.conf".text = ''
+    set -g @work_ai_spend_segment "#(${aiKeyTmuxSegment}/bin/ai-key-tmux)"
+  '';
 
   # Set LITELLM_API_KEY from the decrypted secret for opencode's {env:VAR} syntax
   programs.zsh.initContent = ''
