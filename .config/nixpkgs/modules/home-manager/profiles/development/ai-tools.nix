@@ -205,7 +205,21 @@ in {
 
         analytics.enabled = false;
         feedback.enabled = false;
-        features.js_repl = false;
+        features = {
+          # Let spawned child-agent sessions receive Codex child-agent guidance files.
+          child_agents_md = true;
+          # Allow Codex to fan out suitable work across multiple child agents.
+          enable_fanout = true;
+          # Keep the removed JavaScript REPL tool disabled if older Codex builds see it.
+          js_repl = false;
+          # Enable the stable multi-agent tool surface for spawning child agents.
+          multi_agent = true;
+          # Opt into native multi-agent V2 and cap concurrent child-agent threads.
+          multi_agent_v2 = {
+            enabled = true;
+            max_concurrent_threads_per_session = 20;
+          };
+        };
 
         projects.${config.home.homeDirectory}.trust_level = "trusted";
 

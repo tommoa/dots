@@ -226,6 +226,12 @@
           "ssh"
           "ssh/work"
         ];
+        extraModules = [
+          {
+            my.pi.enable = true;
+            my.pi.package = inputs.llm-agents.packages.x86_64-linux.pi;
+          }
+        ];
       };
 
       # Personal desktop (Linux)
@@ -263,7 +269,7 @@
         ];
         extraModules = [
           {
-            my.opencode.enable = false;
+            my.opencode.enable = true;
             my.opencode.disablePythonFormatters = true;
             my.pi.enable = true;
             my.pi.package = inputs.llm-agents.packages.x86_64-linux.pi;
