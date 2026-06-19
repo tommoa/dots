@@ -24,6 +24,32 @@
     };
   };
 
+  options.my.pi = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable the pi coding-agent package";
+    };
+
+    package = lib.mkPackageOption pkgs "pi-coding-agent" {
+      default = null;
+    };
+
+    litellm = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Enable the LiteLLM provider extension for pi";
+      };
+
+      baseUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "https://ai-proxy.infra.corp.arista.io/";
+        description = "LiteLLM proxy base URL for pi";
+      };
+    };
+  };
+
   config = {
     programs.mcp.enable = true;
 
@@ -36,7 +62,31 @@
         # https://github.com/NixOS/nixpkgs/issues/463131
       ]
       ++ lib.optionals pkgs.stdenv.isLinux [ollama]
+      ++ lib.optionals config.my.pi.enable [config.my.pi.package]
       ++ lib.optionals config.my.opencode.desktop.enable [opencode-desktop];
+
+    home.file = lib.mkIf (config.my.pi.enable && config.my.pi.litellm.enable) {
+      ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" {
+        extensions = ["${./pi/litellm-provider}"];
+        litellmProvider = {
+          baseUrl = config.my.pi.litellm.baseUrl;
+          apiKey = "env:LITELLM_API_KEY";
+          authHeaderName = "x-litellm-api-key";
+          sendBearerAuth = true;
+          providerCompat = {
+            supportsDeveloperRole = false;
+            supportsReasoningEffort = false;
+            maxTokensField = "max_tokens";
+          };
+          defaults = {
+            input = ["text"];
+            contextWindow = 128000;
+            maxTokens = 16384;
+          };
+          headers = {};
+        };
+      };
+    };
 
     programs.opencode = {
       enable = config.my.opencode.enable;

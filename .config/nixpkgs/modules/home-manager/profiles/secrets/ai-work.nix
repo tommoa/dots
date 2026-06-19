@@ -23,6 +23,8 @@
     [ -f ~/.config/ai-keys/litellm ] && export LITELLM_API_KEY="$(cat ~/.config/ai-keys/litellm)"
   '';
 
+  my.pi.litellm.enable = true;
+
   # LiteLLM provider skeleton for opencode
   # Models are fetched at runtime by update-litellm-models and written to
   # ~/.config/opencode/litellm-models.json, which opencode deep-merges via OPENCODE_CONFIG.
