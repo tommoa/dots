@@ -77,7 +77,7 @@ format_seconds() {
 
 normalize_usage_json() {
 	jq '
-		(.rate_limit // .rateLimits) as $rate_limits
+		.rate_limit as $rate_limits
 		| if $rate_limits == null then empty else
 
 		def number_or($default):
@@ -86,37 +86,37 @@ normalize_usage_json() {
 			elif type == "string" then (tonumber? // $default)
 			else $default end;
 
-		def window($snake; $camel):
-			.rate_limit[$snake]
-			// .rate_limit[$camel]
-			// .rateLimits[$camel]
-			// {};
+		def window($name):
+			.rate_limit[$name] // {};
 
 		def pct:
-			(
-				.used_percent
-				// .usedPercent
-				// .usage_percent
-				// .usagePercent
-			)
-			| number_or(0);
+			.used_percent | number_or(0);
 
 		def reset_secs:
 			(
 				.reset_after_seconds
-				// .resetAfterSeconds
 				// (
-					(.reset_at // .resetsAt // null) as $reset_at
+					(.reset_at // null) as $reset_at
 					| if $reset_at == null then null else (($reset_at | fromdateiso8601?) // null | if . == null then null else . - now | floor end) end
 				)
 			)
 			| number_or(0)
 			| if . < 0 then 0 else . end;
 
+		def reset_credits_available_count:
+			.rate_limit_reset_credits.available_count | number_or(null);
+
 		{
-			rateLimits: {
-				primary: (window("primary_window"; "primary") | {usedPercent: pct, resetAfterSeconds: reset_secs}),
-				secondary: (window("secondary_window"; "secondary") | {usedPercent: pct, resetAfterSeconds: reset_secs})
+			credits: {
+				balance: (.credits.balance // null),
+				has_credits: (.credits.has_credits // null)
+			},
+			rate_limit_reset_credits: {
+				available_count: reset_credits_available_count
+			},
+			rate_limit: {
+				primary_window: (window("primary_window") | {used_percent: pct, reset_after_seconds: reset_secs}),
+				secondary_window: (window("secondary_window") | {used_percent: pct, reset_after_seconds: reset_secs})
 			}
 		}
 		end
@@ -124,22 +124,47 @@ normalize_usage_json() {
 }
 
 print_usage_text() {
+	reset_credits_available_count="$(jq -er '.rate_limit_reset_credits.available_count // empty' "$CACHE_FILE" 2>/dev/null || true)"
+	credits_balance="$(jq -er '.credits.balance // empty' "$CACHE_FILE" 2>/dev/null || true)"
+	if [ -n "$credits_balance" ]; then
+		credits_balance="$(printf '%s\n' "$credits_balance" | jq -r '
+			if type == "number" then .
+			elif type == "string" then (tonumber? // empty)
+			else empty end
+			| if . >= 100 then round | tostring
+			  elif . >= 10 then (. * 10 | round / 10 | tostring)
+			  else (. * 100 | round / 100 | tostring)
+			  end
+		' 2>/dev/null || true)"
+	fi
+
 	usage_rows="$(jq -er '
-		.rateLimits // empty
+		.rate_limit // empty
 		|
 		[
-			.primary,
-			.secondary
+			.primary_window,
+			.secondary_window
 		]
 		| .[]
-		| [((.resetAfterSeconds // 0) | tostring), ((.usedPercent // 0) | round | tostring)]
+		| [
+			((.reset_after_seconds // 0) | tostring),
+			((.used_percent // 0) | round | tostring),
+			(if (.used_percent // 0) >= 100 then "1" else "0" end)
+		]
 		| @tsv
 	' "$CACHE_FILE")" || return 1
 	[ -n "$usage_rows" ] || return 1
 
-	printf '%s\n' "$usage_rows" | while IFS="$(printf '\t')" read -r reset pct; do
-		printf '%s:%s%% ' "$(format_seconds "$reset")" "$pct"
+	printf '%s\n' "$usage_rows" | while IFS="$(printf '\t')" read -r reset pct limit_hit; do
+		if [ "$limit_hit" = 1 ] && [ -n "$credits_balance" ]; then
+			printf '%s:%scr ' "$(format_seconds "$reset")" "$credits_balance"
+		else
+			printf '%s:%s%% ' "$(format_seconds "$reset")" "$pct"
+		fi
 	done | sed 's/[[:space:]]*$//'
+	if [ -n "$reset_credits_available_count" ]; then
+		printf ' (%s)' "$reset_credits_available_count"
+	fi
 	printf '\n'
 }
 

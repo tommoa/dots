@@ -4,6 +4,17 @@
   config,
   ...
 }: let
+  codexReset = pkgs.writeShellApplication {
+    name = "reset-codex";
+    runtimeInputs = with pkgs; [
+      coreutils
+      curl
+      gnused
+      jq
+    ];
+    text = builtins.readFile ./reset-codex.sh;
+  };
+
   codexSubscriptionUsage = pkgs.writeShellApplication {
     name = "codex-subscription-usage";
     runtimeInputs = with pkgs; [
@@ -81,8 +92,9 @@ in {
     # Secrets are defined in secrets/ai.nix.
     home.packages = with pkgs;
       [
-        hunk # Review-first terminal diff viewer with agent skill integration
+        codexReset
         codexSubscriptionUsage
+        hunk # Review-first terminal diff viewer with agent skill integration
         # ollama is broken on darwin with 25.11
         # https://github.com/NixOS/nixpkgs/issues/463131
       ]
