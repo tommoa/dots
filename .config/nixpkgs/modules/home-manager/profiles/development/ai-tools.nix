@@ -126,6 +126,7 @@ in {
         };
       })
       {
+        ".codex/config.toml".force = true;
         ".tmux-codex.conf".text = ''
           set -g @codex_subscription_usage_segment "#(${codexTmuxSegment}/bin/codex-subscription-usage-tmux)"
         '';
