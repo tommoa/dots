@@ -32,5 +32,7 @@ in {
     inputs.opencode.packages.${super.stdenv.hostPlatform.system}.opencode-desktop.overrideAttrs
     patchOpencodeSource;
 
-  hunk = inputs.hunk.packages.${super.stdenv.hostPlatform.system}.default;
+  hunk = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.hunk;
+
+  pi-coding-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.pi;
 }

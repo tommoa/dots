@@ -49,9 +49,19 @@ in {
     aiKey
   ];
 
-  home.file.".tmux-work.conf".text = ''
-    set -g @work_ai_spend_segment "#(${aiKeyTmuxSegment}/bin/ai-key-tmux)"
-  '';
+  home.file = {
+    ".codex/codex-api-key-helper" = {
+      executable = true;
+      text = ''
+        #!/bin/sh
+        printf '%s\n' "$LITELLM_API_KEY"
+      '';
+    };
+
+    ".tmux-work.conf".text = ''
+      set -g @work_ai_spend_segment "#(${aiKeyTmuxSegment}/bin/ai-key-tmux)"
+    '';
+  };
 
   # Set LITELLM_API_KEY from the decrypted secret for opencode's {env:VAR} syntax
   programs.zsh.initContent = ''
@@ -78,7 +88,11 @@ in {
     model_providers.ai_proxy = {
       name = "Arista AI Proxy";
       base_url = "https://ai-proxy.infra.corp.arista.io/";
-      env_key = "LITELLM_API_KEY";
+      auth = {
+        command = "${config.home.homeDirectory}/.codex/codex-api-key-helper";
+        timeout_ms = 5000;
+        refresh_interval_ms = 300000;
+      };
       wire_api = "responses";
       supports_websockets = false;
     };

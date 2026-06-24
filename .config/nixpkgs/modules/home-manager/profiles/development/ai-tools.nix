@@ -38,6 +38,11 @@
       fi
     '';
   };
+
+  hunkInstalled = (pkgs ? hunk) && lib.elem pkgs.hunk config.home.packages;
+  hunkSkills = lib.optionalAttrs hunkInstalled {
+    hunk-review = "${pkgs.hunk}/skills/hunk-review";
+  };
 in {
   options.my.opencode = {
     disablePythonFormatters = lib.mkOption {
@@ -45,6 +50,8 @@ in {
       default = false;
       description = "Whether to disable Python formatters (ruff, uv) in opencode";
     };
+
+    package = lib.mkPackageOption pkgs "opencode" {};
 
     desktop.enable = lib.mkOption {
       type = lib.types.bool;
@@ -62,13 +69,11 @@ in {
   options.my.pi = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = false;
+      default = true;
       description = "Enable the pi coding-agent package";
     };
 
-    package = lib.mkPackageOption pkgs "pi-coding-agent" {
-      default = null;
-    };
+    package = lib.mkPackageOption pkgs "pi-coding-agent" {};
 
     litellm = {
       enable = lib.mkOption {
@@ -94,10 +99,8 @@ in {
       [
         codexReset
         codexSubscriptionUsage
-        hunk # Review-first terminal diff viewer with agent skill integration
-        # ollama is broken on darwin with 25.11
-        # https://github.com/NixOS/nixpkgs/issues/463131
       ]
+      ++ lib.optionals (pkgs ? hunk) [hunk]
       ++ lib.optionals pkgs.stdenv.isLinux [ollama]
       ++ lib.optionals config.my.pi.enable [config.my.pi.package]
       ++ lib.optionals config.my.opencode.desktop.enable [opencode-desktop];
@@ -113,7 +116,7 @@ in {
             sendBearerAuth = true;
             providerCompat = {
               supportsDeveloperRole = false;
-              supportsReasoningEffort = false;
+              supportsReasoningEffort = true;
               maxTokensField = "max_tokens";
             };
             defaults = {
@@ -136,7 +139,7 @@ in {
     programs.opencode = {
       enable = config.my.opencode.enable;
       enableMcpIntegration = true;
-      package = pkgs.opencode;
+      package = config.my.opencode.package;
       tui = {
         theme = "one-dark";
       };
@@ -198,11 +201,12 @@ in {
           - Can you hide any special cases?
         '';
       };
-      skills = {
-        commit = ./opencode/commit/SKILL.md;
-        change-amplification = ./ai-skills/change-amplification/SKILL.md;
-        hunk-review = "${pkgs.hunk}/skills/hunk-review";
-      };
+      skills =
+        {
+          commit = ./opencode/commit/SKILL.md;
+          change-amplification = ./ai-skills/change-amplification/SKILL.md;
+        }
+        // hunkSkills;
     };
 
     programs.codex = {
@@ -212,6 +216,7 @@ in {
       settings = {
         model = "gpt-5.5";
         model_reasoning_effort = "high";
+        model_reasoning_summary = "auto";
 
         approval_policy = "on-request";
         approvals_reviewer = "auto_review";
@@ -241,33 +246,34 @@ in {
           vim_mode_default = true;
         };
       };
-      skills = {
-        commit = ./opencode/commit/SKILL.md;
-        change-amplification = ./ai-skills/change-amplification/SKILL.md;
-        hunk-review = "${pkgs.hunk}/skills/hunk-review";
-        rethink = ''
-          ---
-          name: rethink
-          description: Make sure the agent rethinks its decisions for design
-          ---
+      skills =
+        {
+          commit = ./opencode/commit/SKILL.md;
+          change-amplification = ./ai-skills/change-amplification/SKILL.md;
+          rethink = ''
+            ---
+            name: rethink
+            description: Make sure the agent rethinks its decisions for design
+            ---
 
-          Please carefully consider the following questions, then provide a thorough
-          response for each of them to the user.
+            Please carefully consider the following questions, then provide a thorough
+            response for each of them to the user.
 
-          - Is it the right way to solve this issue?
-          - Will it be the most maintainable option?
-          - Is this actually a bug in a different system that we should be fixing?
-          - Is this the right interface to use?
-          - What is the simplest interface that will cover all my current needs?
-          - In how many situations will this method be used?
-          - Is this API easy to use for my current needs?
-          - Does any information get used in multiple places?
-          - Will users be able to determine a better value than can be determined
-            here? (for configuration)
-          - Is there any code that needs to be written more than once?
-          - Can you hide any special cases?
-        '';
-      };
+            - Is it the right way to solve this issue?
+            - Will it be the most maintainable option?
+            - Is this actually a bug in a different system that we should be fixing?
+            - Is this the right interface to use?
+            - What is the simplest interface that will cover all my current needs?
+            - In how many situations will this method be used?
+            - Is this API easy to use for my current needs?
+            - Does any information get used in multiple places?
+            - Will users be able to determine a better value than can be determined
+              here? (for configuration)
+            - Is there any code that needs to be written more than once?
+            - Can you hide any special cases?
+          '';
+        }
+        // hunkSkills;
     };
   };
 }

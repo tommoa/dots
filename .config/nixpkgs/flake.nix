@@ -11,11 +11,6 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
-    hunk = {
-      url = "github:modem-dev/hunk";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -125,13 +120,7 @@
     # Helper function to create darwin configurations
     mkDarwinConfig = {
       hostConfig,
-      username,
-      homeDirectory,
-      homeProfiles ? [
-        "base"
-        "development"
-        "desktop"
-      ],
+      homeConfig,
     }:
       nix-darwin.lib.darwinSystem {
         modules = [
@@ -150,14 +139,15 @@
             home-manager.sharedModules = [
               agenix-module
             ];
-            home-manager.users.${username} = {...}: {
+            home-manager.users.${homeConfig.username} = {...}: {
               imports =
                 [
                   zen-browser-module
                 ]
-                ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
-              home.username = username;
-              home.homeDirectory = homeDirectory;
+                ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeConfig.profiles
+                ++ homeConfig.extraModules;
+              home.username = homeConfig.username;
+              home.homeDirectory = homeConfig.homeDirectory;
               targets.darwin.copyApps.enable = false;
               targets.darwin.linkApps.enable = true;
             };
@@ -169,13 +159,7 @@
     # Helper function to create nixos configurations
     mkNixosConfig = {
       hostConfig,
-      username,
-      homeDirectory,
-      homeProfiles ? [
-        "base"
-        "development"
-        "desktop"
-      ],
+      homeConfig,
     }:
       nixpkgs.lib.nixosSystem {
         modules = [
@@ -194,61 +178,72 @@
             home-manager.sharedModules = [
               agenix-module
             ];
-            home-manager.users.${username} = {...}: {
+            home-manager.users.${homeConfig.username} = {...}: {
               imports =
                 [
                   zen-browser-module
                 ]
-                ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeProfiles;
-              home.username = username;
-              home.homeDirectory = homeDirectory;
+                ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeConfig.profiles
+                ++ homeConfig.extraModules;
+              home.username = homeConfig.username;
+              home.homeDirectory = homeConfig.homeDirectory;
             };
           }
         ];
         specialArgs = {inherit inputs;};
       };
+  in let
+    workHomeConfig = {
+      username = "toma";
+      homeDirectory = "/Users/toma";
+      profiles = [
+        "base"
+        "desktop"
+        "development"
+        "mail"
+        "secrets/ai"
+        "secrets/ai-work"
+        "secrets/arista-report"
+        "secrets/deploy-keys"
+        "ssh"
+        "ssh/work"
+      ];
+      extraModules = [];
+    };
+
+    personalHomeConfig = {
+      username = "tommoa";
+      homeDirectory = "/home/tommoa";
+      profiles = [
+        "base"
+        "desktop"
+        "development"
+        "mail"
+        "secrets/ai"
+        "secrets/deploy-keys"
+        "ssh"
+        "ssh/personal"
+      ];
+      extraModules = [];
+    };
   in {
     # Standalone home-manager configurations
     homeConfigurations = {
       # Work desktop (macOS)
-      "toma@work" = mkHomeConfig {
-        username = "toma";
-        homeDirectory = "/Users/toma";
-        system = "aarch64-darwin";
-        profiles = [
-          "base"
-          "desktop"
-          "development"
-          "secrets/ai"
-          "secrets/ai-work"
-          "secrets/arista-report"
-          "secrets/deploy-keys"
-          "ssh"
-          "ssh/work"
-        ];
-        extraModules = [
-          {
-            my.pi.enable = true;
-            my.pi.package = inputs.llm-agents.packages.x86_64-linux.pi;
-          }
-        ];
-      };
+      "toma@work" =
+        mkHomeConfig
+        (workHomeConfig
+          // {
+            system = "aarch64-darwin";
+          });
 
       # Personal desktop (Linux)
-      "tommoa@personal" = mkHomeConfig {
-        username = "tommoa";
-        homeDirectory = "/home/tommoa";
-        system = "x86_64-linux";
-        profiles = [
-          "base"
-          "desktop"
-          "development"
-          "secrets/ai"
-          "secrets/deploy-keys"
-          "ssh"
-          "ssh/personal"
-        ];
-      };
+      "tommoa@personal" =
+        mkHomeConfig
+        (personalHomeConfig
+          // {
+            system = "x86_64-linux";
+          });
 
       # Server deployments (headless)
       "toma@server" = mkHomeConfig {
@@ -270,9 +265,8 @@
         extraModules = [
           {
             my.opencode.enable = true;
+            my.opencode.package = inputs.llm-agents.packages.x86_64-linux.opencode;
             my.opencode.disablePythonFormatters = true;
-            my.pi.enable = true;
-            my.pi.package = inputs.llm-agents.packages.x86_64-linux.pi;
           }
         ];
       };
@@ -293,37 +287,16 @@
     # System configurations
     darwinConfigurations."apollo" = mkDarwinConfig {
       hostConfig = ./hosts/apollo.nix;
-      username = "toma";
-      homeDirectory = "/Users/toma";
-      homeProfiles = [
-        "base"
-        "desktop"
-        "development"
-        "mail"
-        "secrets/ai"
-        "secrets/ai-work"
-        "secrets/arista-report"
-        "secrets/deploy-keys"
-        "ssh"
-        "ssh/work"
-      ];
+      homeConfig = workHomeConfig;
     };
 
     nixosConfigurations."james" = mkNixosConfig {
       hostConfig = ./hosts/james.nix;
-      username = "tommoa";
-      homeDirectory = "/home/tommoa";
-      homeProfiles = [
-        "base"
-        "desktop"
-        "development"
-        "mail"
-        "secrets/ai"
-        "secrets/deploy-keys"
-        "secrets/keyring-unlock"
-        "ssh"
-        "ssh/personal"
-      ];
+      homeConfig =
+        personalHomeConfig
+        // {
+          profiles = personalHomeConfig.profiles ++ ["secrets/keyring-unlock"];
+        };
     };
 
     # Formatter for `nix fmt`
@@ -359,7 +332,7 @@
                 nodejs
                 ;
             }).package;
-          hunk = inputs.hunk.packages.${system}.default;
+          hunk = inputs.llm-agents.packages.${system}.hunk;
         }
       );
   };
