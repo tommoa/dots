@@ -60,7 +60,7 @@ format_seconds() {
 
 	if [ "$seconds" -le 0 ]; then
 		printf 'now'
-	elif [ "$seconds" -ge 86400 ]; then
+	elif [ "$seconds" -ge 259200 ]; then
 		printf '%dd' "$((seconds / 86400))"
 	elif [ "$seconds" -ge 3600 ]; then
 		hours=$((seconds / 3600))
