@@ -236,6 +236,11 @@ confirm_reset() {
 }
 
 generate_idempotency_key() {
+	if command -v uuidgen >/dev/null 2>&1; then
+		uuidgen | tr '[:upper:]' '[:lower:]'
+		return
+	fi
+
 	random_hex="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
 	printf 'reset-codex-%s-%s-%s\n' "$(date +%s)" "$$" "$random_hex"
 }
@@ -272,7 +277,7 @@ fi
 confirm_reset
 
 idempotency_key="$(generate_idempotency_key)"
-request_body="$(jq -n --arg idempotencyKey "$idempotency_key" '{idempotencyKey: $idempotencyKey}')"
+request_body="$(jq -n --arg redeem_request_id "$idempotency_key" '{redeem_request_id: $redeem_request_id}')"
 reset_json="$(request_json POST "$RESET_URL" "$request_body")"
 
 outcome_code="$(printf '%s\n' "$reset_json" | jq -r '.outcome.code // .code // .outcome // empty')"
