@@ -332,7 +332,6 @@
                 nodejs
                 ;
             }).package;
-          hunk = inputs.llm-agents.packages.${system}.hunk;
         }
       );
   };

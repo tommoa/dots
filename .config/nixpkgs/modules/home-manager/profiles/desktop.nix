@@ -21,7 +21,7 @@
     ++ (
       if pkgs.stdenv.isLinux
       then [
-        blueberry
+        blueman
         brightnessctl
         grim
         hyprsunset
