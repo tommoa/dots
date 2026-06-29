@@ -1,5 +1,5 @@
 diff --git a/image.go b/image.go
-index 39c0930..f75af62 100644
+index 39c0930..ec15f1b 100644
 --- a/image.go
 +++ b/image.go
 @@ -8,6 +8,7 @@ import (
@@ -10,7 +10,7 @@ index 39c0930..f75af62 100644
  
  	"git.sr.ht/~rockorager/vaxis/log"
  	"git.sr.ht/~rockorager/vaxis/octreequant"
-@@ -16,6 +17,64 @@ import (
+@@ -16,6 +17,96 @@ import (
  	"golang.org/x/image/draw"
  )
  
@@ -72,10 +72,42 @@ index 39c0930..f75af62 100644
 +	return b.String()
 +}
 +
++// clippedImageRange returns the half-open local image range visible for one
++// axis. Parent-window clipping is still handled by Window.SetCell.
++func clippedImageRange(origin, windowExtent, imageExtent, screenExtent int) (int, int) {
++	if windowExtent <= 0 || imageExtent <= 0 {
++		return 0, 0
++	}
++	start := 0
++	if origin < 0 {
++		start = -origin
++	}
++	end := imageExtent
++	if end > windowExtent {
++		end = windowExtent
++	}
++	if screenExtent > 0 && origin+end > screenExtent {
++		end = screenExtent - origin
++	}
++	if end > imageExtent {
++		end = imageExtent
++	}
++	if start < 0 {
++		start = 0
++	}
++	if start > imageExtent {
++		start = imageExtent
++	}
++	if end < start {
++		end = start
++	}
++	return start, end
++}
++
  // Alpha value that we consider to be transparent enough to use default
  // background color
  const transparentEnough = 50
-@@ -86,6 +145,12 @@ func (k *KittyImage) Draw(win Window) {
+@@ -86,6 +177,12 @@ func (k *KittyImage) Draw(win Window) {
  	if atomicLoad(&k.encoding) {
  		return
  	}
@@ -88,7 +120,7 @@ index 39c0930..f75af62 100644
  	col, row := win.Origin()
  	log.Trace("placing kitty image at cell %d,%d", col, row)
  	// the pid is a 32 bit number where the high 16bits are the width and
-@@ -97,10 +162,96 @@ func (k *KittyImage) Draw(win Window) {
+@@ -97,10 +194,12 @@ func (k *KittyImage) Draw(win Window) {
  			atomicStore(&k.uploaded, true)
  			k.buf.Reset()
  		}
@@ -100,19 +132,13 @@ index 39c0930..f75af62 100644
 -		fmt.Fprintf(w, "\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", k.id, pid)
 +		seq := fmt.Sprintf("\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", k.id, pid)
 +		io.WriteString(w, seq)
-+	}
-+	placement := &placement{
-+		col:      col,
-+		row:      row,
-+		id:       k.id,
-+		w:        k.w,
-+		h:        k.h,
-+		writeTo:  writeFunc,
-+		deleteFn: deleteFunc,
-+	}
-+	k.vx.graphicsNext = append(k.vx.graphicsNext, placement)
-+}
-+
+ 	}
+ 	placement := &placement{
+ 		col:      col,
+@@ -114,9 +213,100 @@ func (k *KittyImage) Draw(win Window) {
+ 	k.vx.graphicsNext = append(k.vx.graphicsNext, placement)
+ }
+ 
 +// drawUnicodePlaceholder renders a kitty image via Unicode placeholders.
 +// This is used inside tmux where direct kitty placement commands (a=p)
 +// position images at absolute terminal coordinates, ignoring pane offsets.
@@ -124,20 +150,21 @@ index 39c0930..f75af62 100644
 +		return
 +	}
 +	col, row := win.Origin()
-+
-+	// Clamp to the visible area.  The kitty spec allows emitting fewer
-+	// placeholder cells than the virtual placement dimensions — the
-+	// terminal will display only the corresponding portion of the image.
-+	drawW := k.w
-+	drawH := k.h
-+	if drawW > w {
-+		drawW = w
++	if k.vx == nil || k.vx.screenNext == nil {
++		return
 +	}
-+	if drawH > h {
-+		drawH = h
++	screenW, screenH := k.vx.screenNext.size()
++
++	// The kitty spec allows emitting fewer placeholder cells than the virtual
++	// placement dimensions.  Use source coordinates in each placeholder so
++	// clipping on any edge reveals the matching portion of the image.
++	startX, endX := clippedImageRange(col, w, k.w, screenW)
++	startY, endY := clippedImageRange(row, h, k.h, screenH)
++	if startX == endX || startY == endY {
++		return
 +	}
 +	log.Trace("placing kitty image via unicode placeholder at cell %d,%d (%dx%d, visible %dx%d)",
-+		col, row, k.w, k.h, drawW, drawH)
++		col, row, k.w, k.h, endX-startX, endY-startY)
 +
 +	// Encode image ID as a 24-bit RGB foreground color.  We always use
 +	// RGB rather than 256-color IndexColor because index colors 0-15 are
@@ -151,8 +178,8 @@ index 39c0930..f75af62 100644
 +	// Write placeholder characters into the window cells.
 +	// Each cell gets U+10EEEE + row diacritic + column diacritic,
 +	// with the image ID encoded in the foreground color.
-+	for y := 0; y < drawH; y++ {
-+		for x := 0; x < drawW; x++ {
++	for y := startY; y < endY; y++ {
++		for x := startX; x < endX; x++ {
 +			g := placeholderGrapheme(y, x)
 +			win.SetCell(x, y, Cell{
 +				Character: Character{
@@ -184,11 +211,19 @@ index 39c0930..f75af62 100644
 +		// Delete by image ID — removes the virtual placement
 +		seq := fmt.Sprintf("\x1B_Ga=d,d=i,i=%d,q=2\x1B\\", k.id)
 +		io.WriteString(wr, tmuxWrap(seq))
- 	}
- 	placement := &placement{
- 		col:      col,
-@@ -116,7 +267,13 @@ func (k *KittyImage) Draw(win Window) {
- 
++	}
++	placement := &placement{
++		col:      col + startX,
++		row:      row + startY,
++		id:       k.id,
++		w:        k.w,
++		h:        k.h,
++		writeTo:  writeFunc,
++		deleteFn: deleteFunc,
++	}
++	k.vx.graphicsNext = append(k.vx.graphicsNext, placement)
++}
++
  // Destroy deletes this image from memory
  func (k *KittyImage) Destroy() {
 -	fmt.Fprintf(k.vx.console, "\x1B_Ga=d,d=I,i=%d\x1B\\", k.id)
@@ -202,7 +237,63 @@ index 39c0930..f75af62 100644
  }
  
  func (k *KittyImage) CellSize() (w int, h int) {
-@@ -166,7 +323,13 @@ func (k *KittyImage) Resize(w int, h int) {
+@@ -122,6 +313,55 @@ func (k *KittyImage) CellSize() (w int, h int) {
+ 	return k.w, k.h
+ }
+ 
++// ResizeExact resizes the image to exactly wxh cells. Unlike Resize, this
++// intentionally does not preserve aspect ratio. Use this when the caller is
++// translating a terminal image protocol placement that already specified the
++// exact cell footprint.
++func (k *KittyImage) ResizeExact(w int, h int) {
++	if w <= 0 || h <= 0 {
++		return
++	}
++	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
++	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
++	img := image.NewRGBA(image.Rect(0, 0, w*cellPixW, h*cellPixH))
++	draw.CatmullRom.Scale(img, img.Rect, k.img, k.img.Bounds(), draw.Over, nil)
++	k.w = w
++	k.h = h
++
++	atomicStore(&k.encoding, true)
++	go func() {
++		defer atomicStore(&k.encoding, false)
++		buf := bytes.NewBuffer(nil)
++		wc := base64.NewEncoder(base64.StdEncoding, buf)
++		err := png.Encode(wc, img)
++		if err != nil {
++			log.Error("couldn't encode kitty image: %v", err)
++			return
++		}
++		wc.Close()
++		b := make([]byte, 4096)
++		atomicStore(&k.uploaded, false)
++		for buf.Len() > 0 {
++			n, err := buf.Read(b)
++			if err == io.EOF {
++				break
++			}
++			m := 1
++			if buf.Len() == 0 {
++				m = 0
++			}
++			var seq string
++			if k.vx.inTmux {
++				seq = tmuxWrap(fmt.Sprintf("\x1B_Gf=100,i=%d,m=%d,q=2;%s\x1B\\", k.id, m, string(b[:n])))
++			} else {
++				seq = fmt.Sprintf("\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", k.id, m, string(b[:n]))
++			}
++			k.buf.WriteString(seq)
++		}
++		k.vx.PostEventBlocking(Redraw{})
++	}()
++}
++
+ // Resizes the image to fit within the wxh area. The image will not be
+ // upscaled, nor will it's aspect ratio be changed. Resizing will be done in a
+ // separate goroutine. A [Redraw] event will be posted when complete
+@@ -166,7 +356,13 @@ func (k *KittyImage) Resize(w int, h int) {
  			if buf.Len() == 0 {
  				m = 0
  			}
@@ -217,15 +308,17 @@ index 39c0930..f75af62 100644
  		}
  		k.vx.PostEventBlocking(Redraw{})
  	}()
+ }
 diff --git a/placeholder_test.go b/placeholder_test.go
 new file mode 100644
-index 0000000..a0b6d40
+index 0000000..75494d2
 --- /dev/null
 +++ b/placeholder_test.go
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,166 @@
 +package vaxis
 +
 +import (
++	"image"
 +	"testing"
 +)
 +
@@ -282,6 +375,86 @@ index 0000000..a0b6d40
 +	expected = "\U0010EEEE\u0305"
 +	if g != expected {
 +		t.Errorf("placeholderGrapheme(%d,0) = %q, want %q", big, g, expected)
++	}
++}
++
++func TestClippedImageRange(t *testing.T) {
++	tests := []struct {
++		name         string
++		origin       int
++		windowExtent int
++		imageExtent  int
++		screenExtent int
++		wantStart    int
++		wantEnd      int
++	}{
++		{
++			name:         "fully visible",
++			origin:       2,
++			windowExtent: 6,
++			imageExtent:  6,
++			screenExtent: 20,
++			wantStart:    0,
++			wantEnd:      6,
++		},
++		{
++			name:         "left clipped",
++			origin:       -3,
++			windowExtent: 5,
++			imageExtent:  10,
++			screenExtent: 20,
++			wantStart:    3,
++			wantEnd:      5,
++		},
++		{
++			name:         "right clipped",
++			origin:       8,
++			windowExtent: 10,
++			imageExtent:  10,
++			screenExtent: 12,
++			wantStart:    0,
++			wantEnd:      4,
++		},
++		{
++			name:         "entirely before screen",
++			origin:       -12,
++			windowExtent: 5,
++			imageExtent:  10,
++			screenExtent: 20,
++			wantStart:    10,
++			wantEnd:      10,
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			gotStart, gotEnd := clippedImageRange(tt.origin, tt.windowExtent, tt.imageExtent, tt.screenExtent)
++			if gotStart != tt.wantStart || gotEnd != tt.wantEnd {
++				t.Errorf("clippedImageRange() = (%d, %d), want (%d, %d)",
++					gotStart, gotEnd, tt.wantStart, tt.wantEnd)
++			}
++		})
++	}
++}
++
++func TestKittyImageResizeExactSetsRequestedCellSize(t *testing.T) {
++	vx := &Vaxis{
++		queue: make(chan Event, 1),
++		winSize: Resize{
++			Cols:   10,
++			Rows:   10,
++			XPixel: 80,
++			YPixel: 160,
++		},
++	}
++	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
++	k := vx.NewKittyGraphic(img)
++
++	k.ResizeExact(3, 2)
++
++	w, h := k.CellSize()
++	if w != 3 || h != 2 {
++		t.Fatalf("CellSize after ResizeExact = %dx%d, want 3x2", w, h)
 +	}
 +}
 +

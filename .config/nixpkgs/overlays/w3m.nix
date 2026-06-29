@@ -35,6 +35,8 @@ self: super: let
 
       buildInputs = old.buildInputs ++ [super.libsixel];
 
+      patches = (old.patches or []) ++ [./w3m-kitty-full-dimensions.patch];
+
       configureFlags =
         [
           "--with-ssl=${super.openssl.dev}"

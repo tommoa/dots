@@ -11,10 +11,10 @@ index c1fb462..3fae424 100644
  }
  
 diff --git a/widgets/term/image.go b/widgets/term/image.go
-index c5e6dac..a7f34d7 100644
+index c5e6dac..a0ca35f 100644
 --- a/widgets/term/image.go
 +++ b/widgets/term/image.go
-@@ -11,8 +11,9 @@ type Image struct {
+@@ -11,13 +11,18 @@ type Image struct {
  		row int
  		col int
  	}
@@ -23,15 +23,26 @@ index c5e6dac..a7f34d7 100644
 +	img     image.Image
 +	vaxii   []*vaxisImage
 +	kittyID uint32 // kitty graphics image ID (0 = sixel or unset)
++	cols    int    // requested kitty placement width in cells
++	rows    int    // requested kitty placement height in cells
++	kitty   *kittyPlacement
  }
  
  type vaxisImage struct {
+ 	// A handle on the vaxis that created this image. This is in case
+ 	// multiple vaxis instances are connected to the same term widget
+-	vx      *vaxis.Vaxis
+-	vxImage vaxis.Image
++	vx        *vaxis.Vaxis
++	vxImage   vaxis.Image
++	renderKey string
+ }
 diff --git a/widgets/term/kitty.go b/widgets/term/kitty.go
 new file mode 100644
-index 0000000..a5c46b3
+index 0000000..04fe4db
 --- /dev/null
 +++ b/widgets/term/kitty.go
-@@ -0,0 +1,373 @@
+@@ -0,0 +1,585 @@
 +package term
 +
 +import (
@@ -39,7 +50,9 @@ index 0000000..a5c46b3
 +	"encoding/base64"
 +	"fmt"
 +	"image"
++	"image/draw"
 +	"image/png"
++	"math"
 +	"strconv"
 +	"strings"
 +
@@ -53,8 +66,14 @@ index 0000000..a5c46b3
 +	id     uint32 // image ID (i=)
 +	more   int    // 0=last chunk, 1=more chunks follow (m=)
 +	quiet  int    // 0=normal, 1=suppress OK, 2=suppress all (q=)
-+	width  int    // pixel width for raw formats (s=)
-+	height int    // pixel height for raw formats (v=)
++	width  int    // transmitted image width in pixels (s=), required for raw formats
++	height int    // transmitted image height in pixels (v=), required for raw formats
++	cols   int    // placement width in cells (c=)
++	rows   int    // placement height in cells (r=)
++	srcX   int    // source rectangle left edge in pixels (x=)
++	srcY   int    // source rectangle top edge in pixels (y=)
++	srcW   int    // source rectangle width in pixels (w=)
++	srcH   int    // source rectangle height in pixels (h=)
 +	delete byte   // delete target: 'a'=all, 'i'=by id, 'I'=by id+placement (d=)
 +}
 +
@@ -66,8 +85,27 @@ index 0000000..a5c46b3
 +	quiet  int
 +	width  int
 +	height int
++	cols   int
++	rows   int
++	srcX   int
++	srcY   int
++	srcW   int
++	srcH   int
 +	row    int // cursor position at first chunk
 +	col    int
++}
++
++type kittyPlacement struct {
++	params kittyParams
++}
++
++type kittyRenderPlan struct {
++	displayWidth  int
++	displayHeight int
++	parentCols    int
++	parentRows    int
++	originCol     int
++	originRow     int
 +}
 +
 +// kittyState holds state for kitty graphics protocol handling within the VT.
@@ -150,6 +188,36 @@ index 0000000..a5c46b3
 +				if err == nil {
 +					p.height = n
 +				}
++			case "c":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.cols = n
++				}
++			case "r":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.rows = n
++				}
++			case "x":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.srcX = n
++				}
++			case "y":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.srcY = n
++				}
++			case "w":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.srcW = n
++				}
++			case "h":
++				n, err := strconv.Atoi(val)
++				if err == nil {
++					p.srcH = n
++				}
 +			case "d":
 +				if len(val) > 0 {
 +					p.delete = val[0]
@@ -216,6 +284,138 @@ index 0000000..a5c46b3
 +	}
 +}
 +
++func cropKittyImage(img image.Image, params kittyParams) image.Image {
++	if img == nil {
++		return img
++	}
++	bounds := img.Bounds()
++	srcX := params.srcX
++	srcY := params.srcY
++	w := params.srcW
++	h := params.srcH
++	x := bounds.Min.X + srcX
++	y := bounds.Min.Y + srcY
++	if w <= 0 {
++		w = bounds.Max.X - x
++	}
++	if h <= 0 {
++		h = bounds.Max.Y - y
++	}
++	if w <= 0 || h <= 0 {
++		return nil
++	}
++	rect := image.Rect(x, y, x+w, y+h)
++	clipped := rect.Intersect(bounds)
++	if clipped.Empty() {
++		return image.NewNRGBA(image.Rect(0, 0, w, h))
++	}
++	if rect == bounds {
++		return img
++	}
++	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
++	dstRect := image.Rect(clipped.Min.X-x, clipped.Min.Y-y, clipped.Max.X-x, clipped.Max.Y-y)
++	draw.Draw(dst, dstRect, img, clipped.Min, draw.Src)
++	return dst
++}
++
++func cropKittyImageToDisplay(img image.Image, params kittyParams, displayW, displayH int) image.Image {
++	if img == nil {
++		return nil
++	}
++	bounds := img.Bounds()
++	decodedW := bounds.Dx()
++	decodedH := bounds.Dy()
++	if decodedW <= 0 || decodedH <= 0 || displayW <= 0 || displayH <= 0 {
++		return nil
++	}
++	srcX := params.srcX
++	srcY := params.srcY
++	w := params.srcW
++	h := params.srcH
++	if w <= 0 {
++		w = displayW - srcX
++	}
++	if h <= 0 {
++		h = displayH - srcY
++	}
++	if w <= 0 || h <= 0 {
++		return nil
++	}
++
++	x := bounds.Min.X + int(math.Floor(float64(srcX)*float64(decodedW)/float64(displayW)))
++	y := bounds.Min.Y + int(math.Floor(float64(srcY)*float64(decodedH)/float64(displayH)))
++	x2 := bounds.Min.X + int(math.Ceil(float64(srcX+w)*float64(decodedW)/float64(displayW)))
++	y2 := bounds.Min.Y + int(math.Ceil(float64(srcY+h)*float64(decodedH)/float64(displayH)))
++	w = x2 - x
++	h = y2 - y
++	if w <= 0 || h <= 0 {
++		return nil
++	}
++	rect := image.Rect(x, y, x+w, y+h)
++	clipped := rect.Intersect(bounds)
++	if clipped.Empty() {
++		return image.NewNRGBA(image.Rect(0, 0, w, h))
++	}
++	if rect == bounds {
++		return img
++	}
++	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
++	dstRect := image.Rect(clipped.Min.X-x, clipped.Min.Y-y, clipped.Max.X-x, clipped.Max.Y-y)
++	draw.Draw(dst, dstRect, img, clipped.Min, draw.Src)
++	return dst
++}
++
++func resolveKittyRenderPlan(src image.Image, params kittyParams, originCol, originRow, parentCols, parentRows int) kittyRenderPlan {
++	bounds := src.Bounds()
++	pngW := bounds.Dx()
++	pngH := bounds.Dy()
++	displayW := params.width
++	displayH := params.height
++	if displayW <= 0 || displayH <= 0 {
++		lowerW := params.srcX + params.srcW
++		lowerH := params.srcY + params.srcH
++		if lowerW <= 0 {
++			lowerW = pngW
++		}
++		if lowerH <= 0 {
++			lowerH = pngH
++		}
++		scale := math.Max(float64(lowerW)/float64(pngW), float64(lowerH)/float64(pngH))
++		if scale <= 0 {
++			scale = 1
++		}
++		displayW = int(math.Ceil(float64(pngW) * scale))
++		displayH = int(math.Ceil(float64(pngH) * scale))
++	}
++
++	return kittyRenderPlan{
++		displayWidth:  displayW,
++		displayHeight: displayH,
++		parentCols:    parentCols,
++		parentRows:    parentRows,
++		originCol:     originCol,
++		originRow:     originRow,
++	}
++}
++
++func (p kittyRenderPlan) key(params kittyParams, bounds image.Rectangle) string {
++	return fmt.Sprintf("kitty:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
++		p.displayWidth, p.displayHeight, p.parentCols, p.parentRows, p.originCol, p.originRow,
++		params.srcX, params.srcY, params.srcW, params.srcH, bounds.Dx(), bounds.Dy())
++}
++
++func (img *Image) resolveKittyImage(parentCols, parentRows int) (image.Image, string) {
++	if img.kitty == nil {
++		return img.img, "plain"
++	}
++	plan := resolveKittyRenderPlan(img.img, img.kitty.params, img.origin.col, img.origin.row, parentCols, parentRows)
++	cropped := cropKittyImageToDisplay(img.img, img.kitty.params, plan.displayWidth, plan.displayHeight)
++	if cropped == nil {
++		return nil, ""
++	}
++	return cropped, plan.key(img.kitty.params, img.img.Bounds())
++}
++
 +// handleKittyGraphics processes a kitty graphics APC payload.
 +// Called from Model.update() when an APC starting with 'G' is received.
 +// The caller holds vt.mu.
@@ -265,6 +465,12 @@ index 0000000..a5c46b3
 +				quiet:  params.quiet,
 +				width:  params.width,
 +				height: params.height,
++				cols:   params.cols,
++				rows:   params.rows,
++				srcX:   params.srcX,
++				srcY:   params.srcY,
++				srcW:   params.srcW,
++				srcH:   params.srcH,
 +				row:    int(vt.cursor.row),
 +				col:    int(vt.cursor.col),
 +			}
@@ -277,7 +483,7 @@ index 0000000..a5c46b3
 +	// m=0: last (or only) chunk -- decode the image
 +	var fullData string
 +	var action byte
-+	var format, width, height, quiet int
++	var format, width, height, quiet, cols, rows, srcX, srcY, srcW, srcH int
 +	var imgRow, imgCol int
 +
 +	if chunk, ok := vt.kitty.pending[id]; ok {
@@ -289,6 +495,12 @@ index 0000000..a5c46b3
 +		width = chunk.width
 +		height = chunk.height
 +		quiet = chunk.quiet
++		cols = chunk.cols
++		rows = chunk.rows
++		srcX = chunk.srcX
++		srcY = chunk.srcY
++		srcW = chunk.srcW
++		srcH = chunk.srcH
 +		imgRow = chunk.row
 +		imgCol = chunk.col
 +		delete(vt.kitty.pending, id)
@@ -300,6 +512,12 @@ index 0000000..a5c46b3
 +		width = params.width
 +		height = params.height
 +		quiet = params.quiet
++		cols = params.cols
++		rows = params.rows
++		srcX = params.srcX
++		srcY = params.srcY
++		srcW = params.srcW
++		srcH = params.srcH
 +		imgRow = int(vt.cursor.row)
 +		imgCol = int(vt.cursor.col)
 +	}
@@ -326,9 +544,13 @@ index 0000000..a5c46b3
 +
 +	// a=T means also display immediately
 +	if action == 'T' {
++		displayParams := kittyParams{format: format, width: width, height: height, cols: cols, rows: rows, srcX: srcX, srcY: srcY, srcW: srcW, srcH: srcH}
 +		termImg := &Image{
 +			img:     img,
 +			kittyID: id,
++			cols:    cols,
++			rows:    rows,
++			kitty:   &kittyPlacement{params: displayParams},
 +		}
 +		termImg.origin.row = imgRow
 +		termImg.origin.col = imgCol
@@ -350,6 +572,9 @@ index 0000000..a5c46b3
 +	termImg := &Image{
 +		img:     img,
 +		kittyID: params.id,
++		cols:    params.cols,
++		rows:    params.rows,
++		kitty:   &kittyPlacement{params: params},
 +	}
 +	termImg.origin.row = int(vt.cursor.row)
 +	termImg.origin.col = int(vt.cursor.col)
@@ -403,14 +628,12 @@ index 0000000..a5c46b3
 +
 +// kittyRespondErr is intentionally a no-op for the same reason as kittyRespond.
 +func (vt *Model) kittyRespondErr(params kittyParams, quiet int, msg string) {}
-+
-+
 diff --git a/widgets/term/kitty_test.go b/widgets/term/kitty_test.go
 new file mode 100644
-index 0000000..5fa47b0
+index 0000000..e098a0b
 --- /dev/null
 +++ b/widgets/term/kitty_test.go
-@@ -0,0 +1,428 @@
+@@ -0,0 +1,694 @@
 +package term
 +
 +import (
@@ -433,6 +656,12 @@ index 0000000..5fa47b0
 +		wantQuiet  int
 +		wantWidth  int
 +		wantHeight int
++		wantCols   int
++		wantRows   int
++		wantSrcX   int
++		wantSrcY   int
++		wantSrcW   int
++		wantSrcH   int
 +		wantDelete byte
 +		wantData   string
 +	}{
@@ -503,11 +732,17 @@ index 0000000..5fa47b0
 +		},
 +		{
 +			name:       "raw RGBA with dimensions",
-+			payload:    "Gf=32,s=100,v=50,i=7;data",
++			payload:    "Gf=32,s=100,v=50,c=12,r=4,x=5,y=6,w=70,h=20,i=7;data",
 +			wantAction: 'T',
 +			wantFormat: 32,
 +			wantWidth:  100,
 +			wantHeight: 50,
++			wantCols:   12,
++			wantRows:   4,
++			wantSrcX:   5,
++			wantSrcY:   6,
++			wantSrcW:   70,
++			wantSrcH:   20,
 +			wantID:     7,
 +			wantData:   "data",
 +		},
@@ -546,6 +781,24 @@ index 0000000..5fa47b0
 +			}
 +			if tt.wantHeight != 0 && params.height != tt.wantHeight {
 +				t.Errorf("height: got %d, want %d", params.height, tt.wantHeight)
++			}
++			if tt.wantCols != 0 && params.cols != tt.wantCols {
++				t.Errorf("cols: got %d, want %d", params.cols, tt.wantCols)
++			}
++			if tt.wantRows != 0 && params.rows != tt.wantRows {
++				t.Errorf("rows: got %d, want %d", params.rows, tt.wantRows)
++			}
++			if tt.wantSrcX != 0 && params.srcX != tt.wantSrcX {
++				t.Errorf("srcX: got %d, want %d", params.srcX, tt.wantSrcX)
++			}
++			if tt.wantSrcY != 0 && params.srcY != tt.wantSrcY {
++				t.Errorf("srcY: got %d, want %d", params.srcY, tt.wantSrcY)
++			}
++			if tt.wantSrcW != 0 && params.srcW != tt.wantSrcW {
++				t.Errorf("srcW: got %d, want %d", params.srcW, tt.wantSrcW)
++			}
++			if tt.wantSrcH != 0 && params.srcH != tt.wantSrcH {
++				t.Errorf("srcH: got %d, want %d", params.srcH, tt.wantSrcH)
 +			}
 +			if tt.wantDelete != 0 && params.delete != tt.wantDelete {
 +				t.Errorf("delete: got %c, want %c", params.delete, tt.wantDelete)
@@ -674,6 +927,187 @@ index 0000000..5fa47b0
 +	}
 +}
 +
++func TestCropKittyImage(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
++	for y := 0; y < 4; y++ {
++		for x := 0; x < 4; x++ {
++			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 0, A: 255})
++		}
++	}
++
++	cropped := cropKittyImage(img, kittyParams{srcX: 1, srcY: 2, srcW: 2, srcH: 1})
++	if cropped.Bounds().Dx() != 2 || cropped.Bounds().Dy() != 1 {
++		t.Fatalf("cropped size = %dx%d, want 2x1", cropped.Bounds().Dx(), cropped.Bounds().Dy())
++	}
++	r, g, _, _ := cropped.At(0, 0).RGBA()
++	if r>>8 != 1 || g>>8 != 2 {
++		t.Fatalf("cropped first pixel = (%d,%d), want (1,2)", r>>8, g>>8)
++	}
++
++	clipped := cropKittyImage(img, kittyParams{srcX: 3, srcY: 3, srcW: 10, srcH: 10})
++	if clipped.Bounds().Dx() != 10 || clipped.Bounds().Dy() != 10 {
++		t.Fatalf("clipped size = %dx%d, want 10x10", clipped.Bounds().Dx(), clipped.Bounds().Dy())
++	}
++	r, g, _, _ = clipped.At(0, 0).RGBA()
++	if r>>8 != 3 || g>>8 != 3 {
++		t.Fatalf("clipped first pixel = (%d,%d), want (3,3)", r>>8, g>>8)
++	}
++	_, _, _, a := clipped.At(1, 1).RGBA()
++	if a != 0 {
++		t.Fatalf("clipped padded pixel alpha = %d, want 0", a)
++	}
++
++	if got := cropKittyImage(img, kittyParams{srcX: 10, srcY: 10, srcW: 1, srcH: 1}); got.Bounds().Dx() != 1 || got.Bounds().Dy() != 1 {
++		t.Fatalf("out-of-bounds crop size = %dx%d, want 1x1", got.Bounds().Dx(), got.Bounds().Dy())
++	}
++}
++
++func TestCropKittyImageDoesNotMapPNGDeclaredDimensions(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 4, 2))
++	for y := 0; y < 2; y++ {
++		for x := 0; x < 4; x++ {
++			c := color.RGBA{R: 255, A: 255}
++			if x >= 2 {
++				c = color.RGBA{B: 255, A: 255}
++			}
++			img.Set(x, y, c)
++		}
++	}
++
++	cropped := cropKittyImage(img, kittyParams{format: 100, width: 2, height: 2, srcX: 1, srcW: 1, srcH: 2})
++	if cropped.Bounds().Dx() != 1 || cropped.Bounds().Dy() != 2 {
++		t.Fatalf("cropped size = %dx%d, want 1x2", cropped.Bounds().Dx(), cropped.Bounds().Dy())
++	}
++	r, _, b, _ := cropped.At(0, 0).RGBA()
++	if r>>8 != 255 || b>>8 != 0 {
++		t.Fatalf("pixel = (%d,%d), want red", r>>8, b>>8)
++	}
++}
++
++func TestCropKittyImageIgnoresDeclaredSVForDirectCrop(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 4, 6))
++	for y := 0; y < 6; y++ {
++		for x := 0; x < 4; x++ {
++			img.Set(x, y, color.RGBA{R: uint8(y), A: 255})
++		}
++	}
++
++	// The direct crop helper works in decoded image coordinates. Display-space
++	// mapping for PNG dimensions happens in cropKittyImageToDisplay.
++	cropped := cropKittyImage(img, kittyParams{format: 100, width: 4, height: 2, srcY: 4, srcW: 4, srcH: 2})
++	if cropped.Bounds().Dx() != 4 || cropped.Bounds().Dy() != 2 {
++		t.Fatalf("cropped size = %dx%d, want 4x2", cropped.Bounds().Dx(), cropped.Bounds().Dy())
++	}
++	r, _, _, _ := cropped.At(0, 0).RGBA()
++	if r>>8 != 4 {
++		t.Fatalf("first row red = %d, want 4", r>>8)
++	}
++	r, _, _, _ = cropped.At(0, 1).RGBA()
++	if r>>8 != 5 {
++		t.Fatalf("last row red = %d, want 5", r>>8)
++	}
++}
++
++func TestCropKittyImageKeepsDecodedPixelsWhenSVIsSmaller(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 4, 2))
++	for y := 0; y < 2; y++ {
++		for x := 0; x < 4; x++ {
++			c := color.RGBA{R: 255, A: 255}
++			if x >= 2 {
++				c = color.RGBA{B: 255, A: 255}
++			}
++			img.Set(x, y, c)
++		}
++	}
++
++	cropped := cropKittyImage(img, kittyParams{format: 100, width: 2, height: 2, srcW: 2, srcH: 2})
++	if cropped.Bounds().Dx() != 2 || cropped.Bounds().Dy() != 2 {
++		t.Fatalf("cropped size = %dx%d, want 2x2", cropped.Bounds().Dx(), cropped.Bounds().Dy())
++	}
++	r, _, b, _ := cropped.At(0, 0).RGBA()
++	if r>>8 != 255 || b>>8 != 0 {
++		t.Fatalf("left pixel = (%d,%d), want red", r>>8, b>>8)
++	}
++	r, _, b, _ = cropped.At(1, 0).RGBA()
++	if r>>8 != 255 || b>>8 != 0 {
++		t.Fatalf("right pixel = (%d,%d), want red", r>>8, b>>8)
++	}
++}
++
++func TestCropKittyImageTallViewportSlice(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 100, 200))
++	for y := 0; y < 200; y++ {
++		for x := 0; x < 100; x++ {
++			img.Set(x, y, color.RGBA{R: uint8(y), A: 255})
++		}
++	}
++
++	cropped := cropKittyImage(img, kittyParams{width: 100, height: 200, srcX: 0, srcY: 160, srcW: 100, srcH: 40})
++	if cropped.Bounds().Dx() != 100 || cropped.Bounds().Dy() != 40 {
++		t.Fatalf("cropped size = %dx%d, want 100x40", cropped.Bounds().Dx(), cropped.Bounds().Dy())
++	}
++	r, _, _, _ := cropped.At(0, 0).RGBA()
++	if r>>8 != 160 {
++		t.Fatalf("first row red = %d, want 160", r>>8)
++	}
++	r, _, _, _ = cropped.At(0, 39).RGBA()
++	if r>>8 != 199 {
++		t.Fatalf("last row red = %d, want 199", r>>8)
++	}
++}
++
++func TestResolveKittyRenderPlanFullTopLeftSlice(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 100, 200))
++	params := kittyParams{width: 50, height: 100, srcW: 50, srcH: 100, cols: 5, rows: 10}
++
++	plan := resolveKittyRenderPlan(img, params, 0, 0, 80, 24)
++	if plan.displayWidth != 50 || plan.displayHeight != 100 {
++		t.Fatalf("display size = %dx%d, want 50x100", plan.displayWidth, plan.displayHeight)
++	}
++}
++
++func TestResolveKittyRenderPlanLowerSliceUsesOffsetPlusVisibleSize(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 100, 200))
++	params := kittyParams{width: 100, height: 200, srcY: 160, srcW: 100, srcH: 40, cols: 10, rows: 4}
++
++	plan := resolveKittyRenderPlan(img, params, 0, 0, 80, 24)
++	if plan.displayWidth != 100 || plan.displayHeight != 200 {
++		t.Fatalf("display size = %dx%d, want 100x200", plan.displayWidth, plan.displayHeight)
++	}
++}
++
++func TestResolveKittyRenderPlanFallsBackToAspectLowerBounds(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 200, 100))
++	params := kittyParams{srcW: 50, srcH: 50}
++
++	plan := resolveKittyRenderPlan(img, params, 0, 0, 80, 24)
++	if plan.displayWidth != 100 || plan.displayHeight != 50 {
++		t.Fatalf("display size = %dx%d, want 100x50", plan.displayWidth, plan.displayHeight)
++	}
++}
++
++func TestCropKittyImageToDisplayMapsDisplaySpaceToDecodedPixels(t *testing.T) {
++	img := image.NewRGBA(image.Rect(0, 0, 100, 200))
++	for y := 0; y < 200; y++ {
++		for x := 0; x < 100; x++ {
++			img.Set(x, y, color.RGBA{R: uint8(y), A: 255})
++		}
++	}
++
++	cropped := cropKittyImageToDisplay(img, kittyParams{srcY: 50, srcW: 50, srcH: 50}, 50, 100)
++	if cropped.Bounds().Dx() != 100 || cropped.Bounds().Dy() != 100 {
++		t.Fatalf("cropped size = %dx%d, want 100x100", cropped.Bounds().Dx(), cropped.Bounds().Dy())
++	}
++	r, _, _, _ := cropped.At(0, 0).RGBA()
++	if r>>8 != 100 {
++		t.Fatalf("first row red = %d, want 100", r>>8)
++	}
++	r, _, _, _ = cropped.At(0, 99).RGBA()
++	if r>>8 != 199 {
++		t.Fatalf("last row red = %d, want 199", r>>8)
++	}
++}
++
 +func TestKittyMultiChunkTransmit(t *testing.T) {
 +	// Create a small PNG and split its base64 into two chunks
 +	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
@@ -752,14 +1186,17 @@ index 0000000..5fa47b0
 +		t.Fatal("expected image to be in transmitted cache")
 +	}
 +
-+	// Place (a=p) — should display
-+	vt.handleKittyGraphics("Ga=p,i=10")
++	// Place (a=p) — should display with requested cell dimensions
++	vt.handleKittyGraphics("Ga=p,i=10,c=8,r=3")
 +
 +	if len(vt.graphics) != 1 {
 +		t.Fatalf("a=p should add to graphics, got %d", len(vt.graphics))
 +	}
 +	if vt.graphics[0].kittyID != 10 {
 +		t.Errorf("kittyID: got %d, want 10", vt.graphics[0].kittyID)
++	}
++	if vt.graphics[0].cols != 8 || vt.graphics[0].rows != 3 {
++		t.Errorf("placement size: got %dx%d, want 8x3", vt.graphics[0].cols, vt.graphics[0].rows)
 +	}
 +}
 +
@@ -809,6 +1246,55 @@ index 0000000..5fa47b0
 +	}
 +}
 +
++func TestClearGraphicsPreservesTransmittedKittyImages(t *testing.T) {
++	vt := New()
++	vt.graphics = append(vt.graphics, &Image{kittyID: 1})
++	vt.kitty.transmitted[1] = image.NewRGBA(image.Rect(0, 0, 1, 1))
++
++	vt.clearGraphics()
++
++	if len(vt.graphics) != 0 {
++		t.Fatalf("clearGraphics kept %d visible graphics", len(vt.graphics))
++	}
++	if _, ok := vt.kitty.transmitted[1]; !ok {
++		t.Fatal("clearGraphics removed transmitted kitty image")
++	}
++}
++
++func TestGraphicsScrollWithContent(t *testing.T) {
++	vt := New()
++	vt.resize(10, 5)
++	img := &Image{cols: 4, rows: 3}
++	img.origin.row = 1
++	img.origin.col = 2
++	vt.graphics = append(vt.graphics, img)
++
++	vt.scrollUp(2)
++	if img.origin.row != -1 {
++		t.Fatalf("scrollUp image row = %d, want -1", img.origin.row)
++	}
++
++	vt.scrollDown(1)
++	if img.origin.row != 0 {
++		t.Fatalf("scrollDown image row = %d, want 0", img.origin.row)
++	}
++}
++
++func TestGraphicsOutsideScrollRegionDoNotMove(t *testing.T) {
++	vt := New()
++	vt.resize(10, 5)
++	vt.margin.top = 2
++	vt.margin.bottom = 4
++	img := &Image{cols: 4, rows: 1}
++	img.origin.row = 0
++	vt.graphics = append(vt.graphics, img)
++
++	vt.scrollUp(1)
++	if img.origin.row != 0 {
++		t.Fatalf("image outside scroll region moved to %d", img.origin.row)
++	}
++}
++
 +func TestKittySingleChunkTransmitDisplay(t *testing.T) {
 +	// Create a small PNG
 +	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
@@ -826,7 +1312,7 @@ index 0000000..5fa47b0
 +	vt := New()
 +
 +	// a=T single chunk — should transmit and display
-+	vt.handleKittyGraphics("Gf=100,a=T,i=7;" + b64)
++	vt.handleKittyGraphics("Gf=100,a=T,i=7,c=9,r=4;" + b64)
 +
 +	if len(vt.graphics) != 1 {
 +		t.Fatalf("expected 1 graphic, got %d", len(vt.graphics))
@@ -834,24 +1320,19 @@ index 0000000..5fa47b0
 +	if vt.graphics[0].kittyID != 7 {
 +		t.Errorf("kittyID: got %d, want 7", vt.graphics[0].kittyID)
 +	}
++	if vt.graphics[0].cols != 9 || vt.graphics[0].rows != 4 {
++		t.Errorf("placement size: got %dx%d, want 9x4", vt.graphics[0].cols, vt.graphics[0].rows)
++	}
 +	// Should also be in transmitted cache
 +	if _, ok := vt.kitty.transmitted[7]; !ok {
 +		t.Error("expected image in transmitted cache")
 +	}
 +}
 diff --git a/widgets/term/term.go b/widgets/term/term.go
-index 2de6435..85ebe73 100644
+index 2de6435..417be92 100644
 --- a/widgets/term/term.go
 +++ b/widgets/term/term.go
-@@ -3,6 +3,7 @@ package term
- import (
- 	"bytes"
- 	"fmt"
-+	"image"
- 	"os"
- 	"os/exec"
- 	"runtime/debug"
-@@ -65,6 +66,7 @@ type Model struct {
+@@ -65,6 +65,7 @@ type Model struct {
  	events       chan vaxis.Event
  	focused      int32
  	graphics     []*Image
@@ -859,7 +1340,7 @@ index 2de6435..85ebe73 100644
  	timer        *time.Timer
  }
  
-@@ -123,6 +125,7 @@ func New() *Model {
+@@ -123,6 +124,7 @@ func New() *Model {
  		// Buffering to 2 events. If there is ever a case where one
  		// sequence can trigger two events, this should be increased
  		events: make(chan vaxis.Event, 2),
@@ -867,7 +1348,7 @@ index 2de6435..85ebe73 100644
  		timer:  time.NewTimer(0),
  	}
  	m.setDefaultTabStops()
-@@ -300,7 +303,11 @@ func (vt *Model) update(seq ansi.Sequence) {
+@@ -300,7 +302,11 @@ func (vt *Model) update(seq ansi.Sequence) {
  			vt.graphics = append(vt.graphics, img)
  		}
  	case ansi.APC:
@@ -880,14 +1361,14 @@ index 2de6435..85ebe73 100644
  	}
  }
  
-@@ -504,6 +511,21 @@ func (vt *Model) print(seq ansi.Print) {
+@@ -504,6 +510,19 @@ func (vt *Model) print(seq ansi.Print) {
  	}
  }
  
 +// clearGraphics destroys all vaxis images and resets the graphics list.
 +// Called when the screen is erased (e.g. ED 2) so that stale image
 +// placements are removed before the client re-transmits current images.
-+// Also clears kitty state maps to avoid leaking pending/transmitted images.
++// Kitty transmitted images persist until an explicit kitty delete command.
 +func (vt *Model) clearGraphics() {
 +	for _, img := range vt.graphics {
 +		for _, vi := range img.vaxii {
@@ -895,10 +1376,113 @@ index 2de6435..85ebe73 100644
 +		}
 +	}
 +	vt.graphics = nil
-+	vt.kitty.pending = make(map[uint32]*kittyChunk)
-+	vt.kitty.transmitted = make(map[uint32]image.Image)
 +}
 +
  // scrollUp shifts all text upward by n rows. Semantically, this is backwards -
  // usually scroll up would mean you shift rows down
  func (vt *Model) scrollUp(n int) {
+@@ -522,6 +541,7 @@ func (vt *Model) scrollUp(n int) {
+ 		}
+ 		copy(vt.activeScreen[row], vt.activeScreen[row+n])
+ 	}
++	vt.scrollGraphics(-n)
+ }
+ 
+ // scrollDown shifts all lines down by n rows.
+@@ -535,6 +555,28 @@ func (vt *Model) scrollDown(n int) {
+ 		}
+ 		copy(vt.activeScreen[r], vt.activeScreen[r-row(n)])
+ 	}
++	vt.scrollGraphics(n)
++}
++
++func (vt *Model) scrollGraphics(delta int) {
++	top := int(vt.margin.top)
++	bottom := int(vt.margin.bottom)
++	for _, img := range vt.graphics {
++		if !img.intersectsRows(top, bottom) {
++			continue
++		}
++		img.origin.row += delta
++	}
++}
++
++func (img *Image) intersectsRows(top, bottom int) bool {
++	rows := img.rows
++	if rows <= 0 {
++		rows = 1
++	}
++	start := img.origin.row
++	end := start + rows - 1
++	return start <= bottom && end >= top
+ }
+ 
+ func (vt *Model) Close() {
+@@ -578,30 +620,58 @@ func (vt *Model) Draw(win vaxis.Window) {
+ 	}
+ 	vx := win.Vx
+ 	vt.vx = vx
++	parentCols, parentRows := win.Size()
+ outer:
+ 	for _, img := range vt.graphics {
+-		for _, imgVx := range img.vaxii {
++		cols, rows := img.cols, img.rows
++		if cols <= 0 {
++			cols = -1
++		}
++		if rows <= 0 {
++			rows = -1
++		}
++		imgWin := win.New(img.origin.col, img.origin.row, cols, rows)
++		resizeW, resizeH := imgWin.Size()
++		renderImg, renderKey := img.resolveKittyImage(parentCols, parentRows)
++		if renderImg == nil {
++			continue
++		}
++		for i := 0; i < len(img.vaxii); i++ {
++			imgVx := img.vaxii[i]
+ 			if vx != imgVx.vx {
+ 				continue
+ 			}
++			if imgVx.renderKey != renderKey {
++				imgVx.vxImage.Destroy()
++				img.vaxii = append(img.vaxii[:i], img.vaxii[i+1:]...)
++				break
++			}
+ 			// We have already created an image for this
+ 			// Vaxis. All we have to do is draw it
+-			win := win.New(img.origin.col, img.origin.row, -1, -1)
+-			imgVx.vxImage.Draw(win)
++			imgVx.vxImage.Draw(imgWin)
+ 			continue outer
+ 		}
+ 		// We haven't encountered this vaxis before
+-		vxImg, err := vx.NewImage(img.img)
++		vxImg, err := vx.NewImage(renderImg)
+ 		if err != nil {
+ 			log.Error("couldn't create Vaxis image: %v", err)
+ 			continue
+ 		}
+-		// We "resize" the image to the full window size. This will
+-		// trigger the encoding
+-		vxImg.Resize(win.Size())
++		// Resize to the requested placement size when provided; otherwise fit
++		// within the visible child window from the image origin.
++		if img.cols > 0 && img.rows > 0 {
++			if exact, ok := vxImg.(interface{ ResizeExact(int, int) }); ok {
++				exact.ResizeExact(img.cols, img.rows)
++			} else {
++				vxImg.Resize(resizeW, resizeH)
++			}
++		} else {
++			vxImg.Resize(resizeW, resizeH)
++		}
+ 		img.vaxii = append(img.vaxii, &vaxisImage{
+-			vx:      vx,
+-			vxImage: vxImg,
++			vx:        vx,
++			vxImage:   vxImg,
++			renderKey: renderKey,
+ 		})
+ 	}
+ }
