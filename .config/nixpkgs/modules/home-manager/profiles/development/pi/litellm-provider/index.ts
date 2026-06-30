@@ -3,6 +3,13 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getModels } from "@earendil-works/pi-ai";
+import {
+	classifyLiteLLMRoute,
+	entryID as getEntryId,
+	modelInfo as getModelInfo,
+	type LiteLLMModelEntry,
+	type LiteLLMRouteOverrides,
+} from "./routing";
 
 type InputKind = "text" | "image";
 
@@ -13,6 +20,7 @@ interface LiteLLMSettings {
 	headers?: Record<string, string>;
 	authHeaderName?: string;
 	sendBearerAuth?: boolean;
+	routeOverrides?: LiteLLMRouteOverrides;
 	defaults?: {
 		input?: InputKind[];
 		contextWindow?: number;
@@ -27,36 +35,6 @@ interface LiteLLMSettings {
 
 interface PiSettings {
 	litellmProvider?: LiteLLMSettings;
-}
-
-interface LiteLLMModelEntry {
-	id?: string;
-	name?: string;
-	model_name?: string;
-	model_group?: string;
-	litellm_provider?: string | null;
-	custom_llm_provider?: string | null;
-	context_window?: number;
-	max_tokens?: number;
-	max_input_tokens?: number;
-	max_output_tokens?: number;
-	input_cost_per_token?: number;
-	output_cost_per_token?: number;
-	supports_reasoning?: boolean | null;
-	supports_vision?: boolean | null;
-	mode?: string | null;
-	model_info?: {
-		max_tokens?: number;
-		max_input_tokens?: number;
-		max_output_tokens?: number;
-		input_cost_per_token?: number;
-		output_cost_per_token?: number;
-		supports_vision?: boolean | null;
-		supports_reasoning?: boolean | null;
-		mode?: string | null;
-		litellm_provider?: string | null;
-		custom_llm_provider?: string | null;
-	};
 }
 
 interface LiteLLMModelsPayload {
@@ -149,14 +127,6 @@ function multiplyPerTokenCost(value: number | undefined): number {
 	return typeof value === "number" ? value * 1_000_000 : 0;
 }
 
-function getEntryId(entry: LiteLLMModelEntry): string | undefined {
-	return entry.id ?? entry.model_name ?? entry.model_group;
-}
-
-function getModelInfo(entry: LiteLLMModelEntry): LiteLLMModelEntry {
-	return entry.model_info ?? entry;
-}
-
 function getModelMode(entry: LiteLLMModelEntry): string | undefined {
 	return getModelInfo(entry).mode ?? entry.mode ?? undefined;
 }
@@ -189,12 +159,12 @@ function getModelFamily(id: string, entry: LiteLLMModelEntry): ModelFamily | nul
 	return null;
 }
 
-function getModelApi(entry: LiteLLMModelEntry, builtInModel: ProviderModel | undefined): string {
-	const mode = getModelMode(entry);
-	if (mode === "responses") return "openai-responses";
-	if (mode === "chat") return "openai-completions";
-	if (builtInModel?.api === "openai-responses") return "openai-responses";
-	return "openai-completions";
+function getModelApi(entry: LiteLLMModelEntry, builtInModel: ProviderModel | undefined, settings: LiteLLMSettings): string {
+	const route = classifyLiteLLMRoute(entry, {
+		match: { api: builtInModel?.api },
+		routeOverrides: settings.routeOverrides,
+	});
+	return route === "responses" ? "openai-responses" : "openai-completions";
 }
 
 function getModelInput(
@@ -271,7 +241,7 @@ function toFallbackModel(entry: LiteLLMModelEntry, settings: LiteLLMSettings) {
 	if (!id) return null;
 
 	const modelInfo = getModelInfo(entry);
-	const api = getModelApi(entry, undefined);
+	const api = getModelApi(entry, undefined, settings);
 
 	return {
 		id,
@@ -295,7 +265,7 @@ function toProviderModel(entry: LiteLLMModelEntry, settings: LiteLLMSettings) {
 	const modelInfo = getModelInfo(entry);
 
 	if (builtInModel) {
-		const api = getModelApi(entry, builtInModel);
+		const api = getModelApi(entry, builtInModel, settings);
 		return {
 			id: builtInModel.id,
 			name: entry.name ?? builtInModel.name,

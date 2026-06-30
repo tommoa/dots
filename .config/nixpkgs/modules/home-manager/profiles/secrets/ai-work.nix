@@ -41,21 +41,14 @@ in {
     };
   };
 
-  home.sessionVariables = {
-    OPENCODE_CONFIG = "${config.home.homeDirectory}/.config/opencode/litellm-models.json";
-  };
-
   home.packages = [
     aiKey
   ];
 
   home.file = {
     ".codex/codex-api-key-helper" = {
-      executable = true;
-      text = ''
-        #!/bin/sh
-        printf '%s\n' "$LITELLM_API_KEY"
-      '';
+      force = true;
+      source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/bin/ai_tool_wrapper.py";
     };
 
     ".tmux-work.conf".text = ''
@@ -70,18 +63,11 @@ in {
 
   my.pi.litellm.enable = true;
 
-  # LiteLLM provider skeleton for opencode
-  # Models are fetched at runtime by update-litellm-models and written to
-  # ~/.config/opencode/litellm-models.json, which opencode deep-merges via OPENCODE_CONFIG.
-  # Run: ./update-nix --litellm  (or ./update-litellm-models directly)
-  programs.opencode.settings.provider.litellm = {
-    npm = "@ai-sdk/openai-compatible";
-    name = "LiteLLM";
-    options = {
-      baseURL = "https://ai-proxy.infra.corp.arista.io/v1";
-      apiKey = "{env:LITELLM_API_KEY}";
-      litellmProxy = true;
-    };
+  my.opencode.litellm = {
+    enable = true;
+    baseUrl = "https://ai-proxy.infra.corp.arista.io";
+    apiKeyEnv = "LITELLM_API_KEY";
+    keyFile = "${config.home.homeDirectory}/.config/ai-keys/litellm";
   };
 
   programs.codex.settings = {

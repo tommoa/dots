@@ -39,10 +39,43 @@
     '';
   };
 
-  hunkInstalled = (pkgs ? hunk) && lib.elem pkgs.hunk config.home.packages;
-  hunkSkills = lib.optionalAttrs hunkInstalled {
-    hunk-review = "${pkgs.hunk}/skills/hunk-review";
-  };
+  opencodeLiteLLMOptions =
+    {
+      baseUrl = config.my.opencode.litellm.baseUrl;
+      apiKeyEnv = config.my.opencode.litellm.apiKeyEnv;
+      keyFile = config.my.opencode.litellm.keyFile;
+      routeOverrides = {
+        responses = config.my.opencode.litellm.routeOverrides.responses;
+        chat = config.my.opencode.litellm.routeOverrides.chat;
+      };
+      defaults = {
+        context = config.my.opencode.litellm.defaults.context;
+        output = config.my.opencode.litellm.defaults.output;
+        input = config.my.opencode.litellm.defaults.input;
+      };
+      headers = config.my.opencode.litellm.headers;
+    }
+    // lib.optionalAttrs (config.my.opencode.litellm.modelsUrl != null) {
+      modelsUrl = config.my.opencode.litellm.modelsUrl;
+    };
+
+  opencodeLiteLLMDir = "${config.home.homeDirectory}/.config/opencode/litellm";
+  opencodeLiteLLMSource = pkgs.runCommandLocal "opencode-litellm" {} ''
+    mkdir -p "$out"
+    cp -R ${./opencode/litellm}/. "$out/"
+    rm -f "$out/routing.ts"
+    cp ${./litellm/routing.ts} "$out/routing.ts"
+  '';
+
+  opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.litellm.enable;
+  piLiteLLMEnabled = config.my.pi.enable && config.my.pi.litellm.enable;
+  piLiteLLMProviderDir = "${config.home.homeDirectory}/.pi/agent/litellm-provider";
+  piLiteLLMProviderSource = pkgs.runCommandLocal "pi-litellm-provider" {} ''
+    mkdir -p "$out"
+    cp -R ${./pi/litellm-provider}/. "$out/"
+    rm -f "$out/routing.ts"
+    cp ${./litellm/routing.ts} "$out/routing.ts"
+  '';
 in {
   options.my.opencode = {
     disablePythonFormatters = lib.mkOption {
@@ -63,6 +96,78 @@ in {
       type = lib.types.bool;
       default = true;
       description = "Enable the opencode package to be installed";
+    };
+
+    litellm = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Enable the LiteLLM provider integration for opencode";
+      };
+
+      baseUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "https://ai-proxy.infra.corp.arista.io";
+        description = "LiteLLM proxy base URL for opencode";
+      };
+
+      modelsUrl = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Optional explicit LiteLLM model discovery URL";
+      };
+
+      apiKeyEnv = lib.mkOption {
+        type = lib.types.str;
+        default = "LITELLM_API_KEY";
+        description = "Environment variable containing the LiteLLM API key";
+      };
+
+      keyFile = lib.mkOption {
+        type = lib.types.str;
+        default = "${config.home.homeDirectory}/.config/ai-keys/litellm";
+        description = "Fallback file containing the LiteLLM API key for model discovery";
+      };
+
+      headers = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {};
+        description = "Additional headers to send during LiteLLM model discovery";
+      };
+
+      routeOverrides = {
+        responses = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          description = "LiteLLM model IDs to force through the OpenAI Responses route";
+        };
+
+        chat = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          description = "LiteLLM model IDs to force through the OpenAI-compatible chat route";
+        };
+      };
+
+      defaults = {
+        input = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = ["text"];
+          description = "Default input modalities for LiteLLM models without metadata";
+        };
+
+        context = lib.mkOption {
+          type = lib.types.int;
+          default = 128000;
+          description = "Default context window for LiteLLM models without metadata";
+        };
+
+        output = lib.mkOption {
+          type = lib.types.int;
+          default = 16384;
+          description = "Default output token limit for LiteLLM models without metadata";
+        };
+      };
     };
   };
 
@@ -87,6 +192,20 @@ in {
         default = "https://ai-proxy.infra.corp.arista.io/";
         description = "LiteLLM proxy base URL for pi";
       };
+
+      routeOverrides = {
+        responses = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          description = "LiteLLM model IDs to force through the OpenAI Responses route in pi";
+        };
+
+        chat = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          description = "LiteLLM model IDs to force through the OpenAI-compatible chat route in pi";
+        };
+      };
     };
   };
 
@@ -100,33 +219,44 @@ in {
         codexReset
         codexSubscriptionUsage
       ]
-      ++ lib.optionals (pkgs ? hunk) [hunk]
       ++ lib.optionals pkgs.stdenv.isLinux [ollama]
       ++ lib.optionals config.my.pi.enable [config.my.pi.package]
       ++ lib.optionals config.my.opencode.desktop.enable [opencode-desktop];
 
     home.file = lib.mkMerge [
-      (lib.mkIf (config.my.pi.enable && config.my.pi.litellm.enable) {
-        ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" {
-          extensions = ["${./pi/litellm-provider}"];
-          litellmProvider = {
-            baseUrl = config.my.pi.litellm.baseUrl;
-            apiKey = "env:LITELLM_API_KEY";
-            authHeaderName = "x-litellm-api-key";
-            sendBearerAuth = true;
-            providerCompat = {
-              supportsDeveloperRole = false;
-              supportsReasoningEffort = true;
-              maxTokensField = "max_tokens";
+      (lib.mkIf opencodeLiteLLMEnabled {
+        ".config/opencode/litellm".source = opencodeLiteLLMSource;
+        ".config/litellm".source = ./litellm;
+      })
+      (lib.mkIf piLiteLLMEnabled {
+        ".pi/litellm".source = ./litellm;
+        ".pi/agent/litellm-provider".source = piLiteLLMProviderSource;
+        ".pi/agent/settings.json".source =
+          (pkgs.formats.json {}).generate "pi-coding-agent-settings.json"
+          {
+            extensions = [piLiteLLMProviderDir];
+            litellmProvider = {
+              baseUrl = config.my.pi.litellm.baseUrl;
+              apiKey = "env:LITELLM_API_KEY";
+              authHeaderName = "x-litellm-api-key";
+              sendBearerAuth = true;
+              routeOverrides = {
+                responses = config.my.pi.litellm.routeOverrides.responses;
+                chat = config.my.pi.litellm.routeOverrides.chat;
+              };
+              providerCompat = {
+                supportsDeveloperRole = false;
+                supportsReasoningEffort = true;
+                maxTokensField = "max_tokens";
+              };
+              defaults = {
+                input = ["text"];
+                contextWindow = 128000;
+                maxTokens = 16384;
+              };
+              headers = {};
             };
-            defaults = {
-              input = ["text"];
-              contextWindow = 128000;
-              maxTokens = 16384;
-            };
-            headers = {};
           };
-        };
       })
       {
         ".codex/config.toml".force = true;
@@ -142,6 +272,9 @@ in {
       package = config.my.opencode.package;
       tui = {
         theme = "one-dark";
+        plugin = lib.mkIf opencodeLiteLLMEnabled [
+          "${opencodeLiteLLMDir}/plugin-v2-tui.ts"
+        ];
       };
       settings = {
         lsp = {
@@ -153,6 +286,12 @@ in {
             ];
           };
         };
+        plugin = lib.mkIf opencodeLiteLLMEnabled [
+          [
+            "${opencodeLiteLLMDir}/plugin-v2.ts"
+            opencodeLiteLLMOptions
+          ]
+        ];
         agent = {
           orchestrator = {
             description = "Orchestrates parallel subagents for multi-step remote data gathering";
@@ -201,12 +340,10 @@ in {
           - Can you hide any special cases?
         '';
       };
-      skills =
-        {
-          commit = ./opencode/commit/SKILL.md;
-          change-amplification = ./ai-skills/change-amplification/SKILL.md;
-        }
-        // hunkSkills;
+      skills = {
+        commit = ./opencode/commit/SKILL.md;
+        change-amplification = ./ai-skills/change-amplification/SKILL.md;
+      };
     };
 
     programs.codex = {
@@ -228,8 +365,6 @@ in {
           child_agents_md = true;
           # Allow Codex to fan out suitable work across multiple child agents.
           enable_fanout = true;
-          # Keep the removed JavaScript REPL tool disabled if older Codex builds see it.
-          js_repl = false;
           # Enable the stable multi-agent tool surface for spawning child agents.
           multi_agent = true;
           # Opt into native multi-agent V2 and cap concurrent child-agent threads.
@@ -243,37 +378,34 @@ in {
 
         tui = {
           theme = "one-half-dark";
-          vim_mode_default = true;
         };
       };
-      skills =
-        {
-          commit = ./opencode/commit/SKILL.md;
-          change-amplification = ./ai-skills/change-amplification/SKILL.md;
-          rethink = ''
-            ---
-            name: rethink
-            description: Make sure the agent rethinks its decisions for design
-            ---
+      skills = {
+        commit = ./opencode/commit/SKILL.md;
+        change-amplification = ./ai-skills/change-amplification/SKILL.md;
+        rethink = ''
+          ---
+          name: rethink
+          description: Make sure the agent rethinks its decisions for design
+          ---
 
-            Please carefully consider the following questions, then provide a thorough
-            response for each of them to the user.
+          Please carefully consider the following questions, then provide a thorough
+          response for each of them to the user.
 
-            - Is it the right way to solve this issue?
-            - Will it be the most maintainable option?
-            - Is this actually a bug in a different system that we should be fixing?
-            - Is this the right interface to use?
-            - What is the simplest interface that will cover all my current needs?
-            - In how many situations will this method be used?
-            - Is this API easy to use for my current needs?
-            - Does any information get used in multiple places?
-            - Will users be able to determine a better value than can be determined
-              here? (for configuration)
-            - Is there any code that needs to be written more than once?
-            - Can you hide any special cases?
-          '';
-        }
-        // hunkSkills;
+          - Is it the right way to solve this issue?
+          - Will it be the most maintainable option?
+          - Is this actually a bug in a different system that we should be fixing?
+          - Is this the right interface to use?
+          - What is the simplest interface that will cover all my current needs?
+          - In how many situations will this method be used?
+          - Is this API easy to use for my current needs?
+          - Does any information get used in multiple places?
+          - Will users be able to determine a better value than can be determined
+            here? (for configuration)
+          - Is there any code that needs to be written more than once?
+          - Can you hide any special cases?
+        '';
+      };
     };
   };
 }

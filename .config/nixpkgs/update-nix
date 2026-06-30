@@ -22,7 +22,7 @@ DEFAULT_EXCLUDED_INPUTS="opencode"
 
 # Pseudo-inputs: not real flake inputs but refreshable resources with the same
 # --<name>/--no-<name> flag UX. Skipped during flake input validation.
-PSEUDO_INPUTS="litellm"
+PSEUDO_INPUTS=""
 
 # Function to print colored output
 print_info() {
@@ -553,20 +553,6 @@ main() {
             ;;
     esac
 
-    # Pseudo-inputs: refresh non-flake resources after rebuild
-    if ! list_contains "$EXCLUDED_INPUTS" "litellm"; then
-        local litellm_key="$HOME/.config/ai-keys/litellm"
-        if [ -f "$litellm_key" ]; then
-            print_info "Refreshing LiteLLM models..."
-            if "${HOME}/.config/nixpkgs/update-litellm-models" "$litellm_key"; then
-                print_success "LiteLLM models updated"
-            else
-                print_warning "Failed to refresh LiteLLM models (network issue?)"
-            fi
-        else
-            print_warning "LiteLLM API key not found, skipping model refresh"
-        fi
-    fi
 }
 
 # Parse input inclusion/exclusion flags
@@ -723,9 +709,6 @@ INPUT OPTIONS:
 
 By default, these inputs are excluded: ${DEFAULT_EXCLUDED_INPUTS}
 
-Pseudo-inputs (not flake inputs but refreshable with the same flags):
-  litellm         Fetch LiteLLM model metadata (requires API key at ~/.config/ai-keys/litellm)
-
 Additionally, inputs are intelligently filtered based on configuration:
   - Linux configs exclude: nixpkgs-darwin, nix-darwin
   - Server configs exclude: zen-browser
@@ -745,14 +728,11 @@ Examples:
   $0 home toma@server       # Update specific home config
   $0 system apollo          # Update specific system config
   $0 --opencode             # Include opencode (overrides default exclusion)
-  $0 --litellm              # Include LiteLLM model refresh
   $0 --all                  # Update all inputs
   $0 --all --no-opencode    # Update all inputs except opencode
   $0 --no-zen-browser       # Exclude zen-browser in addition to defaults
   $0 --none                 # Skip all flake updates (just rebuild)
   $0 --none --nixpkgs       # Only update nixpkgs
-  $0 --none --litellm       # Skip flake updates, only refresh LiteLLM models
-
 EOF
 }
 
