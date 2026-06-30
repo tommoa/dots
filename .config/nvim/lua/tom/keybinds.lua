@@ -85,4 +85,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
 --     <C-s>       select 4
 --   sidekick:
 --     <leader>y   accept next edit suggestion
---     <leader>at  toggle AI side-panel
+--     <leader>ac  toggle Codex side-panel
+--     <leader>al  toggle local Codex side-panel
+--     <leader>as  toggle OpenCode side-panel
+--     <leader>ap  toggle PI side-panel

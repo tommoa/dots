@@ -6,6 +6,12 @@ local function is_work_machine()
   return false
 end
 
+local codex_re = vim.regex("\\<codex\\>")
+
+local function is_lcodex_proc(proc)
+  return proc.env and proc.env.SIDEKICK_TOOL == "lcodex"
+end
+
 return {
   {
     'folke/sidekick.nvim',
@@ -27,7 +33,20 @@ return {
           enabled = true,
         },
         tools = {
-          opencode = { cmd = { "nix", "run", "nixpkgs/nixpkgs-unstable#opencode" } },
+          codex = {
+            is_proc = function(_, proc)
+              return not is_lcodex_proc(proc) and codex_re:match_str(proc.cmd) ~= nil
+            end,
+          },
+          lcodex = {
+            cmd = { "lcodex" },
+            env = { SIDEKICK_TOOL = "lcodex" },
+            is_proc = function(_, proc)
+              return is_lcodex_proc(proc)
+            end,
+            resume = { "resume" },
+            continue = { "resume", "--last" },
+          },
         },
       },
     },
@@ -40,9 +59,30 @@ return {
         desc = "Goto/Apply Next Edit Suggestion",
       },
       {
-        "<leader>at",
+        "<leader>ac",
+        function()
+          require("sidekick.cli").toggle({ name = "codex", focus = true })
+        end,
+        desc = "Toggle the CLI (ai toggle)",
+      },
+      {
+        "<leader>al",
+        function()
+          require("sidekick.cli").toggle({ name = "lcodex", focus = true })
+        end,
+        desc = "Toggle the local Codex CLI (ai toggle)",
+      },
+      {
+        "<leader>as",
         function()
           require("sidekick.cli").toggle({ name = "opencode", focus = true })
+        end,
+        desc = "Toggle the CLI (ai toggle)",
+      },
+      {
+        "<leader>ap",
+        function()
+          require("sidekick.cli").toggle({ name = "pi", focus = true })
         end,
         desc = "Toggle the CLI (ai toggle)",
       },
