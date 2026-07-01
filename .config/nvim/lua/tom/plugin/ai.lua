@@ -12,6 +12,18 @@ local function is_lcodex_proc(proc)
   return proc.env and proc.env.SIDEKICK_TOOL == "lcodex"
 end
 
+local function sidekick_nav(dir, fallback)
+  return function(terminal)
+    if terminal:is_float() or vim.fn.winnr() == vim.fn.winnr(dir) then
+      return fallback
+    end
+
+    vim.schedule(function()
+      vim.cmd.wincmd(dir)
+    end)
+  end
+end
+
 return {
   {
     'folke/sidekick.nvim',
@@ -28,6 +40,30 @@ return {
         end,
       },
       cli = {
+        win = {
+          keys = {
+            nav_left = {
+              "<M-h>",
+              sidekick_nav("h", "<M-h>"),
+              expr = true,
+            },
+            nav_down = {
+              "<M-n>",
+              sidekick_nav("j", "<M-n>"),
+              expr = true,
+            },
+            nav_up = {
+              "<M-e>",
+              sidekick_nav("k", "<M-e>"),
+              expr = true,
+            },
+            nav_right = {
+              "<M-i>",
+              sidekick_nav("l", "<M-i>"),
+              expr = true,
+            },
+          },
+        },
         mux = {
           backend = "tmux",
           enabled = true,
