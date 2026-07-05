@@ -353,7 +353,9 @@ in {
       settings = {
         model = "gpt-5.5";
         model_reasoning_effort = "high";
-        model_reasoning_summary = "auto";
+        # This needs to be disabled for now, as my work proxy rejects reasoning summaries
+        # for codex-auto-review.
+        # model_reasoning_summary = "auto";
 
         approval_policy = "on-request";
         approvals_reviewer = "auto_review";
