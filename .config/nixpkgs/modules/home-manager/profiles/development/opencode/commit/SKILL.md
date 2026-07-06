@@ -1,32 +1,71 @@
 ---
 name: commit
-description: Generate a commit message for uncommitted changes or a specific commit
+description: Review changes and propose commit messages or split commit plans
 ---
 
-You are a commit message generator. Your job is to review code changes and provide a summary for a commit message.
+You are a commit message generator. Review the actual changes, identify
+the intended commit scope, and propose commit messages that explain the
+reasoning behind the change.
+
+By default, this skill proposes commit messages only. Do not create a
+commit merely because the user asks to "use the commit skill." Create a
+commit only after the user has approved the exact message and the exact
+files or hunks to include.
 
 ---
 
-## Determining What to Review
+## Determine What to Review
 
-Based on the input provided, determine which type of review to perform:
+When no argument is provided, review all uncommitted changes:
 
-1. **No arguments (default)**: Review all uncommitted changes
-   - Run: `git diff` for unstaged changes
-   - Run: `git diff --cached` for staged changes
+- Run `git status --short`.
+- Run `git diff --stat` and `git diff` for unstaged changes.
+- Run `git diff --cached --stat` and `git diff --cached` for staged
+  changes.
+- Check untracked files with `git ls-files --others --exclude-standard`
+  and inspect any that appear relevant.
+- Read surrounding files when the diff does not explain the intent.
+- Review recent style with `git log --pretty=format:"%h %s%n%b%n---" -10`.
 
-2. **Commit hash** (40-char SHA or short hash): Review that specific commit
-   - Run: `git show $ARGUMENTS`
+When a commit hash is provided, review that commit with:
 
-Use best judgement when processing input.
+- `git show --stat <hash>`
+- `git show <hash>`
+
+Use repository context before guessing. If a message needs facts not
+present in the diff, such as upstream status, issue history, API
+behavior, or version compatibility, verify them with the available local,
+GitHub, or web tools. If the motivation still is not clear, ask a
+focused question instead of inventing intent.
+
+---
+
+## Decide the Commit Scope
+
+Before writing messages, decide whether the changes are one coherent
+commit or several logical commits.
+
+Prefer split commits when changes solve different problems, even if they
+were edited together. A good commit usually has one primary reason to
+exist. If the work is mixed, propose a commit plan before staging or
+committing anything.
+
+For each proposed commit, include:
+
+1. Full commit message.
+2. Files to include.
+3. Specific partial hunks when a file must be split.
+
+Do not rely only on file boundaries. A single file can contain unrelated
+hunks, and related behavior can span multiple files.
 
 ---
 
 ## Commit Message Format
 
-Commit messages should generally follow this structure:
+Use this structure:
 
-```
+```text
 <type>(<scope>): <brief description>
 
 <body>
@@ -34,25 +73,19 @@ Commit messages should generally follow this structure:
 
 ### Header
 
-**Format:** `<type>(<scope>): <brief description>`
+Use conventional commit-style headers:
 
-- **Type:** Indicates the kind of change
-  - `feat`: New feature or capability
-  - `fix`: Bug fix
-  - `refactor`: Code restructuring without behavior change
-  - `chore`: Maintenance tasks, dependency updates, configuration
-  - `test`: Adding or updating tests
-  - `docs`: Documentation changes
+- `feat`: user-visible feature or capability.
+- `fix`: bug fix or compatibility fix.
+- `refactor`: restructuring without intended behavior change.
+- `chore`: maintenance, dependency, configuration, or generated update.
+- `test`: test additions or updates.
+- `docs`: documentation-only changes.
 
-- **Scope:** Optional, indicates the area of the codebase
+The brief description should be lowercase, concise, imperative, and have
+no period.
 
-- **Brief description:**
-  - Use lowercase
-  - Start with a verb in imperative mood (e.g., "add", "fix", "refactor")
-  - Be concise but descriptive
-  - No period at the end
-
-**Examples:**
+Examples:
 
 - `feat(inline): add Fill-in-the-Middle support`
 - `fix(benchmark): fix options parsing for benchmark-utils`
@@ -60,167 +93,87 @@ Commit messages should generally follow this structure:
 
 ### Body
 
-The commit body should explain the **why** and **context**, not just the what.
+The body explains why the change exists. It should not merely restate the
+diff.
 
-**Guidelines:**
+For each commit, ask:
 
-1. **Start with context:** Explain the motivation or problem being solved
-2. **Avoid temporal words:** Don't use "new", "now", "currently"
-   - ✅ "A comprehensive test suite validates format detection"
-   - ❌ "A new test suite now validates format detection"
-3. **Use flowing paragraphs:** Prefer explanations over bullet points when
-   possible
-4. **Be specific:** Reference actual functions, modules, or patterns
-5. **Include impact:** Explain how the change affects the system
-6. **Optional sections:** Can include "Future improvements" or related notes
-7. **Wrap at 72 characters:** Keep body lines at or below 72 characters for
-   proper display in git tools
-8. **Use markdown:** Consider that most commit messages will be viewed
-   in a markdown-rendering client.
+1. What problem is being solved?
+2. Why does this approach resolve it?
+3. What other reasonable approaches were considered or implicitly
+   avoided?
+4. What risk, behavior change, or scope should a future reader know?
 
-**Example body:**
+Use those answers to write one or two flowing paragraphs. Smaller changes
+can use one paragraph if it covers the problem, approach, and impact.
 
-```
-Introduces FIM completion as an efficient alternative to chat-based
-prompts for code-specific models. The modular structure separates FIM
-logic from chat completion, enabling low-latency inline completions
-with specialized models that support FIM formats.
+Body style:
 
-The FIM module automatically detects the correct format for popular
-models including CodeLlama, DeepSeek, StarCoder, and Qwen, while also
-supporting custom format configuration. The `generate()` function routes
-to Chat or FIM implementations based on a `prompt` option, with
-graceful fallback handling via `UnsupportedPromptError` for incompatible
-models.
-```
+- Use a descriptive, non-imperative tone. The header may be imperative;
+  the body should read as explanation, not instructions.
+- Start from the problem or pressure that made the change necessary.
+- Describe the selected approach and why it fits.
+- Mention discarded alternatives when they clarify the design, such as
+  why a narrower guard was chosen over a broader override.
+- Be specific about modules, functions, packages, commands, endpoints,
+  issue numbers, and compatibility constraints.
+- Use Markdown-compatible text. Put identifiers, commands, package names,
+  endpoints, issue references, and code names in backticks where helpful.
+- Prefer issue or PR references such as `NixOS/nixpkgs#528284` over raw
+  URLs.
+- Wrap body lines at 72 characters.
+- Avoid temporal filler such as "now" and "currently". Use time-sensitive
+  words only when they carry real meaning.
 
-## Body Structure Patterns
+Avoid:
 
-Recent commits follow a consistent multi-paragraph structure:
+- A stale summary of files changed.
+- Generic praise or benefits that are not grounded in the diff.
+- Claims about upstream behavior, APIs, or bug causes that were not
+  verified or supplied by the user.
+- Overly broad commit scopes that hide unrelated changes.
 
-**Paragraph 1: Motivation and Main Change**
-
-- State the problem or opportunity
-- Describe the primary solution or change
-- Example: "Merges module-resolver.ts and provider.ts into a single
-  provider/index.ts file organized using TypeScript namespaces (Provider
-  and Model). This improves code organization by clearly separating
-  provider configuration and management from model metadata and selection
-  concerns."
-
-**Paragraph 2: Technical Details**
-
-- Describe implementation specifics
-- List concrete changes (what was eliminated, renamed, or added)
-- Include API surface changes
-- Example: "The new structure eliminates the ProviderRegistry class in
-  favor of namespace functions, renames types for clarity
-  (ProviderInitOptions → Provider.Config), and updates the API surface
-  (createProvider → Provider.create)."
-
-**Paragraph 3: Impact and Scope** (optional)
-
-- Mention what was updated to use the new changes
-- Describe broader impact or benefits
-- Example: "All consumers including benchmark scripts, LSP server
-  initialization, and tests have been updated to use the new
-  namespace-based API."
-
-**For smaller changes:** A single focused paragraph is sufficient if it
-covers the motivation, approach, and impact concisely.
-
-When writing multi-paragraph commits, ensure that each paragraph flows
-into the next.
-
-## Common Patterns
-
-### Feature commits
-
-- Start with what the feature enables or provides
-- Explain the technical approach
-- Describe how components interact
-- Example: "Some chat models respond to FIM prompts by wrapping
-  completions in markdown code fences. This adds a cleanFimResponse()
-  utility that strips both to extract just the new completion text,
-  improving compatibility across different model providers."
-
-### Fix commits
-
-- Briefly state what was wrong
-- Explain the impact of the bug
-- Describe the solution
-
-### Refactor commits
-
-- Explain the motivation for restructuring
-- Describe the structural changes (what was merged, eliminated, renamed)
-- Highlight benefits (maintainability, clarity, organization)
-- Document API changes if applicable
-- Mention what was updated to use the new structure
-- Example: "Merges module-resolver.ts and provider.ts into a single
-  provider/index.ts file organized using TypeScript namespaces. This
-  improves code organization by clearly separating provider
-  configuration and management from model metadata and selection
-  concerns."
-
-### Chore commits
-
-- Can be brief if the change is self-explanatory
-- Explain reasoning for dependency updates or config changes
-- For CI/automation: explain what is automated and why
-
-### Documentation commits
-
-- Summarize what documentation was improved or added
-- Note any renamed fields or API changes included
-- Mention organizational improvements
+---
 
 ## Review Before Committing
 
-Before creating a commit, present the user with:
+Before creating any commit, present the user with:
 
-1. **Proposed commit message** (full header + body + trailers)
-2. **Files to be included** (list of staged/changed files)
+1. The proposed full commit message, including body and trailers.
+2. The files to be included.
+3. Any partial staging plan.
+4. Any assumptions or open questions.
 
-Ask for confirmation, especially when:
-- There are untracked files that may or may not belong in the commit
-- The change spans many files (10+)
-- You're uncertain about scope or issue linkage
+Ask for confirmation and wait. This is required even when the user asked
+you to make a commit. The only exception is an explicit user instruction
+that already includes the exact approved message and files.
 
-This prevents needing to amend or redo commits.
+When the user approves:
+
+1. Stage exactly the approved files or hunks.
+2. Re-check with `git diff --cached --stat` and `git status --short`.
+3. Create the commit with the approved message.
+4. Report the commit SHA and whether the worktree is clean.
+
+If the user rejects or revises the proposal, update the message or split
+before committing.
+
+---
 
 ## Writing Process
 
-1. **Review the diff:** Understand all files changed
-2. **Identify the core purpose:** What problem does this solve?
-3. **Choose the right type and scope**
-4. **Write the header:** Concise, imperative, lowercase
-5. **Draft the body:**
-   - Start with "why" and context (problem statement)
-   - Explain the approach (what was done)
-   - Describe the impact (benefits, what's affected)
-   - For refactors: include API changes and migration details
-6. **Review for style:**
-   - Remove temporal words (now, new, currently)
-   - Keep it concise but complete
-   - Wrap lines at 72 characters
-7. **Structure multi-paragraph bodies:**
-   - First paragraph: motivation and main change
-   - Second paragraph: technical details or API changes
-   - Third paragraph (if needed): impact on consumers
-
-## Tools
-
-Use these to inform your review:
-
-- **Explore agent** - Find how existing code handles similar problems. Check patterns, conventions, and prior art.
-  - You should use this to understand context beyond what the diff shows.
-- **Exa Code Context** - Verify correct usage of libraries/APIs to ensure up-to-date information.
-- **Exa Web Search** - Research best practices if you're unsure about a pattern.
-
-If you're uncertain about something and can't verify it with these tools, ask the user.
+1. Inspect staged, unstaged, and untracked changes.
+2. Identify logical commit scopes.
+3. Ask clarifying questions when motivation or scope cannot be inferred.
+4. Draft messages using the problem, approach, alternative, and impact
+   checklist.
+5. Review bodies for Markdown compatibility, non-imperative tone, and
+   72-character wrapping.
+6. Present the proposed message and file list for approval.
+7. Commit only after approval.
 
 ## See Also
 
-See examples of the commit style in practice. Here are the 10 most recent commits:
+Recent commits show the local style in practice:
+
 !`git log --pretty=format:"%h %s%n%b%n---" -10`
