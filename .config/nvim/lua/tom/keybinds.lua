@@ -76,6 +76,19 @@ vim.api.nvim_create_autocmd('LspAttach', {
 --     zb:         buffers
 --     <leader>en  find neovim files
 --     <leader>ec  find nix config files
+--   vault:
+--     <leader>vf  find vault note
+--     <leader>vg  grep vault notes
+--     <leader>vd  open today's daily note
+--     <leader>vD  list daily notes
+--     <leader>vn  create a new vault note
+--     <leader>vb  show backlinks
+--     <leader>vl  show links in current note
+--     <leader>vt  show vault tags
+--     <leader>vT  insert vault template
+--     <leader>vo  open current note in Obsidian
+--     <leader>vs  show sync status
+--     <leader>vS  open sync menu
 --   grapple:
 --     <leader>t   add to list
 --     <leader>s   toggle menu

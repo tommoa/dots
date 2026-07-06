@@ -23,6 +23,12 @@ return {
         find_files = {
           theme = "ivy",
         },
+        grep_string = {
+          theme = "ivy",
+        },
+        live_grep = {
+          theme = "ivy",
+        },
       },
       extensions = {
         fzf = {},
