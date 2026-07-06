@@ -1,0 +1,8 @@
+{
+  "name": "obsidian-headless-nix",
+  "version": "0.0.12",
+  "private": true,
+  "dependencies": {
+    "obsidian-headless": "0.0.12"
+  }
+}

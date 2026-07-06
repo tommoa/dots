@@ -18,11 +18,11 @@ bold=$'\033[1m'
 reset=$'\033[m'
 
 # Inputs excluded from updates by default (space-separated)
-DEFAULT_EXCLUDED_INPUTS="opencode"
+DEFAULT_EXCLUDED_INPUTS="opencode obsidian-headless"
 
 # Pseudo-inputs: not real flake inputs but refreshable resources with the same
 # --<name>/--no-<name> flag UX. Skipped during flake input validation.
-PSEUDO_INPUTS=""
+PSEUDO_INPUTS="obsidian-headless"
 
 # Function to print colored output
 print_info() {
@@ -306,6 +306,40 @@ update_flake() {
     fi
 }
 
+# Function to update pseudo-inputs backed by package-local update scripts
+update_pseudo_inputs() {
+    local flake_dir="${HOME}/.config/nixpkgs"
+    local pseudo=""
+    local script=""
+
+    for pseudo in $PSEUDO_INPUTS; do
+        if list_contains "$EXCLUDED_INPUTS" "$pseudo"; then
+            continue
+        fi
+
+        case "$pseudo" in
+            obsidian-headless)
+                script="${flake_dir}/packages/obsidian-headless/update.sh"
+                ;;
+            *)
+                print_error "No updater configured for pseudo-input: '$pseudo'"
+                exit 1
+                ;;
+        esac
+
+        if [ ! -x "$script" ]; then
+            print_error "Pseudo-input updater is missing or not executable: $script"
+            exit 1
+        fi
+
+        print_info "Updating pseudo-input: ${cyan}${pseudo}${reset}"
+        if ! "$script"; then
+            print_error "Failed to update pseudo-input '${pseudo}'"
+            exit 1
+        fi
+    done
+}
+
 # Function to update system configuration
 update_system() {
     local config_name="$1"
@@ -507,6 +541,7 @@ main() {
 
     # Update flake inputs once
     update_flake
+    update_pseudo_inputs
 
     # Handle different modes
     case "$mode" in
@@ -733,6 +768,7 @@ Examples:
   $0 --no-zen-browser       # Exclude zen-browser in addition to defaults
   $0 --none                 # Skip all flake updates (just rebuild)
   $0 --none --nixpkgs       # Only update nixpkgs
+  $0 --none --obsidian-headless # Only update obsidian-headless package metadata
 EOF
 }
 
