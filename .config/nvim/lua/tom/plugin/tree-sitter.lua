@@ -1,69 +1,37 @@
-local parsers = {
-  "bash",
-  "c",
-  "cpp",
-  "python",
-  "vim",
-  "lua",
-  "markdown",
-  "markdown_inline",
-  "rust",
-  "nix",
-  "css",
-  "html",
-  "gitcommit",
-  "gitignore",
-  "git_config",
-  "git_rebase",
-  "gitattributes",
-}
-
 return {
   {
-    'nvim-treesitter/nvim-treesitter',
-    branch = 'main',
-    lazy = false,
+    'arborist-ts/arborist.nvim',
+    event = { 'BufReadPre', 'BufNewFile' },
+    cmd = { 'Arborist', 'ArboristInstall', 'ArboristUpdate', 'ArboristClean' },
     config = function()
-      local treesitter = require('nvim-treesitter')
-      treesitter.setup()
+      local native_parsers = {
+        bash = true,
+        rust = true,
+      }
 
-      local available_parsers
+      local function prefer_native_for_some_parsers()
+        local compile = require('arborist.compile')
+        if compile._tom_native_parser_wrapper then return end
 
-      local function enable_treesitter(buf)
-        local ok = pcall(vim.treesitter.start, buf)
-        if ok then
-          vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
-          return
+        local original_build_wasm = compile.build_wasm
+
+        compile.build_wasm = function(repo_path, info, dest, callback)
+          local lang = dest:match('([^/]+)%.wasm$')
+          if lang and native_parsers[lang] then
+            callback('WASM disabled for ' .. lang)
+            return
+          end
+          original_build_wasm(repo_path, info, dest, callback)
         end
 
-        local lang = vim.treesitter.language.get_lang(vim.bo[buf].filetype) or vim.bo[buf].filetype
-        available_parsers = available_parsers or treesitter.get_available()
-        if
-          lang == ""
-          or vim.list_contains(treesitter.get_installed('parsers'), lang)
-          or not vim.list_contains(available_parsers, lang)
-        then
-          return
-        end
-
-        treesitter.install(lang):await(function()
-          vim.schedule(function()
-            if vim.api.nvim_buf_is_valid(buf) and vim.list_contains(treesitter.get_installed('parsers'), lang) then
-              enable_treesitter(buf)
-            end
-          end)
-        end)
+        compile._tom_native_parser_wrapper = true
       end
 
-      vim.api.nvim_create_autocmd('FileType', {
-        group = vim.api.nvim_create_augroup('tom-treesitter', { clear = true }),
-        callback = function(args)
-          enable_treesitter(args.buf)
-        end,
+      prefer_native_for_some_parsers()
+      require('arborist').setup({
+        install_popular = false,
+        update_cadence = 'weekly',
       })
-    end,
-    build = function()
-      require('nvim-treesitter').install(parsers):pwait(300000)
     end,
   },
 }
