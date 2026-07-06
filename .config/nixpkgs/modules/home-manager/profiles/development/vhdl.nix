@@ -8,9 +8,10 @@
       gtkwave # Waveform viewer
       vhdl-ls # Language server
     ]
-    # ghdl doesn't support all platforms (e.g. aarch64-darwin), use nvc as fallback
+    # nixpkgs#528284 marks ghdl available on aarch64-darwin via llvm-jit,
+    # but these locked inputs still fail evaluation through gnat-bootstrap13.
     ++ (
-      if lib.meta.availableOn pkgs.stdenv.hostPlatform ghdl
+      if !pkgs.stdenv.hostPlatform.isDarwin && lib.meta.availableOn pkgs.stdenv.hostPlatform ghdl
       then [ghdl]
       else [nvc]
     );
