@@ -21,8 +21,8 @@ in {
       preBuild =
         (old.preBuild or "")
         + ''
-          substituteInPlace package.json \
-            --replace-fail '"packageManager": "bun@1.3.14"' '"packageManager": "bun@1.3.13"'
+          grep -Eq '"packageManager"[[:space:]]*:[[:space:]]*"bun@[^"]+"' package.json
+          sed -i -E 's/"packageManager"[[:space:]]*:[[:space:]]*"bun@[^"]+"/"packageManager": "bun@${unstable.bun.version}"/' package.json
         '';
     });
 
