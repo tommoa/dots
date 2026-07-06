@@ -7,6 +7,7 @@ CODEX_AUTH_FILE="${CODEX_AUTH_FILE:-$CODEX_HOME/auth.json}"
 OPENCODE_AUTH_FILE="${OPENCODE_AUTH_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/opencode/auth.json}"
 AUTH_SOURCE="${CODEX_USAGE_AUTH_SOURCE:-auto}"
 USAGE_URL="${CODEX_USAGE_URL:-https://chatgpt.com/backend-api/wham/usage}"
+RESET_CREDITS_URL="${CODEX_RATE_LIMIT_RESET_CREDITS_URL:-https://chatgpt.com/backend-api/wham/rate-limit-reset-credits}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/codex-subscription-usage"
 CACHE_FILE="$CACHE_DIR/usage.json"
 CACHE_TTL_SECS="${CODEX_USAGE_CACHE_TTL_SECS:-60}"
@@ -106,13 +107,20 @@ normalize_usage_json() {
 		def reset_credits_available_count:
 			.rate_limit_reset_credits.available_count | number_or(null);
 
+		def existing_reset_credits:
+			.rate_limit_reset_credits // {};
+
 		{
 			credits: {
 				balance: (.credits.balance // null),
 				has_credits: (.credits.has_credits // null)
 			},
 			rate_limit_reset_credits: {
-				available_count: reset_credits_available_count
+				available_count: reset_credits_available_count,
+				next_expiry_after_seconds: (existing_reset_credits.next_expiry_after_seconds // null),
+				expiry_after_seconds: (existing_reset_credits.expiry_after_seconds // []),
+				no_expiry_count: (existing_reset_credits.no_expiry_count // 0),
+				has_no_expiry: (existing_reset_credits.has_no_expiry // null)
 			},
 			rate_limit: {
 				primary_window: (window("primary_window") | {used_percent: pct, reset_after_seconds: reset_secs}),
@@ -123,8 +131,111 @@ normalize_usage_json() {
 	'
 }
 
+normalize_reset_credits_json() {
+	jq -e '
+		def number_or($default):
+			if . == null then $default
+			elif type == "number" then .
+			elif type == "string" then (tonumber? // $default)
+			else $default end;
+
+		def expiry_epoch:
+			if . == null then null
+			elif type == "number" then .
+			elif type == "string" then
+				(fromdateiso8601? // (sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601?))
+			else null end;
+
+		def available_credit:
+			select((.status // "") == "available")
+			| (.expires_at | expiry_epoch) as $expires_at
+			| select($expires_at == null or $expires_at > now)
+			| {
+				expires_after_seconds: (
+					if $expires_at == null then null
+					else (($expires_at - now) | floor | if . < 0 then 0 else . end)
+					end
+				)
+			};
+
+		if ((.credits? | type) != "array") and ((.available_count | number_or(null)) == null) then
+			empty
+		else
+			[.credits[]? | available_credit] as $available_credits
+			| ($available_credits | map(.expires_after_seconds | select(. != null)) | sort) as $expiring_seconds
+			| ($available_credits | map(select(.expires_after_seconds == null)) | length) as $no_expiry_count
+			| {
+				available_count: (.available_count | number_or($available_credits | length)),
+				next_expiry_after_seconds: ($expiring_seconds[0] // null),
+				expiry_after_seconds: $expiring_seconds,
+				no_expiry_count: $no_expiry_count,
+				has_no_expiry: ($no_expiry_count > 0)
+			}
+		end
+	'
+}
+
+format_reset_credits_summary() {
+	available_count="${1:-0}"
+	case "$available_count" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ "$available_count" -gt 0 ] || return 1
+
+	visible_count=0
+	total_count=0
+	summary=''
+
+	expiry_rows="$(jq -er '.rate_limit_reset_credits.expiry_after_seconds // [] | .[]' "$CACHE_FILE" 2>/dev/null || true)"
+	if [ -n "$expiry_rows" ]; then
+		while IFS= read -r expiry; do
+			[ -n "$expiry" ] || continue
+			total_count=$((total_count + 1))
+			if [ "$visible_count" -lt 4 ]; then
+				item="$(format_seconds "$expiry")"
+				if [ -n "$summary" ]; then
+					summary="${summary}·${item}"
+				else
+					summary="$item"
+				fi
+				visible_count=$((visible_count + 1))
+			fi
+		done <<EOF
+$expiry_rows
+EOF
+	fi
+
+	no_expiry_count="$(jq -er '.rate_limit_reset_credits.no_expiry_count // 0' "$CACHE_FILE" 2>/dev/null || printf '0')"
+	case "$no_expiry_count" in
+		''|*[!0-9]*) no_expiry_count=0 ;;
+	esac
+	while [ "$no_expiry_count" -gt 0 ]; do
+		total_count=$((total_count + 1))
+		if [ "$visible_count" -lt 4 ]; then
+			if [ -n "$summary" ]; then
+				summary="${summary}·noexp"
+			else
+				summary='noexp'
+			fi
+			visible_count=$((visible_count + 1))
+		fi
+		no_expiry_count=$((no_expiry_count - 1))
+	done
+
+	if [ "$total_count" -eq 0 ]; then
+		return 1
+	fi
+	if [ "$total_count" -gt "$visible_count" ]; then
+		hidden_count=$((total_count - visible_count))
+		summary="${summary}·+${hidden_count}"
+	fi
+	printf '%s\n' "$summary"
+}
+
 print_usage_text() {
 	reset_credits_available_count="$(jq -er '.rate_limit_reset_credits.available_count // empty' "$CACHE_FILE" 2>/dev/null || true)"
+	reset_credits_next_expiry="$(jq -er '.rate_limit_reset_credits.next_expiry_after_seconds // empty' "$CACHE_FILE" 2>/dev/null || true)"
+	reset_credits_has_no_expiry="$(jq -er '.rate_limit_reset_credits.has_no_expiry // empty' "$CACHE_FILE" 2>/dev/null || true)"
 	credits_balance="$(jq -er '.credits.balance // empty' "$CACHE_FILE" 2>/dev/null || true)"
 	if [ -n "$credits_balance" ]; then
 		credits_balance="$(printf '%s\n' "$credits_balance" | jq -r '
@@ -163,7 +274,20 @@ print_usage_text() {
 		fi
 	done | sed 's/[[:space:]]*$//'
 	if [ -n "$reset_credits_available_count" ]; then
-		printf ' (%s)' "$reset_credits_available_count"
+		case "$reset_credits_available_count" in
+			''|*[!0-9]*) reset_credits_available_count='' ;;
+		esac
+	fi
+	if [ -n "$reset_credits_available_count" ]; then
+		if reset_credits_summary="$(format_reset_credits_summary "$reset_credits_available_count")"; then
+			printf ' (%s)' "$reset_credits_summary"
+		elif [ "$reset_credits_available_count" -gt 0 ] && [ -n "$reset_credits_next_expiry" ]; then
+			printf ' (%s:%s)' "$(format_seconds "$reset_credits_next_expiry")" "$reset_credits_available_count"
+		elif [ "$reset_credits_available_count" -gt 0 ] && [ "$reset_credits_has_no_expiry" = true ]; then
+			printf ' (noexp:%s)' "$reset_credits_available_count"
+		else
+			printf ' (%s)' "$reset_credits_available_count"
+		fi
 	fi
 	printf '\n'
 }
@@ -325,6 +449,21 @@ fetch_usage() {
 	} | curl -sS --max-time 10 -K - "$USAGE_URL"
 }
 
+fetch_reset_credits() {
+	access_token="${1:?missing access token}"
+	account_id="${2:-}"
+
+	{
+		printf 'header = "Authorization: Bearer %s"\n' "$access_token"
+		if [ -n "$account_id" ]; then
+			printf 'header = "ChatGPT-Account-ID: %s"\n' "$account_id"
+		fi
+		printf 'header = "Accept: application/json"\n'
+		printf 'header = "OpenAI-Beta: codex-1"\n'
+		printf 'header = "originator: Codex Desktop"\n'
+	} | curl -sS --max-time 4 -K - "$RESET_CREDITS_URL"
+}
+
 response_status() {
 	printf '%s\n' "$1" | jq -r '.statusCode // .status // empty' 2>/dev/null
 }
@@ -350,7 +489,19 @@ write_normalized_usage_cache() {
 
 write_usage_cache() {
 	usage_json="$1"
+	reset_credits_json="${2:-}"
 	normalized_json="$(printf '%s\n' "$usage_json" | normalize_usage_json)" || return 1
+	if [ -n "$reset_credits_json" ]; then
+		reset_credits_normalized_json="$(printf '%s\n' "$reset_credits_json" | normalize_reset_credits_json 2>/dev/null || true)"
+		if [ -n "$reset_credits_normalized_json" ]; then
+			normalized_json="$(
+				{
+					printf '%s\n' "$normalized_json"
+					printf '%s\n' "$reset_credits_normalized_json"
+				} | jq -s '.[0] as $usage | .[1] as $reset_credits | $usage | .rate_limit_reset_credits = ((.rate_limit_reset_credits // {}) + $reset_credits)'
+			)" || return 1
+		fi
+	fi
 	write_normalized_usage_cache "$normalized_json"
 }
 
@@ -367,7 +518,8 @@ refresh_cache_from_selected_source() {
 		return 1
 	fi
 
-	write_usage_cache "$usage_json"
+	reset_credits_json="$(fetch_reset_credits "$access_token" "$account_id" 2>/dev/null || true)"
+	write_usage_cache "$usage_json" "$reset_credits_json"
 }
 
 refresh_cache_from_source() {
