@@ -28,7 +28,11 @@ return {
       end
 
       prefer_native_for_some_parsers()
+
+      local enable_wasm = vim.version.gt(vim.version(), '0.12.3')
+
       require('arborist').setup({
+        prefer_wasm = enable_wasm,
         install_popular = false,
         update_cadence = 'weekly',
       })
