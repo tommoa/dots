@@ -68,6 +68,7 @@ M.configs['nixd'] = {
 }
 -- Markdown
 M.configs['markdown_oxide'] = {
+    root_markers = { '.obsidian', '.moxide.toml', '.git' },
     on_attach = on_attach,
     capabilities = vim.tbl_deep_extend(
         'force',

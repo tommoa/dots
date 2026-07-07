@@ -2,9 +2,9 @@ local get_workspace = function()
   local os_name = vim.uv.os_uname().sysname
   local path = nil
   if os_name == "Darwin" then -- macOS
-    path = vim.uv.os_homedir() .. "/Documents/Personal"
+    path = vim.fs.joinpath(vim.uv.os_homedir(), "Documents", "Personal")
   elseif os_name == "Linux" then -- Linux
-    path = vim.uv.os_homedir() .. "/docs/Personal"
+    path = vim.fs.joinpath(vim.uv.os_homedir(), "docs", "Personal")
   end
   if not vim.uv.fs_stat(path) then
     return assert(vim.fs.dirname(vim.api.nvim_buf_get_name(0)))
@@ -38,6 +38,28 @@ local vault_sync_status = function()
   end)
 end
 
+local follow_obsidian_link_or_file = function()
+  if require('obsidian.api').cursor_link() then
+    require('obsidian.actions').follow_link()
+  else
+    vim.cmd('normal! gf')
+  end
+end
+
+local notes_subdir = "Encounters"
+local bible_sources_subdir = "Sources/Bible"
+local pending_unique_note_title = nil
+
+local is_in_subdir = function(path, subdir)
+  local normalized = vim.fs.normalize(tostring(path), { expand_env = false })
+  local normalized_subdir = vim.fs.normalize(subdir, { expand_env = false })
+  return normalized == normalized_subdir or vim.startswith(normalized, normalized_subdir .. "/")
+end
+
+local title_id = function(title, dir)
+  return require("obsidian.builtin").title_id(title, dir)
+end
+
 -- Obsidian
 return {
   {
@@ -58,7 +80,30 @@ return {
         },
       },
       frontmatter = {
-        enabled = true,
+        enabled = function(path)
+          return not is_in_subdir(path, bible_sources_subdir)
+        end,
+      },
+      callbacks = {
+        enter_note = function()
+          vim.keymap.set('n', 'gf', follow_obsidian_link_or_file, {
+            buffer = true,
+            desc = 'Follow Obsidian link or file',
+          })
+        end,
+        create_note = function(note, opts)
+          if opts.scope ~= "unique" then
+            return
+          end
+
+          local title = pending_unique_note_title or note.title
+          pending_unique_note_title = nil
+
+          if title ~= nil and title ~= "" and title ~= note.id then
+            note.title = title
+            note:add_alias(title)
+          end
+        end,
       },
       completion = {
         min_chars = 2,
@@ -76,7 +121,14 @@ return {
         folder = "Extras/Templates",
       },
       -- Put new notes in the "Encounters" subdir.
-      new_notes_location = "Encounters",
+      notes_subdir = notes_subdir,
+      new_notes_location = "notes_subdir",
+      note_id_func = function(title, dir)
+        return title_id(title, dir)
+      end,
+      unique_note = {
+        folder = notes_subdir,
+      },
       -- Set attachments to the correct folder.
       attachments = {
         folder = "Extras/Attachments",
