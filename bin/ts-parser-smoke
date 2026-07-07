@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/scripts/treesitter-parser-smoke.lua"
+
+if [[ ! -f "$script" ]]; then
+  printf 'ts-parser-smoke: missing script: %s\n' "$script" >&2
+  exit 2
+fi
+
+exec nvim --headless -l "$script" -- "$@"
