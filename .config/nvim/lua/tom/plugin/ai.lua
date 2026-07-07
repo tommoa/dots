@@ -9,7 +9,8 @@ end
 local codex_re = vim.regex("\\<codex\\>")
 
 local function is_lcodex_proc(proc)
-  return proc.env and proc.env.SIDEKICK_TOOL == "lcodex"
+  return proc.cmd:find('model_provider="ai_proxy"', 1, true) ~= nil
+    or proc.cmd:find("model_provider=ai_proxy", 1, true) ~= nil
 end
 
 local function sidekick_nav(dir, fallback)
