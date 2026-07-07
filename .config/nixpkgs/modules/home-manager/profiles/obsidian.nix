@@ -66,11 +66,19 @@
     exec ${ob} sync --path "${vaultPath}" --continuous
   '';
 in {
-  home.packages = [
-    pkgs.obsidian-headless
-    vaultSync
-    vaultSyncStatus
-  ];
+  home.packages =
+    [
+      pkgs.imagemagick
+      pkgs.obsidian-headless
+      vaultSync
+      vaultSyncStatus
+    ]
+    ++ lib.optionals pkgs.stdenv.isDarwin [
+      pkgs.pngpaste
+    ]
+    ++ lib.optionals pkgs.stdenv.isLinux [
+      pkgs.wl-clipboard
+    ];
 
   home.file.".local/state/obsidian-headless-sync/.keep".text = "";
 

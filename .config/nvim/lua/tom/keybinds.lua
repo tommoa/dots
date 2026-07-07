@@ -45,12 +45,20 @@ mapper("t", "<Esc>", "<c-\\><c-n>")
 vim.api.nvim_create_autocmd('LspAttach', {
   callback = function(e)
     local opts = { buffer = e.buf, remap = false }
+    local diagnostic_picker = {
+      layout = {
+        preset = 'ivy',
+        preview = 'main',
+      },
+      main = {
+        current = true,
+      },
+    }
 
     -- See `:help vim.lsp.*` for documentation on any of the below functions
     vim.keymap.set('n', '<leader>d', vim.lsp.buf.declaration, opts)
     vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
     vim.keymap.set('n', '<leader>h', vim.lsp.buf.hover, opts)
-    vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
     vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, opts)
     vim.keymap.set('n', '<leader>wa', vim.lsp.buf.add_workspace_folder, opts)
     vim.keymap.set('n', '<leader>wr', vim.lsp.buf.remove_workspace_folder, opts)
@@ -58,9 +66,13 @@ vim.api.nvim_create_autocmd('LspAttach', {
     vim.keymap.set('n', '<leader>D', vim.lsp.buf.type_definition, opts)
     vim.keymap.set('n', '<leader>r', vim.lsp.buf.rename, opts)
     vim.keymap.set('n', '<leader>ga', vim.lsp.buf.code_action, opts)
-    vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
+    vim.keymap.set('n', 'gr', function() Snacks.picker.lsp_references() end, opts)
     vim.keymap.set('n', '<leader>n', vim.diagnostic.open_float, opts)
-    vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, opts)
+    vim.keymap.set('n', '<leader>q', function() Snacks.picker.diagnostics_buffer(diagnostic_picker) end, opts)
+    vim.keymap.set('n', '<leader>Q', function() Snacks.picker.diagnostics(diagnostic_picker) end, opts)
+    vim.keymap.set('n', 'gi', function() Snacks.picker.lsp_implementations() end, opts)
+    vim.keymap.set('n', '<leader>ls', function() Snacks.picker.lsp_symbols() end, opts)
+    vim.keymap.set('n', '<leader>lS', function() Snacks.picker.lsp_workspace_symbols() end, opts)
     vim.keymap.set("n", "<leader>o", vim.lsp.buf.format, opts)
     -- Run formatting synchronously before writing a file
     vim.api.nvim_create_autocmd('BufWritePre', {
@@ -71,11 +83,14 @@ vim.api.nvim_create_autocmd('LspAttach', {
 })
 
 -- Keymaps for plugins.
---   telescope:
+--   snacks:
 --     zf:         find_files
 --     zb:         buffers
 --     <leader>en  find neovim files
 --     <leader>ec  find nix config files
+--     <leader>Q   workspace diagnostics
+--     <leader>ls  document symbols
+--     <leader>lS  workspace symbols
 --   vault:
 --     <leader>vf  find vault note
 --     <leader>vg  grep vault notes

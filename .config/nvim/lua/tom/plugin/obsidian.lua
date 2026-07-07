@@ -110,7 +110,7 @@ return {
       },
       -- Setup the picker.
       picker = {
-        name = "telescope.nvim",
+        name = "snacks.picker",
       },
       sync = {
         enabled = true,
