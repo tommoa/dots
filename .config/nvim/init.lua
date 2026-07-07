@@ -6,11 +6,11 @@ require'tom.plugins'  -- Load plugins. This will also load my completion and LSP
 require'tom.keybinds' -- Load some keybinds
 
 -- Kick off machine-specific config files
-local host = vim.fn.systemlist "uname -n"
+local host = vim.uv.os_gethostname()
 local config_dir = vim.fn.expand "~/.config/"
 local filenames = {
-    config_dir .. host[1] .. '.vim',
-    config_dir .. host[1] .. '.lua',
+    config_dir .. host .. '.vim',
+    config_dir .. host .. '.lua',
     config_dir .. 'sysinit.vim',
     config_dir .. 'sysinit.lua',
 }

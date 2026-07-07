@@ -25,10 +25,7 @@ opt.spelllang = "en_au"
 opt.shortmess:append "c"
 opt.completeopt = "menuone,noselect,noinsert"
 
-local has = function(x)
-  return vim.fn.has(x) == 1
-end
-if has('termguicolors') then
+if vim.fn.has('termguicolors') == 1 then
     opt.termguicolors = true
 end
 
