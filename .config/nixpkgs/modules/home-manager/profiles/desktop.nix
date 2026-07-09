@@ -3,8 +3,6 @@
   lib,
   ...
 }: {
-  my.opencode.desktop.enable = true;
-
   home.packages = with pkgs;
     lib.optionals pkgs.stdenv.isLinux [
       # Desktop applications

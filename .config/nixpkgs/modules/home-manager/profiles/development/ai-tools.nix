@@ -86,12 +86,6 @@ in {
 
     package = lib.mkPackageOption pkgs "opencode" {};
 
-    desktop.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Install the opencode desktop app alongside the CLI/TUI";
-    };
-
     enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -220,8 +214,7 @@ in {
         codexSubscriptionUsage
       ]
       ++ lib.optionals pkgs.stdenv.isLinux [ollama]
-      ++ lib.optionals config.my.pi.enable [config.my.pi.package]
-      ++ lib.optionals config.my.opencode.desktop.enable [opencode-desktop];
+      ++ lib.optionals config.my.pi.enable [config.my.pi.package];
 
     home.file = lib.mkMerge [
       (lib.mkIf opencodeLiteLLMEnabled {

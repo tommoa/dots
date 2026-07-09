@@ -12,19 +12,6 @@ in {
   neovim = unstable.wrapNeovim neovim-unwrapped-wasm {};
 
   codex = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.codex;
-
-  opencode = inputs.opencode.packages.${super.stdenv.hostPlatform.system}.default;
-
-  opencode-desktop =
-    inputs.opencode.packages.${super.stdenv.hostPlatform.system}.opencode-desktop.overrideAttrs
-    (old: {
-      preBuild =
-        (old.preBuild or "")
-        + ''
-          grep -Eq '"packageManager"[[:space:]]*:[[:space:]]*"bun@[^"]+"' package.json
-          sed -i -E 's/"packageManager"[[:space:]]*:[[:space:]]*"bun@[^"]+"/"packageManager": "bun@${unstable.bun.version}"/' package.json
-        '';
-    });
-
+  opencode = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode;
   pi-coding-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.pi;
 }
