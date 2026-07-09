@@ -7,11 +7,7 @@ return {
                 section_separators = { left = '', right = '' },
                 component_separators = { left = '', right = '|' },
                 disabled_filetypes = {
-                    'Avante',
-                    'AvanteInput',
-                    'AvanteOutput',
-                    'AvanteSelectedFiles',
-                    'AvanteTodos',
+                    'sidekick_terminal',
                 },
             },
             sections = {
