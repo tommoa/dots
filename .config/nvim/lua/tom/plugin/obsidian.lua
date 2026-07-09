@@ -70,6 +70,19 @@ return {
     dependencies = {
       'nvim-lua/plenary.nvim',
     },
+    config = function(_, opts)
+      local obsidian = require('obsidian')
+      obsidian.setup(opts)
+      obsidian.register_command('embeds', {
+        nargs = '*',
+        note_action = true,
+        complete = function(arg_lead)
+          return vim.tbl_filter(function(item)
+            return vim.startswith(item, arg_lead)
+          end, { 'toggle', 'refresh', 'stats' })
+        end,
+      })
+    end,
     opts = {
       legacy_commands = false,
       -- Only one obsidian workspace :)
@@ -90,6 +103,7 @@ return {
             buffer = true,
             desc = 'Follow Obsidian link or file',
           })
+          require('tom.obsidian_embeds').attach(0)
         end,
         create_note = function(note, opts)
           if opts.scope ~= "unique" then
