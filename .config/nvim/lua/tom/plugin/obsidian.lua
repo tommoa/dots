@@ -1,14 +1,23 @@
-local get_workspace = function()
+local get_workspace_path = function()
   local os_name = vim.uv.os_uname().sysname
-  local path = nil
   if os_name == "Darwin" then -- macOS
-    path = vim.fs.joinpath(vim.uv.os_homedir(), "Documents", "Personal")
+    return vim.fs.joinpath(vim.uv.os_homedir(), "Documents", "Personal")
   elseif os_name == "Linux" then -- Linux
-    path = vim.fs.joinpath(vim.uv.os_homedir(), "docs", "Personal")
+    return vim.fs.joinpath(vim.uv.os_homedir(), "docs", "Personal")
   end
-  if not vim.uv.fs_stat(path) then
-    return assert(vim.fs.dirname(vim.api.nvim_buf_get_name(0)))
+end
+
+local has_workspace = function()
+  local path = get_workspace_path()
+  return path ~= nil and vim.uv.fs_stat(path) ~= nil
+end
+
+local get_workspace = function()
+  local path = get_workspace_path()
+  if not has_workspace() then
+    return nil
   end
+
   return path
 end
 
@@ -64,6 +73,7 @@ end
 return {
   {
     'obsidian-nvim/obsidian.nvim',
+    enabled = has_workspace,
     lazy = true,
     ft = { 'markdown' },
     version = '*',

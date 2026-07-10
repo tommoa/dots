@@ -35,7 +35,11 @@ return {
       image = {
         enabled = true,
         resolve = function(file, src)
-          local api = require('obsidian.api')
+          local ok, api = pcall(require, 'obsidian.api')
+          if not ok then
+            return
+          end
+
           if api.path_is_note(file) then
             return api.resolve_attachment_path(src)
           end
