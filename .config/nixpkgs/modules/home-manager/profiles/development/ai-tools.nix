@@ -34,7 +34,7 @@
     text = ''
       codex_usage="$(codex-subscription-usage 2>/dev/null || true)"
       if [ -n "$codex_usage" ]; then
-        printf '#[fg=cyan] %s #[fg=white,nobold,noitalics,nounderscore]|' "$codex_usage"
+        printf '#[fg=cyan] %s #[fg=white,nobold,noitalics,nounderscore]|\n' "$codex_usage"
       fi
     '';
   };

@@ -87,9 +87,6 @@ normalize_usage_json() {
 			elif type == "string" then (tonumber? // $default)
 			else $default end;
 
-		def window($name):
-			.rate_limit[$name] // {};
-
 		def pct:
 			.used_percent | number_or(0);
 
@@ -98,11 +95,50 @@ normalize_usage_json() {
 				.reset_after_seconds
 				// (
 					(.reset_at // null) as $reset_at
-					| if $reset_at == null then null else (($reset_at | fromdateiso8601?) // null | if . == null then null else . - now | floor end) end
+					| if $reset_at == null then null
+					  elif ($reset_at | type) == "number" then ($reset_at - now | floor)
+					  elif ($reset_at | type) == "string" then
+						(($reset_at | tonumber?) // ($reset_at | fromdateiso8601?)) as $reset_epoch
+						| if $reset_epoch == null then null else ($reset_epoch - now | floor) end
+					  else null end
 				)
 			)
 			| number_or(0)
 			| if . < 0 then 0 else . end;
+
+		def limit_secs:
+			.limit_window_seconds | number_or(null);
+
+		def meaningful_window:
+			type == "object"
+			and (
+				has("limit_window_seconds")
+				or has("reset_at")
+				or ((.reset_after_seconds | number_or(0)) > 0)
+				or ((.used_percent | number_or(0)) > 0)
+			);
+
+		def normalized_window($name):
+			select(meaningful_window)
+			| {
+				name: (.name // $name),
+				used_percent: pct,
+				reset_after_seconds: reset_secs,
+				limit_window_seconds: limit_secs
+			};
+
+		def windows:
+			if (.rate_limit.windows | type) == "array" then
+				.rate_limit.windows[]
+				| normalized_window(.name // "window")
+			else
+				.rate_limit
+				| to_entries[]
+				| select(.key | endswith("_window"))
+				| . as $entry
+				| $entry.value
+				| normalized_window($entry.key)
+			end;
 
 		def reset_credits_available_count:
 			.rate_limit_reset_credits.available_count | number_or(null);
@@ -123,8 +159,9 @@ normalize_usage_json() {
 				has_no_expiry: (existing_reset_credits.has_no_expiry // null)
 			},
 			rate_limit: {
-				primary_window: (window("primary_window") | {used_percent: pct, reset_after_seconds: reset_secs}),
-				secondary_window: (window("secondary_window") | {used_percent: pct, reset_after_seconds: reset_secs})
+				allowed: (if ($rate_limits | has("allowed")) then $rate_limits.allowed else null end),
+				limit_reached: (if ($rate_limits | has("limit_reached")) then $rate_limits.limit_reached else null end),
+				windows: [windows]
 			}
 		}
 		end
@@ -250,46 +287,70 @@ print_usage_text() {
 	fi
 
 	usage_rows="$(jq -er '
+		def number_or($default):
+			if . == null then $default
+			elif type == "number" then .
+			elif type == "string" then (tonumber? // $default)
+			else $default end;
+
+		def meaningful_window:
+			type == "object"
+			and (
+				has("limit_window_seconds")
+				or has("reset_at")
+				or ((.reset_after_seconds | number_or(0)) > 0)
+				or ((.used_percent | number_or(0)) > 0)
+			);
+
 		.rate_limit // empty
-		|
-		[
-			.primary_window,
-			.secondary_window
-		]
+		| if (.windows | type) == "array" then
+			.windows
+		  else
+			[.primary_window, .secondary_window]
+		  end
 		| .[]
+		| select(meaningful_window)
 		| [
-			((.reset_after_seconds // 0) | tostring),
-			((.used_percent // 0) | round | tostring),
-			(if (.used_percent // 0) >= 100 then "1" else "0" end)
+			((.reset_after_seconds | number_or(0)) | tostring),
+			((.used_percent | number_or(0)) | round | tostring),
+			(if (.used_percent | number_or(0)) >= 100 then "1" else "0" end)
 		]
 		| @tsv
 	' "$CACHE_FILE")" || return 1
 	[ -n "$usage_rows" ] || return 1
 
-	printf '%s\n' "$usage_rows" | while IFS="$(printf '\t')" read -r reset pct limit_hit; do
+	usage_text=''
+	while IFS="$(printf '\t')" read -r reset pct limit_hit; do
 		if [ "$limit_hit" = 1 ] && [ -n "$credits_balance" ]; then
-			printf '%s:%scr ' "$(format_seconds "$reset")" "$credits_balance"
+			usage_item="$(format_seconds "$reset"):${credits_balance}cr"
 		else
-			printf '%s:%s%% ' "$(format_seconds "$reset")" "$pct"
+			usage_item="$(format_seconds "$reset"):${pct}%"
 		fi
-	done | sed 's/[[:space:]]*$//'
+		if [ -n "$usage_text" ]; then
+			usage_text="${usage_text} ${usage_item}"
+		else
+			usage_text="$usage_item"
+		fi
+	done <<EOF
+$usage_rows
+EOF
 	if [ -n "$reset_credits_available_count" ]; then
 		case "$reset_credits_available_count" in
-			''|*[!0-9]*) reset_credits_available_count='' ;;
+		''|*[!0-9]*) reset_credits_available_count='' ;;
 		esac
 	fi
 	if [ -n "$reset_credits_available_count" ]; then
 		if reset_credits_summary="$(format_reset_credits_summary "$reset_credits_available_count")"; then
-			printf ' (%s)' "$reset_credits_summary"
+			usage_text="${usage_text} (${reset_credits_summary})"
 		elif [ "$reset_credits_available_count" -gt 0 ] && [ -n "$reset_credits_next_expiry" ]; then
-			printf ' (%s:%s)' "$(format_seconds "$reset_credits_next_expiry")" "$reset_credits_available_count"
+			usage_text="${usage_text} ($(format_seconds "$reset_credits_next_expiry"):${reset_credits_available_count})"
 		elif [ "$reset_credits_available_count" -gt 0 ] && [ "$reset_credits_has_no_expiry" = true ]; then
-			printf ' (noexp:%s)' "$reset_credits_available_count"
+			usage_text="${usage_text} (noexp:${reset_credits_available_count})"
 		else
-			printf ' (%s)' "$reset_credits_available_count"
+			usage_text="${usage_text} (${reset_credits_available_count})"
 		fi
 	fi
-	printf '\n'
+	printf '%s\n' "$usage_text"
 }
 
 print_cache() {
