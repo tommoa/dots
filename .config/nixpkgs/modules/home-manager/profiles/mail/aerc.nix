@@ -224,7 +224,7 @@
         ".." = ":modify-labels<space>";
 
         "<C-y>" = ":copy-link <space>";
-        "<C-l>" = ":open-link <space>";
+        "<C-o>" = ":open-link <space>";
 
         "F" = ":forward<Enter>";
         "rr" = ":reply -a<Enter>";
@@ -265,9 +265,9 @@
         "<C-Right>" = ":switch-account -n<Enter>";
         "<tab>" = ":next-field<Enter>";
         "<backtab>" = ":prev-field<Enter>";
-        "<C-p>" = ":prev-tab<Enter>";
+        "<C-l>" = ":prev-tab<Enter>";
         "<C-PgUp>" = ":prev-tab<Enter>";
-        "<C-n>" = ":next-tab<Enter>";
+        "<C-u>" = ":next-tab<Enter>";
         "<C-PgDn>" = ":next-tab<Enter>";
       };
 
@@ -279,9 +279,9 @@
         "<C-Up>" = ":prev-field<Enter>";
         "<C-j>" = ":next-field<Enter>";
         "<C-Down>" = ":next-field<Enter>";
-        "<C-p>" = ":prev-tab<Enter>";
+        "<C-l>" = ":prev-tab<Enter>";
         "<C-PgUp>" = ":prev-tab<Enter>";
-        "<C-n>" = ":next-tab<Enter>";
+        "<C-u>" = ":next-tab<Enter>";
         "<C-PgDn>" = ":next-tab<Enter>";
       };
 
@@ -303,8 +303,8 @@
       terminal = {
         "$noinherit" = "true";
         "$ex" = "<C-x>";
-        "<C-p>" = ":prev-tab<Enter>";
-        "<C-n>" = ":next-tab<Enter>";
+        "<C-l>" = ":prev-tab<Enter>";
+        "<C-u>" = ":next-tab<Enter>";
         "<C-PgUp>" = ":prev-tab<Enter>";
         "<C-PgDn>" = ":next-tab<Enter>";
       };
