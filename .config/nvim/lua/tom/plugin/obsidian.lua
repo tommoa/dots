@@ -75,24 +75,20 @@ return {
     'obsidian-nvim/obsidian.nvim',
     enabled = has_workspace,
     lazy = true,
-    ft = { 'markdown' },
+    ft = { 'markdown', 'obsidian_base' },
+    init = function()
+      vim.filetype.add({ extension = { base = 'obsidian_base' } })
+    end,
     version = '*',
     dependencies = {
       'nvim-lua/plenary.nvim',
+      {
+        dir = vim.fs.joinpath(vim.uv.os_homedir(), 'docs', 'obsidian-base.nvim'),
+        name = 'obsidian-base.nvim',
+        main = 'obsidian-base',
+        opts = {},
+      },
     },
-    config = function(_, opts)
-      local obsidian = require('obsidian')
-      obsidian.setup(opts)
-      obsidian.register_command('embeds', {
-        nargs = '*',
-        note_action = true,
-        complete = function(arg_lead)
-          return vim.tbl_filter(function(item)
-            return vim.startswith(item, arg_lead)
-          end, { 'toggle', 'refresh', 'stats' })
-        end,
-      })
-    end,
     opts = {
       legacy_commands = false,
       -- Only one obsidian workspace :)
@@ -113,7 +109,6 @@ return {
             buffer = true,
             desc = 'Follow Obsidian link or file',
           })
-          require('tom.obsidian_embeds').attach(0)
         end,
         create_note = function(note, opts)
           if opts.scope ~= "unique" then
@@ -178,5 +173,18 @@ return {
       { '<leader>vs', vault_sync_status, desc = 'Vault sync status' },
       { '<leader>vS', '<cmd>Obsidian sync<cr>', desc = 'Vault sync menu' },
     },
+  },
+  {
+    dir = vim.fs.joinpath(vim.uv.os_homedir(), 'docs', 'obsidian-embed.nvim'),
+    name = 'obsidian-embed.nvim',
+    enabled = has_workspace,
+    ft = { 'markdown', 'obsidian_base' },
+    dependencies = {
+      'obsidian-nvim/obsidian.nvim',
+    },
+    opts = {},
+    config = function(_, opts)
+      require('obsidian-embed').setup(opts)
+    end,
   },
 }
