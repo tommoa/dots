@@ -79,7 +79,9 @@ if [ -z "$npm_deps_hash" ]; then
     exit 1
 fi
 
-perl -0pi -e "s/npmDepsHash = lib\\.fakeHash;/npmDepsHash = \"${npm_deps_hash}\";/" default.nix
+NPM_DEPS_HASH="$npm_deps_hash" perl -0pi -e \
+    's/npmDepsHash = lib\.fakeHash;/npmDepsHash = "$ENV{NPM_DEPS_HASH}";/' \
+    default.nix
 
 nix build --no-link --impure --expr "$build_expr"
 
