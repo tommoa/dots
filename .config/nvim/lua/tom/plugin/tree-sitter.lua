@@ -5,8 +5,8 @@ return {
     cmd = { 'Arborist', 'ArboristInstall', 'ArboristUpdate', 'ArboristClean' },
     config = function()
       local native_parsers = {
-        bash = true,
-        rust = true,
+        nix = true,
+        typescript = true,
       }
 
       local function prefer_native_for_some_parsers()
@@ -32,7 +32,7 @@ return {
       local enable_wasm = vim.version.gt(vim.version(), '0.12.3')
 
       require('arborist').setup({
-        prefer_wasm = enable_wasm,
+        prefer_wasm = false,
         install_popular = false,
         update_cadence = 'weekly',
       })

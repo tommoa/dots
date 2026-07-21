@@ -36,10 +36,16 @@ return M
 ]],
   nix = [[
 { pkgs, ... }:
+let
+  value = builtins.toString pkgs.neovim;
+in
 {
   environment.systemPackages = [
     pkgs.neovim
   ];
+  enabled = true;
+  imported = import ./foo.nix;
+  mapped = map toString [ 1 2 3 ];
 }
 ]],
   rust = [[
@@ -58,6 +64,7 @@ local wasm_cache_dir = vim.fn.stdpath("cache") .. "/arborist-wasm-smoke"
 local arborist_lock = vim.fn.stdpath("data") .. "/arborist-lock.json"
 local arborist_config = vim.fn.stdpath("config") .. "/lua/tom/plugin/tree-sitter.lua"
 local parser_registry = vim.fn.stdpath("data") .. "/lazy/arborist.nvim/registry/parsers.toml"
+local default_iterations = 10
 
 local function eprint(message)
   io.stderr:write(message .. "\n")
@@ -93,6 +100,12 @@ local function parse_args()
     if key == "--sequence" then
       i = i + 1
       opts.sequence = argv[i]
+    elseif key == "--iterations" then
+      i = i + 1
+      opts.iterations = tonumber(argv[i])
+      if not opts.iterations or opts.iterations < 1 or opts.iterations % 1 ~= 0 then
+        error("--iterations must be a positive integer")
+      end
     elseif key == "--help" or key == "-h" then
       opts.help = true
     else
@@ -129,6 +142,7 @@ Direct command:
 
 Options:
   --help                  Show this help. Other arguments are internal.
+  --iterations N          Lifecycle iterations per parser. Default: 10.
 ]])
 end
 
@@ -349,12 +363,13 @@ local function phase(lang, path, name, fn)
   end
 end
 
-local function exercise_parser(item)
+local function exercise_parser_once(item, iteration)
   local lang = item.lang
   local path = item.path
   local text = samples[lang] or ("local parser_smoke_" .. lang .. " = true\n")
+  local prefix = ("iter_%02d."):format(iteration)
 
-  phase(lang, path, "language.add", function()
+  phase(lang, path, prefix .. "language.add", function()
     local ok = vim.treesitter.language.add(lang, { path = path })
     assert(ok == true, "vim.treesitter.language.add returned " .. vim.inspect(ok))
   end)
@@ -362,35 +377,36 @@ local function exercise_parser(item)
   local buf
   local parser
 
-  phase(lang, path, "buffer.create", function()
+  phase(lang, path, prefix .. "buffer.create", function()
     buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[buf].filetype = lang
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(text, "\n", { plain = true }))
     vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_cmd({ cmd = "setfiletype", args = { lang } }, {})
   end)
 
-  phase(lang, path, "parser.create", function()
+  phase(lang, path, prefix .. "parser.create", function()
     parser = vim.treesitter.get_parser(buf, lang, {})
   end)
 
-  phase(lang, path, "parse.initial", function()
+  phase(lang, path, prefix .. "parse.initial", function()
     local trees = parser:parse()
     assert(type(trees) == "table" and #trees > 0, "parser returned no trees")
   end)
 
-  phase(lang, path, "highlight.start", function()
+  phase(lang, path, prefix .. "highlight.start", function()
     vim.treesitter.start(buf, lang)
     vim.cmd("redraw")
   end)
 
-  phase(lang, path, "edit.reparse", function()
+  phase(lang, path, prefix .. "edit.reparse", function()
     vim.api.nvim_win_call(0, function()
       vim.api.nvim_buf_set_lines(buf, 0, 0, false, { "-- parser smoke edit" })
       parser:parse()
+      vim.cmd("redraw")
     end)
   end)
 
-  phase(lang, path, "stop.delete.gc", function()
+  phase(lang, path, prefix .. "stop.delete.gc", function()
     pcall(vim.treesitter.stop, buf)
     parser = nil
     vim.api.nvim_buf_delete(buf, { force = true })
@@ -400,8 +416,42 @@ local function exercise_parser(item)
   end)
 end
 
+local function exercise_parser(item, iterations)
+  for iteration = 1, iterations do
+    exercise_parser_once(item, iteration)
+  end
+end
+
 local function parser_ext(path)
   return vim.fn.fnamemodify(path, ":e")
+end
+
+local function link_or_copy(src, dest)
+  local ok, err = vim.uv.fs_symlink(src, dest)
+  if ok then return end
+  ok, err = vim.uv.fs_copyfile(src, dest)
+  assert(ok, ("could not stage runtime file %s -> %s: %s"):format(src, dest, err or "unknown"))
+end
+
+local function stage_query_files(runtime_dir, lang)
+  local source_dir = vim.fn.stdpath("data") .. "/site/queries/" .. lang
+  local entries = vim.uv.fs_scandir(source_dir)
+  if not entries then return 0 end
+
+  local count = 0
+  local query_dir = runtime_dir .. "/queries/" .. lang
+  vim.fn.mkdir(query_dir, "p")
+
+  while true do
+    local name, kind = vim.uv.fs_scandir_next(entries)
+    if not name then break end
+    if kind == "file" then
+      link_or_copy(source_dir .. "/" .. name, query_dir .. "/" .. name)
+      count = count + 1
+    end
+  end
+
+  return count
 end
 
 local function parser_runtime_for(files)
@@ -411,21 +461,15 @@ local function parser_runtime_for(files)
 
   for _, item in ipairs(files) do
     local dest = ("%s/%s.%s"):format(parser_dir, item.lang, parser_ext(item.path))
-    local ok, err = vim.uv.fs_symlink(item.path, dest)
-    if not ok then
-      ok, err = vim.uv.fs_copyfile(item.path, dest)
-      assert(ok, ("could not stage parser for checkhealth: %s"):format(err or dest))
-    end
+    link_or_copy(item.path, dest)
+    stage_query_files(dir, item.lang)
   end
 
   return dir
 end
 
-local function run_treesitter_health(files)
-  local runtime_dir = parser_runtime_for(files)
-
+local function run_treesitter_health(runtime_dir)
   phase("all", runtime_dir, "checkhealth", function()
-    vim.opt.runtimepath:prepend(runtime_dir)
     vim.cmd("checkhealth vim.treesitter")
   end)
 end
@@ -439,14 +483,13 @@ end
 
 local function last_phase(output)
   local last
-  for line in output:gmatch("[^\r\n]+") do
-    local phase_name = line:match("TS_SMOKE.-phase=([^%s]+)")
-    if phase_name then last = phase_name:gsub("TS_SMOKE.*$", "") end
+  for phase_name in output:gmatch("TS_SMOKE.-phase=([^%s]+)") do
+    last = phase_name:gsub("TS_SMOKE.*$", "")
   end
   return last or "none"
 end
 
-local function run_child(script_path, sequence)
+local function run_child(script_path, sequence, iterations)
   local args = {
     vim.v.progpath,
     "--clean",
@@ -456,6 +499,8 @@ local function run_child(script_path, sequence)
     "--",
     "--sequence",
     sequence,
+    "--iterations",
+    tostring(iterations),
   }
 
   local result = vim.system(args, { text = true }):wait()
@@ -480,11 +525,11 @@ local function record_child_status(result, status, parser)
   if status == "OK" then return end
   if status == "CRASH" then result.crashes = result.crashes + 1 end
   if status == "FAIL" then result.failures = result.failures + 1 end
-  result.unsafe[parser.lang] = true
+  if status == "CRASH" then result.unsafe[parser.lang] = true end
 end
 
 local function run_parser_case(result, label, parser, script_path)
-  local code, signal, output = run_child(script_path, parser_spec(parser))
+  local code, signal, output = run_child(script_path, parser_spec(parser), result.iterations)
   local status = classify_child(code, signal, output)
   record_child_status(result, status, parser)
   print(("TS_%s single=%s status=%s code=%d signal=%d last_phase=%s"):format(
@@ -506,6 +551,7 @@ local function run_singles_for_parsers(label, parsers)
     failures = 0,
     unsafe = {},
     single_status = {},
+    iterations = default_iterations,
   }
 
   for _, parser in ipairs(parsers) do
@@ -602,11 +648,13 @@ local function finish_matrix(wasm_result, tested_wasm)
   end
 end
 
-local function run_installed_matrix()
+local function run_installed_matrix(opts)
   local context = installed_parser_context()
   local wasm_parsers, wasm_skipped = wasm_parsers_for_langs(context.candidates)
+  default_iterations = opts.iterations or default_iterations
 
   print_matrix_inputs(context, wasm_parsers, wasm_skipped)
+  print(("TS_MATRIX iterations=%d"):format(default_iterations))
 
   local wasm_result = run_singles_for_parsers("WASM", wasm_parsers)
   local recommendations = matrix_recommendations(context, wasm_parsers, wasm_skipped, wasm_result)
@@ -617,17 +665,21 @@ end
 
 local function run_sequence_smoke(opts)
   local files = parse_sequence(opts.sequence)
+  local iterations = opts.iterations or default_iterations
   if #files == 0 then
     eprint("No parser files found in --sequence.")
     os.exit(2)
   end
 
   print(("TS_SMOKE nvim=%s"):format(vim.version().major .. "." .. vim.version().minor .. "." .. vim.version().patch))
+  print(("TS_SMOKE iterations=%d"):format(iterations))
+  local runtime_dir = parser_runtime_for(files)
+  vim.opt.runtimepath:prepend(runtime_dir)
   if has_wasm_parser(files) then
-    run_treesitter_health(files)
+    run_treesitter_health(runtime_dir)
   end
   for _, item in ipairs(files) do
-    exercise_parser(item)
+    exercise_parser(item, iterations)
   end
   print("TS_SMOKE ok")
 end
@@ -644,7 +696,7 @@ local function main()
     return
   end
 
-  run_installed_matrix()
+  run_installed_matrix(opts)
 end
 
 main()
