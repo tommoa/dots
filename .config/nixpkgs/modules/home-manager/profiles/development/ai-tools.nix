@@ -203,6 +203,19 @@ in {
     };
   };
 
+  options.my.codex = {
+    defaultModel = lib.mkOption {
+      type = lib.types.str;
+      default = "gpt-5.6-terra";
+      description = "The default model for codex to use";
+    };
+    reviewModel = lib.mkOption {
+      type = lib.types.str;
+      default = "gpt-5.6-sol";
+      description = "The model to use for the /review command";
+    };
+  };
+
   config = {
     programs.mcp.enable = true;
 
@@ -344,7 +357,8 @@ in {
       enableMcpIntegration = true;
       package = pkgs.codex;
       settings = {
-        model = "gpt-5.5";
+        model = config.my.codex.defaultModel;
+        review_model = config.my.codex.reviewModel;
         model_reasoning_effort = "high";
         # This needs to be disabled for now, as my work proxy rejects reasoning summaries
         # for codex-auto-review.

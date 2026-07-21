@@ -261,9 +261,13 @@
         ];
         extraModules = [
           {
-            my.opencode.enable = true;
-            my.opencode.package = inputs.llm-agents.packages.x86_64-linux.opencode;
-            my.opencode.disablePythonFormatters = true;
+            my.opencode = {
+              enable = true;
+              package = inputs.llm-agents.packages.x86_64-linux.opencode;
+              disablePythonFormatters = true;
+            };
+            my.codex.defaultModel = "gpt-5.5";
+            my.codex.reviewModel = "gpt-5.5";
           }
         ];
       };
