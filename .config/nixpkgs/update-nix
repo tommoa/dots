@@ -18,11 +18,11 @@ bold=$'\033[1m'
 reset=$'\033[m'
 
 # Inputs excluded from updates by default (space-separated)
-DEFAULT_EXCLUDED_INPUTS="opencode obsidian-headless"
+DEFAULT_EXCLUDED_INPUTS="obsidian-headless model-benchmarks"
 
 # Pseudo-inputs: not real flake inputs but refreshable resources with the same
 # --<name>/--no-<name> flag UX. Skipped during flake input validation.
-PSEUDO_INPUTS="obsidian-headless"
+PSEUDO_INPUTS="obsidian-headless model-benchmarks"
 
 # Function to print colored output
 print_info() {
@@ -318,6 +318,9 @@ update_pseudo_inputs() {
         fi
 
         case "$pseudo" in
+            model-benchmarks)
+                script="${flake_dir}/modules/home-manager/profiles/development/model-routing/update.sh"
+                ;;
             obsidian-headless)
                 script="${flake_dir}/packages/obsidian-headless/update.sh"
                 ;;
@@ -769,6 +772,7 @@ Examples:
   $0 --none                 # Skip all flake updates (just rebuild)
   $0 --none --nixpkgs       # Only update nixpkgs
   $0 --none --obsidian-headless # Only update obsidian-headless package metadata
+  $0 --none --model-benchmarks # Refresh benchmark snapshots before rebuilding
 EOF
 }
 

@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "Terminal-Bench 2.1",
+  "source": "https://api.github.com/repos/harbor-framework/terminal-bench-2-1/contents/leaderboard/submissions?ref=main",
+  "license": "Apache-2.0",
+  "rows": [
+    {
+      "sourceFile": "2026-05-01-anthropic-claude-opus-4-7-max-claude-code.json",
+      "sourceModel": "claude-opus-4-7",
+      "canonicalModel": "claude-opus-4.7",
+      "effort": "max",
+      "agent": "claude-code",
+      "date": "2026-05-01",
+      "accuracy": 68.9,
+      "trialCount": 447,
+      "rewardHackPercent": 0.45
+    },
+    {
+      "sourceFile": "2026-05-01-anthropic-claude-opus-4-7-max-terminus-2.json",
+      "sourceModel": "claude-opus-4-7",
+      "canonicalModel": "claude-opus-4.7",
+      "effort": "max",
+      "agent": "terminus-2",
+      "date": "2026-05-01",
+      "accuracy": 66.07,
+      "trialCount": 445,
+      "rewardHackPercent": 0
+    },
+    {
+      "sourceFile": "2026-05-01-gemini-gemini-3-pro-preview-high-gemini-cli.json",
+      "sourceModel": "gemini-3-pro-preview",
+      "effort": "high",
+      "agent": "gemini-cli",
+      "date": "2026-05-01",
+      "accuracy": 65.84,
+      "trialCount": 445,
+      "rewardHackPercent": 0.45
+    },
+    {
+      "sourceFile": "2026-05-01-gemini-gemini-3-pro-preview-high-terminus-2.json",
+      "sourceModel": "gemini-3-pro-preview",
+      "effort": "high",
+      "agent": "terminus-2",
+      "date": "2026-05-01",
+      "accuracy": 73.93,
+      "trialCount": 445,
+      "rewardHackPercent": 0.45
+    },
+    {
+      "sourceFile": "2026-05-01-glm-5-1-max-claude-code.json",
+      "sourceModel": "glm-5.1",
+      "effort": "max",
+      "agent": "claude-code",
+      "date": "2026-05-01",
+      "accuracy": 58.65,
+      "trialCount": 445,
+      "rewardHackPercent": 0
+    },
+    {
+      "sourceFile": "2026-05-01-openai-gpt-5-5-xhigh-codex.json",
+      "sourceModel": "gpt-5.5",
+      "canonicalModel": "gpt-5.5",
+      "effort": "xhigh",
+      "agent": "codex",
+      "date": "2026-05-01",
+      "accuracy": 83.15,
+      "trialCount": 445,
+      "rewardHackPercent": 0.22
+    },
+    {
+      "sourceFile": "2026-05-01-openai-gpt-5-5-xhigh-terminus-2.json",
+      "sourceModel": "gpt-5.5",
+      "canonicalModel": "gpt-5.5",
+      "effort": "xhigh",
+      "agent": "terminus-2",
+      "date": "2026-05-01",
+      "accuracy": 77.98,
+      "trialCount": 445,
+      "rewardHackPercent": 0.22
+    },
+    {
+      "sourceFile": "2026-05-05-gemini-gemini-3-1-pro-preview-high-gemini-cli.json",
+      "sourceModel": "gemini-3.1-pro-preview",
+      "effort": "high",
+      "agent": "gemini-cli",
+      "date": "2026-05-05",
+      "accuracy": 65.84,
+      "trialCount": 445,
+      "rewardHackPercent": 0.22
+    },
+    {
+      "sourceFile": "2026-05-05-gemini-gemini-3-1-pro-preview-high-terminus-2.json",
+      "sourceModel": "gemini-3.1-pro-preview",
+      "effort": "high",
+      "agent": "terminus-2",
+      "date": "2026-05-05",
+      "accuracy": 65.62,
+      "trialCount": 445,
+      "rewardHackPercent": 0.45
+    },
+    {
+      "sourceFile": "2026-06-05-anthropic-claude-fable-5-high-terminus-2.json",
+      "sourceModel": "claude-fable-5",
+      "effort": "high",
+      "agent": "terminus-2",
+      "date": "2026-06-05",
+      "accuracy": 80.45,
+      "trialCount": 445,
+      "rewardHackPercent": 0
+    },
+    {
+      "sourceFile": "2026-06-07-anthropic-claude-fable-5-xhigh-claude-code.json",
+      "sourceModel": "claude-fable-5",
+      "effort": "xhigh",
+      "agent": "claude-code",
+      "date": "2026-06-07",
+      "accuracy": 83.82,
+      "trialCount": 445,
+      "rewardHackPercent": 0.22
+    },
+    {
+      "sourceFile": "2026-07-09-anthropic-claude-opus-4-8-high-claude-code.json",
+      "sourceModel": "claude-opus-4-8",
+      "effort": "high",
+      "agent": "claude-code",
+      "date": "2026-07-09",
+      "accuracy": 78.88,
+      "trialCount": 445,
+      "rewardHackPercent": 0
+    },
+    {
+      "sourceFile": "2026-07-09-anthropic-claude-sonnet-5-high-claude-code.json",
+      "sourceModel": "claude-sonnet-5",
+      "effort": "high",
+      "agent": "claude-code",
+      "date": "2026-07-09",
+      "accuracy": 74.61,
+      "trialCount": 445,
+      "rewardHackPercent": 0.67
+    },
+    {
+      "sourceFile": "2026-07-09-cursor-grok-4-5-none-cursor-cli.json",
+      "sourceModel": "grok-4.5",
+      "effort": "high",
+      "agent": "cursor-cli",
+      "date": "2026-07-09",
+      "accuracy": 79.33,
+      "trialCount": 445,
+      "rewardHackPercent": 8.99
+    },
+    {
+      "sourceFile": "2026-07-09-openai-muse-spark-1-1-xhigh-mini-swe-agent.json",
+      "sourceModel": "muse-spark-1.1",
+      "effort": "xhigh",
+      "agent": "mini-swe-agent",
+      "date": "2026-07-09",
+      "accuracy": 76.18,
+      "trialCount": 445,
+      "rewardHackPercent": 0
+    },
+    {
+      "sourceFile": "2026-07-10-gpt-5-6-luna-max-codex.json",
+      "sourceModel": "gpt-5.6-luna",
+      "canonicalModel": "gpt-5.6-luna",
+      "effort": "max",
+      "agent": "codex",
+      "date": "2026-07-10",
+      "accuracy": 71.24,
+      "trialCount": 445,
+      "rewardHackPercent": 7.42
+    },
+    {
+      "sourceFile": "2026-07-10-gpt-5-6-sol-max-codex.json",
+      "sourceModel": "gpt-5.6-sol",
+      "canonicalModel": "gpt-5.6-sol",
+      "effort": "max",
+      "agent": "codex",
+      "date": "2026-07-10",
+      "accuracy": 76.18,
+      "trialCount": 445,
+      "rewardHackPercent": 7.19
+    },
+    {
+      "sourceFile": "2026-07-10-gpt-5-6-terra-max-codex.json",
+      "sourceModel": "gpt-5.6-terra",
+      "canonicalModel": "gpt-5.6-terra",
+      "effort": "max",
+      "agent": "codex",
+      "date": "2026-07-10",
+      "accuracy": 74.38,
+      "trialCount": 445,
+      "rewardHackPercent": 7.19
+    },
+    {
+      "sourceFile": "2026-07-11-openai-gpt-5-6-luna-max-codex.json",
+      "sourceModel": "gpt-5.6-luna",
+      "canonicalModel": "gpt-5.6-luna",
+      "effort": "max",
+      "agent": "codex",
+      "date": "2026-07-11",
+      "accuracy": 75.73,
+      "trialCount": 445,
+      "rewardHackPercent": 0.9
+    },
+    {
+      "sourceFile": "2026-07-11-openai-gpt-5-6-terra-max-codex.json",
+      "sourceModel": "gpt-5.6-terra",
+      "canonicalModel": "gpt-5.6-terra",
+      "effort": "max",
+      "agent": "codex",
+      "date": "2026-07-11",
+      "accuracy": 78.43,
+      "trialCount": 445,
+      "rewardHackPercent": 0.22
+    }
+  ]
+}

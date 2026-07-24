@@ -39,6 +39,21 @@
     '';
   };
 
+  agentContext = pkgs.runCommandLocal "agent-context" {nativeBuildInputs = [pkgs.bun];} ''
+    mkdir -p "$TMPDIR/model-routing/snapshots" "$out"
+    cp ${./context.md} "$TMPDIR/context.md"
+    chmod u+w "$TMPDIR/context.md"
+    cp ${./model-routing/generator.ts} "$TMPDIR/model-routing/generator.ts"
+    cp ${./model-routing/policy.ts} "$TMPDIR/model-routing/policy.ts"
+    cp ${./model-routing/snapshots/deepswe-v1.1.json} "$TMPDIR/model-routing/snapshots/deepswe-v1.1.json"
+    cp ${./model-routing/snapshots/terminal-bench-2.1.json} "$TMPDIR/model-routing/snapshots/terminal-bench-2.1.json"
+    bun run "$TMPDIR/model-routing/generator.ts" generate \
+      --context "$TMPDIR/context.md" \
+      --snapshot "$TMPDIR/model-routing/snapshots/deepswe-v1.1.json" \
+      --terminal-snapshot "$TMPDIR/model-routing/snapshots/terminal-bench-2.1.json"
+    cp "$TMPDIR/context.md" "$out/context.md"
+  '';
+
   opencodeLiteLLMOptions =
     {
       baseUrl = config.my.opencode.litellm.baseUrl;
@@ -206,7 +221,7 @@ in {
   options.my.codex = {
     defaultModel = lib.mkOption {
       type = lib.types.str;
-      default = "gpt-5.6-terra";
+      default = "gpt-5.6-sol";
       description = "The default model for codex to use";
     };
     reviewModel = lib.mkOption {
@@ -265,6 +280,10 @@ in {
           };
       })
       {
+        ".codex/AGENTS.md" = {
+          force = true;
+          source = "${agentContext}/context.md";
+        };
         ".codex/config.toml".force = true;
         ".tmux-codex.conf".text = ''
           set -g @codex_subscription_usage_segment "#(${codexTmuxSegment}/bin/codex-subscription-usage-tmux)"
@@ -327,7 +346,7 @@ in {
       commands = {
         rethink = ''
           ---
-          description: Make sure that the agent rethinks its decisions for design
+          description: Make sure that the agent rethinks its architectural decisions
           ---
           Please carefully consider the following questions, then provide a thorough
           response for each of them to the user.
@@ -382,7 +401,7 @@ in {
         rethink = ''
           ---
           name: rethink
-          description: Make sure the agent rethinks its decisions for design
+          description: Make sure the agent rethinks its architectural decisions
           ---
 
           Please carefully consider the following questions, then provide a thorough
@@ -403,5 +422,7 @@ in {
         '';
       };
     };
+
+    xdg.configFile."opencode/AGENTS.md".source = "${agentContext}/context.md";
   };
 }
