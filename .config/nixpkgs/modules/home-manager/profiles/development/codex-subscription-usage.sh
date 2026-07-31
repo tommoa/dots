@@ -10,14 +10,14 @@ USAGE_URL="${CODEX_USAGE_URL:-https://chatgpt.com/backend-api/wham/usage}"
 RESET_CREDITS_URL="${CODEX_RATE_LIMIT_RESET_CREDITS_URL:-https://chatgpt.com/backend-api/wham/rate-limit-reset-credits}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/codex-subscription-usage"
 CACHE_FILE="$CACHE_DIR/usage.json"
-CACHE_TTL_SECS="${CODEX_USAGE_CACHE_TTL_SECS:-60}"
+CACHE_TTL_SECS="${CODEX_USAGE_CACHE_TTL_SECS:-15}"
 LOCK_DIR="$CACHE_DIR/refresh.lock"
 
 # This tmux helper only reads current access tokens. Refresh tokens are owned by
 # Codex/OpenCode, and refreshing here can rotate and race with their auth caches.
 
 case "$CACHE_TTL_SECS" in
-	''|*[!0-9]*) CACHE_TTL_SECS=60 ;;
+	''|*[!0-9]*) CACHE_TTL_SECS=15 ;;
 esac
 
 now_epoch() {

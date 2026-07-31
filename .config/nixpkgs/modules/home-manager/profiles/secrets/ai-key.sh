@@ -6,11 +6,11 @@ PROXY_URL="${AIKEYS_PROXY_URL:-https://ai-proxy.infra.corp.arista.io}"
 KEY_FILE="${AIKEYS_KEY_FILE:-$HOME/.ai-proxy-api-key}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/aikeys-tmux-status"
 CACHE_FILE="$CACHE_DIR/spend"
-CACHE_TTL_SECS="${AIKEYS_CACHE_TTL_SECS:-15}"
+CACHE_TTL_SECS="${AIKEYS_CACHE_TTL_SECS:-5}"
 LOCK_DIR="$CACHE_DIR/refresh.lock"
 
 case "$CACHE_TTL_SECS" in
-	''|*[!0-9]*) CACHE_TTL_SECS=15 ;;
+	''|*[!0-9]*) CACHE_TTL_SECS=5;;
 esac
 
 PROXY_URL="${PROXY_URL%/}"
