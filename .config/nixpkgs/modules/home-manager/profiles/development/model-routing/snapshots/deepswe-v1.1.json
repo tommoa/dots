@@ -115,6 +115,61 @@
       "runCount": 4
     },
     {
+      "sourceModel": "claude-opus-5",
+      "effort": "low",
+      "passAt1": 0.5812917594654788,
+      "meanCostUsd": 1.6626223919821828,
+      "meanInputTokens": 1564287.6570155902,
+      "meanOutputTokens": 19884.3140311804,
+      "meanAgentSteps": 35.641425389755014,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "claude-opus-5",
+      "effort": "medium",
+      "passAt1": 0.6890380313199105,
+      "meanCostUsd": 3.28978764541387,
+      "meanInputTokens": 3579815.3601789707,
+      "meanOutputTokens": 36981.530201342284,
+      "meanAgentSteps": 52.29530201342282,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "claude-opus-5",
+      "effort": "high",
+      "passAt1": 0.7282850779510023,
+      "meanCostUsd": 6.076084489977728,
+      "meanInputTokens": 7233879.0824053455,
+      "meanOutputTokens": 64207.43429844098,
+      "meanAgentSteps": 72.92204899777283,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "claude-opus-5",
+      "effort": "xhigh",
+      "passAt1": 0.7315436241610739,
+      "meanCostUsd": 9.07220232326622,
+      "meanInputTokens": 11292729.463087248,
+      "meanOutputTokens": 91672.01565995526,
+      "meanAgentSteps": 88.7248322147651,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "claude-opus-5",
+      "effort": "max",
+      "passAt1": 0.7364864864864865,
+      "meanCostUsd": 11.837583271396396,
+      "meanInputTokens": 15025834.39864865,
+      "meanOutputTokens": 117565.6936936937,
+      "meanAgentSteps": 99.0427927927928,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
       "sourceModel": "claude-sonnet-4-6",
       "canonicalModel": "claude-sonnet-4.6",
       "effort": "high",
