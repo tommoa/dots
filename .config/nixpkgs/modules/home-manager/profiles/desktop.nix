@@ -59,6 +59,7 @@
 
   programs.zen-browser = {
     enable = true;
+    darwin.packageMode = "wrapped";
     policies = let
       mkExtensionSettings = builtins.mapAttrs (
         _: pluginId: {
