@@ -8,10 +8,10 @@
 }:
 buildNpmPackage {
   pname = "obsidian-headless";
-  version = "0.0.13";
+  version = "0.0.14";
 
   src = ./.;
-  npmDepsHash = "sha256-6Eekh61FScMafoRuNFN1HsaEzthM7n/LxoIGXj8wzXo=";
+  npmDepsHash = "sha256-3Abu47/kLBUTynJcUNj03OWReCw0U1W6FfhWA+c5bGY=";
 
   dontNpmBuild = true;
 
