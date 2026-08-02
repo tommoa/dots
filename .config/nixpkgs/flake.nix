@@ -266,8 +266,8 @@
               package = inputs.llm-agents.packages.x86_64-linux.opencode;
               disablePythonFormatters = true;
             };
-            my.codex.defaultModel = "gpt-5.5";
-            my.codex.reviewModel = "gpt-5.5";
+            # Remote SSH invokes Codex directly, so select the work proxy declaratively.
+            programs.codex.settings.model_provider = "ai_proxy";
           }
         ];
       };
