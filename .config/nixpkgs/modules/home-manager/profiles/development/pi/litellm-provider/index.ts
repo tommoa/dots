@@ -123,8 +123,9 @@ function buildHeaders(
 	return headers;
 }
 
-function multiplyPerTokenCost(value: number | undefined): number {
-	return typeof value === "number" ? value * 1_000_000 : 0;
+function multiplyPerTokenCost(value: number | string | undefined): number {
+	const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : undefined;
+	return typeof numeric === "number" && Number.isFinite(numeric) ? numeric * 1_000_000 : 0;
 }
 
 function getModelMode(entry: LiteLLMModelEntry): string | undefined {

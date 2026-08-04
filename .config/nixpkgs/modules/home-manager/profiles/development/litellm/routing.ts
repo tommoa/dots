@@ -20,10 +20,10 @@ export interface LiteLLMModelInfo {
 	max_tokens?: number;
 	max_input_tokens?: number;
 	max_output_tokens?: number;
-	input_cost_per_token?: number;
-	output_cost_per_token?: number;
-	cache_read_input_token_cost?: number;
-	cache_creation_input_token_cost?: number;
+	input_cost_per_token?: number | string;
+	output_cost_per_token?: number | string;
+	cache_read_input_token_cost?: number | string;
+	cache_creation_input_token_cost?: number | string;
 	supports_function_calling?: boolean | null;
 	supports_reasoning?: boolean | null;
 	supports_vision?: boolean | null;

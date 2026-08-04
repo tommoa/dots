@@ -505,7 +505,26 @@ function modelCost(info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | 
 		cache_read: perMillion(info.cache_read_input_token_cost),
 		cache_write: perMillion(info.cache_creation_input_token_cost),
 	});
-	return cost ?? catalogModel?.cost;
+	return completeCost(cost ?? catalogModel?.cost);
+}
+
+function completeCost(cost: NormalizedModel["cost"]) {
+	if (!cost) return undefined;
+	const normalized: NonNullable<NormalizedModel["cost"]> = {
+		input: cost.input ?? 0,
+		output: cost.output ?? 0,
+		cache_read: cost.cache_read ?? 0,
+		cache_write: cost.cache_write ?? 0,
+	};
+	if (cost.context_over_200k) {
+		normalized.context_over_200k = {
+			input: cost.context_over_200k.input ?? 0,
+			output: cost.context_over_200k.output ?? 0,
+			cache_read: cost.context_over_200k.cache_read ?? 0,
+			cache_write: cost.context_over_200k.cache_write ?? 0,
+		};
+	}
+	return normalized;
 }
 
 function costToV2(cost: NormalizedModel["cost"]) {
@@ -531,8 +550,9 @@ function compactCost(cost: NonNullable<NormalizedModel["cost"]>) {
 	return Object.values(cost).some((value) => typeof value === "number" && value !== 0) ? cost : undefined;
 }
 
-function perMillion(value?: number) {
-	return typeof value === "number" ? Math.round(value * COST_MULTIPLIER * 10_000) / 10_000 : undefined;
+function perMillion(value?: number | string) {
+	const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : undefined;
+	return typeof numeric === "number" && Number.isFinite(numeric) ? Math.round(numeric * COST_MULTIPLIER * 10_000) / 10_000 : undefined;
 }
 
 function normalizedVariants(catalogVariants: CatalogModelSnapshot["variants"] | undefined, route: RouteKind, reasoning: boolean | undefined, id: string, releaseDate?: string) {

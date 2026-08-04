@@ -319,6 +319,47 @@ describe("LiteLLM OpenCode v1 provider config", () => {
 		});
 		expect(provider.models["claude-sonnet-4-5"].provider).toBeUndefined();
 	});
+
+	test("fills missing price fields required by the v1 config schema", () => {
+		const provider = v1ProviderFor([
+			{
+				model_name: "gpt-5.6-luna",
+				model_info: {
+					mode: "responses",
+					output_cost_per_token: 0.00001,
+				},
+			},
+		]);
+
+		expect(provider.models["gpt-5.6-luna"].cost).toEqual({
+			input: 0,
+			output: 10,
+			cache_read: 0,
+			cache_write: 0,
+		});
+	});
+
+	test("parses numeric price strings returned by LiteLLM", () => {
+		const provider = v1ProviderFor([
+			{
+				model_name: "gpt-5.6-luna",
+				model_info: {
+					mode: "responses",
+					input_cost_per_token: "2e-07",
+					output_cost_per_token: 0.0000012,
+					cache_read_input_token_cost: "2e-08",
+					cache_creation_input_token_cost: 2.5e-7,
+				},
+			},
+		]);
+
+		expect(provider.models["gpt-5.6-luna"].cost).toEqual({
+			input: 0.2,
+			output: 1.2,
+			cache_read: 0.02,
+			cache_write: 0.25,
+		});
+	});
 });
 
 describe("LiteLLM runtime discovery", () => {
