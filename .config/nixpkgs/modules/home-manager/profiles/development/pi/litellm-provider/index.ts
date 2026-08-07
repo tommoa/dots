@@ -216,13 +216,10 @@ function getModelCost(entry: LiteLLMModelEntry, builtInModel: ProviderModel | un
 	const modelInfo = getModelInfo(entry);
 	const input = multiplyPerTokenCost(modelInfo.input_cost_per_token);
 	const output = multiplyPerTokenCost(modelInfo.output_cost_per_token);
-	if (input !== 0 || output !== 0) {
-		return {
-			input,
-			output,
-			cacheRead: 0,
-			cacheWrite: 0,
-		};
+	const cacheRead = multiplyPerTokenCost(modelInfo.cache_read_input_token_cost);
+	const cacheWrite = multiplyPerTokenCost(modelInfo.cache_creation_input_token_cost);
+	if (input !== 0 || output !== 0 || cacheRead !== 0 || cacheWrite !== 0) {
+		return { input, output, cacheRead, cacheWrite };
 	}
 	return builtInModel?.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 }
