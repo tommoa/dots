@@ -123,7 +123,7 @@ describe("reviewed model policy", () => {
 		expect(models.every((model) => model.profiles.work.eligible)).toBeTrue();
 		const workGpts = models.filter((model) => model.id.startsWith("gpt-") && model.profiles.work.eligible);
 		expect(workGpts.map((model) => model.id)).toEqual(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"]);
-		expect(workGpts.every((model) => model.workPriceMultiplier === 0.5)).toBeTrue();
+		expect(workGpts.every((model) => model.workPriceMultiplier === 0.85)).toBeTrue();
 	});
 
 	test("keeps GPT-5.5 out of the personal table", () => {

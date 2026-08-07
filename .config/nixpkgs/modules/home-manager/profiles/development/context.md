@@ -76,7 +76,7 @@ it is available and approved for the task's data.
 <!-- Populated during the Nix build from model-routing/policy.ts and committed benchmark snapshots. -->
 <!-- END GENERATED: model-selection -->
 
-For work tasks, OpenAI usage receives a 50% price adjustment. For personal
+For work tasks, OpenAI usage receives a 15% price discount. For personal
 tasks, OpenAI usage is covered by subscription, so prefer it when it has
 sufficient capability. Use Claude for personal tasks when its specialist
 advantage justifies paid usage.

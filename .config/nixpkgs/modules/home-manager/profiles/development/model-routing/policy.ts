@@ -108,7 +108,7 @@ export const models: ModelPolicy[] = [
 			personal: { eligible: true },
 		},
 		speed: 3,
-		workPriceMultiplier: 0.5,
+		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "medium",
 			difficult: "high or extra high",
@@ -130,13 +130,13 @@ export const models: ModelPolicy[] = [
 			writing: 4,
 			synthesis: 4,
 		},
-		cost: 4,
+		cost: 3,
 		profiles: {
 			work: { eligible: true },
 			personal: { eligible: true },
 		},
 		speed: 4,
-		workPriceMultiplier: 0.5,
+		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "medium or high",
 			difficult: "extra high",
@@ -158,13 +158,13 @@ export const models: ModelPolicy[] = [
 			writing: 3,
 			synthesis: 3,
 		},
-		cost: 2,
+		cost: 1,
 		profiles: {
 			work: { eligible: true },
 			personal: { eligible: true },
 		},
 		speed: 5,
-		workPriceMultiplier: 0.5,
+		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "low or medium for bounded work; at least high for long-horizon implementation",
 			difficult: "high or extra high",
@@ -192,7 +192,7 @@ export const models: ModelPolicy[] = [
 			personal: { eligible: false },
 		},
 		speed: 3,
-		workPriceMultiplier: 0.5,
+		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "low for basic work; medium for substantial implementation",
 			difficult: "high",
