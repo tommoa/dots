@@ -237,6 +237,17 @@
       "runCount": 4
     },
     {
+      "sourceModel": "deepseek-v4-flash",
+      "effort": "max",
+      "passAt1": 0.5331858407079646,
+      "meanCostUsd": 0.10023560370265487,
+      "meanInputTokens": 19829931.451327432,
+      "meanOutputTokens": 107687.02212389381,
+      "meanAgentSteps": 152.87610619469027,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
       "sourceModel": "gemini-3-1-pro-preview",
       "effort": "high",
       "passAt1": 0.11751662971175167,
@@ -571,6 +582,17 @@
       "meanInputTokens": 12005399.261061948,
       "meanOutputTokens": 74008.4203539823,
       "meanAgentSteps": 95.82522123893806,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "qwen3-8-max",
+      "effort": "xhigh",
+      "passAt1": 0.5746102449888641,
+      "meanCostUsd": 3.7290646500445437,
+      "meanInputTokens": 12996066.461024499,
+      "meanOutputTokens": 95075.18262806236,
+      "meanAgentSteps": 111.33853006681514,
       "taskCount": 113,
       "runCount": 4
     }
