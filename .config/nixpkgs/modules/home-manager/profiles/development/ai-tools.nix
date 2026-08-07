@@ -234,6 +234,18 @@ in {
   config = {
     programs.mcp.enable = true;
 
+    # Codex mutates config.toml at runtime, while Home Manager manages it as a
+    # read-only store link. Copy the freshly linked generation after linking so
+    # Codex always gets the latest declarative settings in a writable file.
+    home.activation.codexConfigWritable = lib.hm.dag.entryAfter ["linkGeneration"] ''
+      codex_config="$HOME/.codex/config.toml"
+      codex_config_tmp="$codex_config.tmp"
+
+      run cp "$codex_config" "$codex_config_tmp"
+      run chmod u+rw,go-rwx "$codex_config_tmp"
+      run mv -f "$codex_config_tmp" "$codex_config"
+    '';
+
     # AI tool packages
     # Secrets are defined in secrets/ai.nix.
     home.packages = with pkgs;
@@ -390,6 +402,32 @@ in {
         feedback.enabled = false;
 
         projects.${config.home.homeDirectory}.trust_level = "trusted";
+
+        # The desktop app reads these from config.toml's [desktop] table,
+        # rather than from the top-level CLI/TUI settings.
+        desktop = {
+          dock-icon-preference = "codex-system";
+          sansFontSize = 15;
+          codeFontSize = 15;
+          appearanceTheme = "dark";
+          appearanceDarkCodeThemeId = "one";
+          appearanceDarkChromeTheme = {
+            accent = "#4d78cc";
+            contrast = 60;
+            fonts = {
+              code = "monospace";
+              ui = "monospace";
+            };
+            ink = "#fafafa";
+            surface = "#282c34";
+            opaqueWindows = true;
+            semanticColors = {
+              diffAdded = "#40c977";
+              diffRemoved = "#fa423e";
+              skill = "#ad7bf9";
+            };
+          };
+        };
 
         tui = {
           theme = "one-half-dark";
