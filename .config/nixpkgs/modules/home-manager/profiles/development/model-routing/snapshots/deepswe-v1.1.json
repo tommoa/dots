@@ -586,6 +586,17 @@
       "runCount": 4
     },
     {
+      "sourceModel": "muse-spark-1-2",
+      "effort": "xhigh",
+      "passAt1": 0.5486725663716814,
+      "meanCostUsd": 3.6955048180309733,
+      "meanInputTokens": 13693824.435840707,
+      "meanOutputTokens": 99226.38053097345,
+      "meanAgentSteps": 100.75884955752213,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
       "sourceModel": "qwen3-8-max",
       "effort": "xhigh",
       "passAt1": 0.5746102449888641,
