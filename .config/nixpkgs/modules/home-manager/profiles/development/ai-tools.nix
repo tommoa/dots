@@ -391,6 +391,10 @@ in {
         model = config.my.codex.defaultModel;
         review_model = config.my.codex.reviewModel;
         model_reasoning_effort = "high";
+        agents = {
+          default_subagent_model = "gpt-5.6-luna";
+          default_subagent_reasoning_effort = "high";
+        };
         # This needs to be disabled for now, as my work proxy rejects reasoning summaries
         # for codex-auto-review.
         # model_reasoning_summary = "auto";
