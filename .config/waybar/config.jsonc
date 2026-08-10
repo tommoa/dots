@@ -34,6 +34,7 @@
     "hyprland/workspaces": {
         "on-click": "activate",
         "format": "{icon}",
+        "sort-by": "id",
         "format-icons": {
             "default": "",
             "1": "1",
@@ -103,7 +104,7 @@
       "format-disabled": "󰂲",
       "format-connected": "",
       "tooltip-format": "Devices connected: {num_connections}",
-      "on-click": "blueberry"
+      "on-click": "blueman-manager"
     },
     "network": {
         "format-wifi": "",
