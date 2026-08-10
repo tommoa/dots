@@ -55,6 +55,10 @@
     enable = pkgs.stdenv.isLinux;
   };
 
+  # uv-managed Python expects a conventional CA bundle path that NixOS does
+  # not provide, so point OpenSSL-based Python clients at the Nix CA bundle.
+  environment.sessionVariables.SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+
   # Make sure that we have a secrets service running.
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.login.enableGnomeKeyring = true;
