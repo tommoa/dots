@@ -7,6 +7,11 @@
     lib.optionals pkgs.stdenv.isLinux [
       # Desktop applications
       bitwarden-desktop
+      chatgpt-desktop
+    ]
+    ++ lib.optionals pkgs.stdenv.isDarwin [
+      # Desktop applications
+      chatgpt
     ]
     ++ [
       # Desktop applications

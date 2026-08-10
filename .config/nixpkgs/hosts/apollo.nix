@@ -11,8 +11,5 @@
     description = "Tom Hill Almeida";
     home = "/Users/toma";
     shell = pkgs.zsh;
-    packages = with pkgs; [
-      chatgpt
-    ];
   };
 }
