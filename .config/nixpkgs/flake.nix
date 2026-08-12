@@ -1,6 +1,13 @@
 {
   description = "Tom's modular nix systems";
 
+  nixConfig = {
+    extra-substituters = ["https://cache.numtide.com"];
+    extra-trusted-public-keys = [
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+    ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/release-26.05";
     nixpkgs-darwin.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
@@ -95,6 +102,7 @@
           overlays = [
             (import ./overlays)
             (import ./flake-overlays inputs)
+            inputs.llm-agents.overlays.shared-nixpkgs
           ];
         };
         modules =
@@ -130,6 +138,7 @@
             nixpkgs.overlays = [
               (import ./overlays)
               (import ./flake-overlays inputs)
+              inputs.llm-agents.overlays.shared-nixpkgs
             ];
           }
           home-manager.darwinModules.home-manager
@@ -169,6 +178,7 @@
             nixpkgs.overlays = [
               (import ./overlays)
               (import ./flake-overlays inputs)
+              inputs.llm-agents.overlays.shared-nixpkgs
             ];
           }
           home-manager.nixosModules.home-manager
@@ -200,6 +210,7 @@
         "base"
         "desktop"
         "development"
+        "development/cli-proxy-api"
         "mail"
         "obsidian"
         "secrets/ai"
