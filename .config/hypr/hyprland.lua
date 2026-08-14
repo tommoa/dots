@@ -213,13 +213,13 @@ hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 hl.window_rule({ name = "chatgpt-workspace", match = { class = "codex-desktop" }, workspace = "3 silent" })
 hl.window_rule({ name = "discord-workspace", match = { class = "discord" }, workspace = "4 silent" })
-hl.window_rule({ name = "obsidian-workspace", match = { class = "obsidian" }, workspace = "7 silent" })
+hl.window_rule({ name = "obsidian-workspace", match = { class = "obsidian" }, workspace = "5 silent" })
 hl.window_rule({ name = "steam-workspace", match = { class = "steam" }, workspace = "6 silent" })
 
-hl.window_rule({ name = "cs2-workspace", match = { class = "^(cs2)$" }, workspace = "5 silent", immediate = true })
-hl.window_rule({ name = "gamescope-workspace", match = { class = "^(gamescope)$" }, workspace = "5 silent", immediate = true })
-hl.window_rule({ name = "deadlock-workspace", match = { class = "^(deadlock)$" }, workspace = "5 silent", immediate = true })
-hl.window_rule({ name = "aoe-workspace", match = { title = "Age of Empires .*" }, workspace = "5 silent", immediate = true })
+hl.window_rule({ name = "cs2-workspace", match = { class = "^(cs2)$" }, workspace = "7 silent", immediate = true })
+hl.window_rule({ name = "gamescope-workspace", match = { class = "^(gamescope)$" }, workspace = "7 silent", immediate = true })
+hl.window_rule({ name = "deadlock-workspace", match = { class = "^(deadlock)$" }, workspace = "7 silent", immediate = true })
+hl.window_rule({ name = "aoe-workspace", match = { title = "Age of Empires .*" }, workspace = "7 silent", immediate = true })
 
 -- Picture-in-picture overlays.
 hl.window_rule({ name = "tag-pip", match = { title = "(Picture.?in.?[Pp]icture)" }, tag = "+pip" })
