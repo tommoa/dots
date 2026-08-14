@@ -26,13 +26,6 @@ self: super:
       ;
   };
 
-  obsidian = super.obsidian.overrideAttrs (old:
-    if super.stdenv.isDarwin
-    then {
-      sourceRoot = "Obsidian ${old.version}-universal/Obsidian.app";
-    }
-    else {}
-  );
 }
 // (import ./w3m.nix self super)
 // (import ./aerc.nix self super)
