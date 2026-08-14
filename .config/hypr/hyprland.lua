@@ -119,6 +119,7 @@ hl.config({
     render = {
         cm_enabled = true,
         cm_auto_hdr = 1,
+        cm_fs_passthrough = 1,
         direct_scanout = true,
     },
 
