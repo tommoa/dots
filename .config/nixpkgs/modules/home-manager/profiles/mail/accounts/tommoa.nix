@@ -58,7 +58,7 @@
         query-map = "~/.config/aerc/notmuch-map";
         folders-sort = "INBOX";
         default = "INBOX";
-        outgoing = "msmtp -a tom@tommoa";
+        outgoing = "msmtp -a tommoa";
         from = "Tom Almeida <tom@tommoa.me>";
       };
     };
