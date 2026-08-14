@@ -210,7 +210,6 @@
         "base"
         "desktop"
         "development"
-        "development/cli-proxy-api"
         "mail"
         "obsidian"
         "secrets/ai"
@@ -230,6 +229,7 @@
         "base"
         "desktop"
         "development"
+        "development/cli-proxy-api"
         "mail"
         "obsidian"
         "secrets/ai"
@@ -304,7 +304,11 @@
     # System configurations
     darwinConfigurations."apollo" = mkDarwinConfig {
       hostConfig = ./hosts/apollo.nix;
-      homeConfig = workHomeConfig;
+      homeConfig =
+        workHomeConfig
+        // {
+          profiles = workHomeConfig.profiles ++ ["development/cli-proxy-api"];
+        };
     };
 
     nixosConfigurations."james" = mkNixosConfig {

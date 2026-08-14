@@ -26,6 +26,10 @@ let
 
   # Work-specific secrets (user + work host only)
   workSecrets = users ++ [work];
+
+  # Personal desktop secrets (user + apollo host only). Keep these out of
+  # work-host deployments even though the same user can edit them.
+  personalSecrets = users ++ [apollo];
 in {
   # AI API keys
   "ai/anthropic.age".publicKeys = all;
@@ -33,6 +37,8 @@ in {
   "ai/opencode-zen.age".publicKeys = all;
   "ai/openrouter.age".publicKeys = all;
   "ai/litellm.age".publicKeys = workSecrets;
+  "ai/cli-proxy-api-key.age".publicKeys = personalSecrets;
+  "ai/cli-proxy-management-password.age".publicKeys = personalSecrets;
   # Mail secrets
   # Note: Refresh tokens are stored locally per-machine in ~/.local/state/oauth2-gmail/
   # and are NOT managed by agenix (they are obtained via oauth2-gmail setup)

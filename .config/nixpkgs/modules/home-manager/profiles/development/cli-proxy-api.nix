@@ -8,9 +8,24 @@
   proxyBinary = "${proxyPackage}/bin/cli-proxy-api";
   proxyHome = "${config.home.homeDirectory}/.cli-proxy-api";
   proxyConfig = "${proxyHome}/config.yaml";
-  # This key authenticates only the local client-to-proxy hop. It is not an
-  # OpenAI credential and is safe to keep in the declarative client config.
-  clientApiKey = "sk-local-cliproxyapi";
+  clientApiKeyFile = "${config.home.homeDirectory}/.config/ai-keys/cli-proxy-api-key";
+  managementPasswordFile = "${config.home.homeDirectory}/.config/ai-keys/cli-proxy-management-password";
+  proxyConfigBase = (pkgs.formats.yaml {}).generate "cli-proxy-api-config.yaml" {
+    # Keep the proxy local: the OAuth tokens are subscription credentials and
+    # the downstream API is intentionally not exposed to the network.
+    host = "127.0.0.1";
+    port = config.my.cliProxyApi.port;
+    auth-dir = proxyHome;
+    debug = false;
+    logging-to-file = true;
+    logs-max-total-size-mb = 100;
+    remote-management = {
+      allow-remote = false;
+      secret-key = "";
+    };
+    routing.strategy = "fill-first";
+    ws-auth = true;
+  };
   proxyModels = lib.unique (
     [
       "gpt-5.6-sol"
@@ -20,10 +35,24 @@
     ]
     ++ config.my.cliProxyApi.models
   );
+  proxyWrapper = pkgs.writeShellApplication {
+    name = "cli-proxy-api-with-secrets";
+    runtimeInputs = [pkgs.coreutils pkgs.jq];
+    text = ''
+      umask 077
+      MANAGEMENT_PASSWORD="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "${managementPasswordFile}")"
+      export MANAGEMENT_PASSWORD
+      ${pkgs.coreutils}/bin/install -m 600 "${proxyConfigBase}" "${proxyConfig}"
+      printf '\napi-keys:\n  - %s\n' \
+        "$(${pkgs.coreutils}/bin/tr -d '\r\n' < "${clientApiKeyFile}" | ${pkgs.jq}/bin/jq -Rs .)" \
+        >>"${proxyConfig}"
+      exec ${proxyBinary} -config "${proxyConfig}" "$@"
+    '';
+  };
   codexLogin = pkgs.writeShellApplication {
     name = "cli-proxy-api-codex-login";
     text = ''
-      exec ${proxyBinary} -config "${proxyConfig}" -codex-login "$@"
+      exec ${proxyWrapper}/bin/cli-proxy-api-with-secrets -codex-login "$@"
     '';
   };
 in {
@@ -42,28 +71,23 @@ in {
   };
 
   config = {
+    age.secrets = {
+      cli-proxy-api-key = {
+        file = "${config.my.secretsPath}/ai/cli-proxy-api-key.age";
+        path = clientApiKeyFile;
+        symlink = false;
+      };
+      cli-proxy-management-password = {
+        file = "${config.my.secretsPath}/ai/cli-proxy-management-password.age";
+        path = managementPasswordFile;
+        symlink = false;
+      };
+    };
+
     home.packages = [
       proxyPackage
       codexLogin
     ];
-
-    home.file.".cli-proxy-api/config.yaml".text = ''
-      # Keep the proxy local: the OAuth tokens are subscription credentials and
-      # the downstream API is intentionally not exposed to the network.
-      host: "127.0.0.1"
-      port: ${toString config.my.cliProxyApi.port}
-      auth-dir: "${proxyHome}"
-      api-keys:
-        - "${clientApiKey}"
-      debug: false
-      logging-to-file: true
-      remote-management:
-        allow-remote: false
-        secret-key: ""
-      routing:
-        strategy: "fill-first"
-      ws-auth: true
-    '';
 
     home.activation.cliProxyApiDirectories = lib.hm.dag.entryAfter ["writeBoundary"] ''
       run mkdir -p "${proxyHome}/logs"
@@ -75,8 +99,12 @@ in {
       model_providers.cli_proxy_api = {
         name = "CLIProxyAPI (Codex subscriptions)";
         base_url = "http://127.0.0.1:${toString config.my.cliProxyApi.port}/v1";
-        experimental_bearer_token = clientApiKey;
-        requires_openai_auth = true;
+        auth = {
+          command = "${pkgs.coreutils}/bin/cat";
+          args = [clientApiKeyFile];
+          timeout_ms = 5000;
+          refresh_interval_ms = 300000;
+        };
         wire_api = "responses";
         supports_websockets = true;
       };
@@ -87,7 +115,7 @@ in {
       name = "CLIProxyAPI (Codex subscriptions)";
       options = {
         baseURL = "http://127.0.0.1:${toString config.my.cliProxyApi.port}/v1";
-        apiKey = clientApiKey;
+        apiKey = "{file:${clientApiKeyFile}}";
       };
       models = lib.genAttrs proxyModels (model: {name = model;});
     };
@@ -95,7 +123,7 @@ in {
     launchd.agents.cli-proxy-api = lib.mkIf pkgs.stdenv.isDarwin {
       enable = true;
       config = {
-        ProgramArguments = [proxyBinary "-config" proxyConfig];
+        ProgramArguments = ["${proxyWrapper}/bin/cli-proxy-api-with-secrets"];
         WorkingDirectory = proxyHome;
         RunAtLoad = true;
         KeepAlive = true;
@@ -108,10 +136,10 @@ in {
     systemd.user.services.cli-proxy-api = lib.mkIf pkgs.stdenv.isLinux {
       Unit = {
         Description = "CLIProxyAPI local subscription proxy";
-        After = ["network-online.target"];
+        After = ["agenix.service" "network-online.target"];
       };
       Service = {
-        ExecStart = "${proxyBinary} -config ${proxyConfig}";
+        ExecStart = "${proxyWrapper}/bin/cli-proxy-api-with-secrets";
         Restart = "on-failure";
         RestartSec = 5;
         WorkingDirectory = proxyHome;
