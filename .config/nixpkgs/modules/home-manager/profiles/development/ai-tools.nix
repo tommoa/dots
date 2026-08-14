@@ -4,6 +4,8 @@
   config,
   ...
 }: let
+  codexSubscriptionAccounts = builtins.readFile ./codex-cli-proxy-accounts.sh;
+
   codexReset = pkgs.writeShellApplication {
     name = "reset-codex";
     runtimeInputs = with pkgs; [
@@ -12,7 +14,7 @@
       gnused
       jq
     ];
-    text = builtins.readFile ./reset-codex.sh;
+    text = codexSubscriptionAccounts + builtins.readFile ./reset-codex.sh;
   };
 
   codexSubscriptionUsage = pkgs.writeShellApplication {
@@ -23,7 +25,7 @@
       jq
       gnused
     ];
-    text = builtins.readFile ./codex-subscription-usage.sh;
+    text = codexSubscriptionAccounts + builtins.readFile ./codex-subscription-usage.sh;
   };
 
   codexTmuxSegment = pkgs.writeShellApplication {
