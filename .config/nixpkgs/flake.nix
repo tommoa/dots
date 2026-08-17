@@ -164,7 +164,10 @@
             };
           }
         ];
-        specialArgs = {inherit inputs;};
+        specialArgs = {
+          inherit inputs;
+          username = homeConfig.username;
+        };
       };
 
     # Helper function to create nixos configurations
@@ -202,7 +205,10 @@
             };
           }
         ];
-        specialArgs = {inherit inputs;};
+        specialArgs = {
+          inherit inputs;
+          username = homeConfig.username;
+        };
       };
   in let
     workHomeConfig = {

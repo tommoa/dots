@@ -3,6 +3,7 @@
   lib,
   config,
   pkgs,
+  username,
   ...
 }: {
   # Allow unfree packages (e.g. Discord, Obsidian, Spotify, Steam, etc...).
@@ -23,6 +24,7 @@
       "nix-command"
       "flakes"
     ];
+    settings.trusted-users = [username];
     gc =
       {
         automatic = true;
