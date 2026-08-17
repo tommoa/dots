@@ -75,7 +75,8 @@ apply_config_specific_exclusions() {
             ;;
         darwin)
             # Darwin configs need both nixpkgs (via home-manager) and nixpkgs-darwin
-            # Don't exclude anything platform-specific for Darwin
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "codex-desktop-linux")
+            print_info "Darwin config detected: excluding codex-desktop-linux"
             ;;
     esac
 
@@ -489,7 +490,13 @@ main() {
                         ;;
                     darwin)
                         # On Darwin, we need all inputs including nixpkgs-darwin
-                        # Don't exclude anything platform-specific
+                        # codex-desktop-linux only provides Linux packages and is
+                        # not needed by the Darwin system or home configuration.
+                        case "$input" in
+                            codex-desktop-linux)
+                                should_include=false
+                                ;;
+                        esac
                         ;;
                 esac
             fi
