@@ -35,7 +35,9 @@
 
     zen-browser = {
       url = "github:0xc000022070/zen-browser-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
+      # Zen currently requires ffmpeg_9, which is available in unstable but
+      # not in the 26.05 release input used by the rest of this flake.
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
       inputs.home-manager.follows = "home-manager";
     };
 

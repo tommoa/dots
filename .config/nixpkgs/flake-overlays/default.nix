@@ -8,6 +8,12 @@ inputs: self: super: let
     wasmSupport = true;
   };
 in {
+  # Zen Browser currently requires ffmpeg_9, while the 26.05 release
+  # nixpkgs followed by this flake still exposes ffmpeg_7. Reuse the
+  # already-pinned unstable package so Zen's package and wrapper can resolve
+  # the dependency without moving the whole system to unstable.
+  ffmpeg_9 = unstable.ffmpeg_9;
+
   neovim-unwrapped = neovim-unwrapped-wasm;
   neovim = unstable.wrapNeovim neovim-unwrapped-wasm {};
 
