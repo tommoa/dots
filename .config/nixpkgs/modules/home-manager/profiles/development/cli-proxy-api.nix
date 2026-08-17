@@ -106,7 +106,10 @@ in {
       enable = true;
       config = {
         ProgramArguments = [proxyBinary "-config" "${proxyConfigBase}"];
-        EnvironmentVariables.MANAGEMENT_PASSWORD = "local";
+        EnvironmentVariables = {
+          MANAGEMENT_PASSWORD = "local";
+          MANAGEMENT_STATIC_PATH = "${proxyHome}/static";
+        };
         WorkingDirectory = proxyHome;
         RunAtLoad = true;
         KeepAlive = true;
@@ -122,7 +125,10 @@ in {
         After = ["network-online.target"];
       };
       Service = {
-        Environment = ["MANAGEMENT_PASSWORD=local"];
+        Environment = [
+          "MANAGEMENT_PASSWORD=local"
+          "MANAGEMENT_STATIC_PATH=${proxyHome}/static"
+        ];
         ExecStart = "${proxyBinary} -config ${proxyConfigBase}";
         Restart = "on-failure";
         RestartSec = 5;
