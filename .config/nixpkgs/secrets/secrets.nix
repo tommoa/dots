@@ -37,8 +37,6 @@ in {
   "ai/opencode-zen.age".publicKeys = all;
   "ai/openrouter.age".publicKeys = all;
   "ai/litellm.age".publicKeys = workSecrets;
-  "ai/cli-proxy-api-key.age".publicKeys = personalSecrets;
-  "ai/cli-proxy-management-password.age".publicKeys = personalSecrets;
   # Mail secrets
   # Note: Refresh tokens are stored locally per-machine in ~/.local/state/oauth2-gmail/
   # and are NOT managed by agenix (they are obtained via oauth2-gmail setup)
