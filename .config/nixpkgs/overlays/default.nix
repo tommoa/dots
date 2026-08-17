@@ -2,8 +2,7 @@ self: super:
 {
   # Claude Code to OpenCode plugin transformer
   claude-to-opencode = import ../packages/claude-to-opencode {
-    inherit
-      (super)
+    inherit (super)
       lib
       python3
       runCommand
@@ -15,8 +14,7 @@ self: super:
   };
 
   obsidian-headless = import ../packages/obsidian-headless {
-    inherit
-      (super)
+    inherit (super)
       buildNpmPackage
       lib
       makeWrapper
