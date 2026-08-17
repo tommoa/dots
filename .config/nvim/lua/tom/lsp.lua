@@ -49,6 +49,11 @@ M.configs['clangd'] = {
     on_attach = on_attach,
     capabilities = capabilities
 }
+-- Elixir
+M.configs['elixirls'] = {
+    on_attach = on_attach,
+    capabilities = capabilities
+}
 -- Python
 M.configs['pyright'] = {
     on_attach = on_attach,
