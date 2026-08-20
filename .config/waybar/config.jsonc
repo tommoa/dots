@@ -26,7 +26,6 @@
         "network",
         "memory",
         "cpu",
-        "battery",
         "temperature",
         "group/group-power"
     ],
