@@ -1,0 +1,79 @@
+diff --git a/internal/config/config_types.go b/internal/config/config_types.go
+index 783f666..1f19ee7 100644
+--- a/internal/config/config_types.go
++++ b/internal/config/config_types.go
+@@ -517,6 +517,9 @@ type CodexModel struct {
+ 	// MaxContextLength overrides the context window advertised to Codex clients.
+ 	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
+ 
++	// InputModalities declares supported input capabilities for Codex clients.
++	InputModalities []string `yaml:"input-modalities,omitempty" json:"input-modalities,omitempty"`
++
+ 	// ForceMapping rewrites upstream response model fields back to Alias.
+ 	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
+ 
+@@ -535,10 +538,11 @@ func (m CodexModel) GetName() string { return m.Name }
+ 
+ func (m CodexModel) GetAlias() string { return m.Alias }
+ 
+-func (m CodexModel) GetDisplayName() string   { return m.DisplayName }
+-func (m CodexModel) GetMaxContextLength() int { return m.MaxContextLength }
+-func (m CodexModel) GetForceMapping() bool    { return m.ForceMapping }
+-func (m CodexModel) GetIsCompat() bool        { return m.IsCompat }
++func (m CodexModel) GetDisplayName() string       { return m.DisplayName }
++func (m CodexModel) GetMaxContextLength() int     { return m.MaxContextLength }
++func (m CodexModel) GetInputModalities() []string { return m.InputModalities }
++func (m CodexModel) GetForceMapping() bool        { return m.ForceMapping }
++func (m CodexModel) GetIsCompat() bool            { return m.IsCompat }
+ 
+ func (m CodexModel) GetThinking() *registry.ThinkingSupport { return m.Thinking }
+ 
+diff --git a/sdk/cliproxy/config_model_max_context_length_test.go b/sdk/cliproxy/config_model_max_context_length_test.go
+index aff0edc..53f7055 100644
+--- a/sdk/cliproxy/config_model_max_context_length_test.go
++++ b/sdk/cliproxy/config_model_max_context_length_test.go
+@@ -90,3 +90,19 @@ func TestBuildConfigModelsPropagatesMaxContextLength(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestBuildCodexConfigModelsPropagatesInputModalities(t *testing.T) {
++	models := buildCodexConfigModels(&config.CodexKey{
++		Models: []config.CodexModel{{
++			Name:            "codex-upstream",
++			Alias:           "codex-alias",
++			InputModalities: []string{"TEXT", "image", "image"},
++		}},
++	})
++	if len(models) != 1 {
++		t.Fatalf("model count = %d, want 1", len(models))
++	}
++	if got := joinModalities(models[0].SupportedInputModalities); got != "text,image" {
++		t.Fatalf("SupportedInputModalities = %q, want text,image", got)
++	}
++}
+diff --git a/sdk/cliproxy/service_models.go b/sdk/cliproxy/service_models.go
+index 553123b..3c7701a 100644
+--- a/sdk/cliproxy/service_models.go
++++ b/sdk/cliproxy/service_models.go
+@@ -670,6 +670,10 @@ type modelMaxContextLengthEntry interface {
+ 	GetMaxContextLength() int
+ }
+ 
++type modelInputModalitiesEntry interface {
++	GetInputModalities() []string
++}
++
+ type modelCompatEntry interface {
+ 	GetIsCompat() bool
+ }
+@@ -705,6 +709,9 @@ func buildConfiguredModelInfo(model modelEntry, ownedBy, modelType string, creat
+ 			info.MaxContextLength = maxContextLength
+ 		}
+ 	}
++	if modalitiesModel, okModalities := any(model).(modelInputModalitiesEntry); okModalities {
++		info.SupportedInputModalities = normalizeCompatConfigModalities(modalitiesModel.GetInputModalities())
++	}
+ 	if compatModel, okCompat := any(model).(modelCompatEntry); okCompat {
+ 		info.IsCompat = compatModel.GetIsCompat()
+ 	}

@@ -26,6 +26,14 @@ export interface LiteLLMModelInfo {
 	cache_creation_input_token_cost?: number | string;
 	supports_function_calling?: boolean | null;
 	supports_reasoning?: boolean | null;
+	supports_none_reasoning_effort?: boolean | null;
+	supports_minimal_reasoning_effort?: boolean | null;
+	supports_low_reasoning_effort?: boolean | null;
+	supports_medium_reasoning_effort?: boolean | null;
+	supports_high_reasoning_effort?: boolean | null;
+	supports_xhigh_reasoning_effort?: boolean | null;
+	supports_max_reasoning_effort?: boolean | null;
+	supports_ultra_reasoning_effort?: boolean | null;
 	supports_vision?: boolean | null;
 	supports_pdf_input?: boolean | null;
 	supports_audio_input?: boolean | null;
