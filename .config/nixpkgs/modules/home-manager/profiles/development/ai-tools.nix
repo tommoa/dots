@@ -56,25 +56,21 @@
     cp "$TMPDIR/context.md" "$out/context.md"
   '';
 
-  opencodeLiteLLMOptions =
-    {
-      baseUrl = config.my.opencode.litellm.baseUrl;
-      apiKeyEnv = config.my.opencode.litellm.apiKeyEnv;
-      keyFile = config.my.opencode.litellm.keyFile;
-      routeOverrides = {
-        responses = config.my.opencode.litellm.routeOverrides.responses;
-        chat = config.my.opencode.litellm.routeOverrides.chat;
-      };
-      defaults = {
-        context = config.my.opencode.litellm.defaults.context;
-        output = config.my.opencode.litellm.defaults.output;
-        input = config.my.opencode.litellm.defaults.input;
-      };
-      headers = config.my.opencode.litellm.headers;
-    }
-    // lib.optionalAttrs (config.my.opencode.litellm.modelsUrl != null) {
-      modelsUrl = config.my.opencode.litellm.modelsUrl;
+  opencodeLiteLLMOptions = {
+    baseUrl = config.my.aiProxy.baseUrl;
+    apiKeyEnv = config.my.aiProxy.apiKeyEnv;
+    keyFile = config.my.aiProxy.keyFile;
+    routeOverrides = {
+      responses = config.my.aiProxy.routeOverrides.responses;
+      chat = config.my.aiProxy.routeOverrides.chat;
     };
+    defaults = {
+      context = config.my.aiProxy.defaults.context;
+      output = config.my.aiProxy.defaults.output;
+      input = config.my.aiProxy.defaults.input;
+    };
+    headers = config.my.aiProxy.headers;
+  };
 
   opencodeLiteLLMDir = "${config.home.homeDirectory}/.config/opencode/litellm";
   opencodeLiteLLMSource = pkgs.runCommandLocal "opencode-litellm" {} ''
@@ -94,6 +90,74 @@
     cp ${./litellm/routing.ts} "$out/routing.ts"
   '';
 in {
+  options.my.aiProxy = {
+    enable = lib.mkEnableOption "the shared ai-proxy connection";
+
+    baseUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "https://ai-proxy.infra.corp.arista.io";
+      description = "Base URL of the shared LiteLLM ai-proxy";
+    };
+
+    apiKeyEnv = lib.mkOption {
+      type = lib.types.str;
+      default = "LITELLM_API_KEY";
+      description = "Environment variable containing the ai-proxy API key";
+    };
+
+    keyFile = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/.config/ai-keys/litellm";
+      description = "Fallback file containing the ai-proxy API key";
+    };
+
+    headers = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = {};
+      description = ''
+        Non-secret headers sent to ai-proxy (routing, tenant IDs, feature
+        flags). API keys must go through apiKeyEnv/keyFile instead: values
+        set here are baked into world-readable /nix/store paths, so anything
+        secret-shaped placed in this attrset will leak. The refresh
+        generator rejects an Authorization entry to prevent that mistake.
+      '';
+    };
+
+    routeOverrides = {
+      responses = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        description = "ai-proxy model IDs forced through the Responses API";
+      };
+
+      chat = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        description = "ai-proxy model IDs forced through Chat Completions";
+      };
+    };
+
+    defaults = {
+      input = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = ["text"];
+        description = "Default input modalities when ai-proxy omits metadata";
+      };
+
+      context = lib.mkOption {
+        type = lib.types.int;
+        default = 128000;
+        description = "Default context window when ai-proxy omits metadata";
+      };
+
+      output = lib.mkOption {
+        type = lib.types.int;
+        default = 16384;
+        description = "Default output limit when ai-proxy omits metadata";
+      };
+    };
+  };
+
   options.my.opencode = {
     disablePythonFormatters = lib.mkOption {
       type = lib.types.bool;
@@ -115,70 +179,6 @@ in {
         default = false;
         description = "Enable the LiteLLM provider integration for opencode";
       };
-
-      baseUrl = lib.mkOption {
-        type = lib.types.str;
-        default = "https://ai-proxy.infra.corp.arista.io";
-        description = "LiteLLM proxy base URL for opencode";
-      };
-
-      modelsUrl = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = "Optional explicit LiteLLM model discovery URL";
-      };
-
-      apiKeyEnv = lib.mkOption {
-        type = lib.types.str;
-        default = "LITELLM_API_KEY";
-        description = "Environment variable containing the LiteLLM API key";
-      };
-
-      keyFile = lib.mkOption {
-        type = lib.types.str;
-        default = "${config.home.homeDirectory}/.config/ai-keys/litellm";
-        description = "Fallback file containing the LiteLLM API key for model discovery";
-      };
-
-      headers = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = {};
-        description = "Additional headers to send during LiteLLM model discovery";
-      };
-
-      routeOverrides = {
-        responses = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [];
-          description = "LiteLLM model IDs to force through the OpenAI Responses route";
-        };
-
-        chat = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [];
-          description = "LiteLLM model IDs to force through the OpenAI-compatible chat route";
-        };
-      };
-
-      defaults = {
-        input = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = ["text"];
-          description = "Default input modalities for LiteLLM models without metadata";
-        };
-
-        context = lib.mkOption {
-          type = lib.types.int;
-          default = 128000;
-          description = "Default context window for LiteLLM models without metadata";
-        };
-
-        output = lib.mkOption {
-          type = lib.types.int;
-          default = 16384;
-          description = "Default output token limit for LiteLLM models without metadata";
-        };
-      };
     };
   };
 
@@ -196,26 +196,6 @@ in {
         type = lib.types.bool;
         default = false;
         description = "Enable the LiteLLM provider extension for pi";
-      };
-
-      baseUrl = lib.mkOption {
-        type = lib.types.str;
-        default = "https://ai-proxy.infra.corp.arista.io/";
-        description = "LiteLLM proxy base URL for pi";
-      };
-
-      routeOverrides = {
-        responses = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [];
-          description = "LiteLLM model IDs to force through the OpenAI Responses route in pi";
-        };
-
-        chat = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [];
-          description = "LiteLLM model IDs to force through the OpenAI-compatible chat route in pi";
-        };
       };
     };
   };
@@ -271,13 +251,13 @@ in {
           {
             extensions = [piLiteLLMProviderDir];
             litellmProvider = {
-              baseUrl = config.my.pi.litellm.baseUrl;
-              apiKey = "env:LITELLM_API_KEY";
+              baseUrl = config.my.aiProxy.baseUrl;
+              apiKey = "env:${config.my.aiProxy.apiKeyEnv}";
               authHeaderName = "x-litellm-api-key";
               sendBearerAuth = true;
               routeOverrides = {
-                responses = config.my.pi.litellm.routeOverrides.responses;
-                chat = config.my.pi.litellm.routeOverrides.chat;
+                responses = config.my.aiProxy.routeOverrides.responses;
+                chat = config.my.aiProxy.routeOverrides.chat;
               };
               providerCompat = {
                 supportsDeveloperRole = false;
@@ -285,11 +265,11 @@ in {
                 maxTokensField = "max_tokens";
               };
               defaults = {
-                input = ["text"];
-                contextWindow = 128000;
-                maxTokens = 16384;
+                input = config.my.aiProxy.defaults.input;
+                contextWindow = config.my.aiProxy.defaults.context;
+                maxTokens = config.my.aiProxy.defaults.output;
               };
-              headers = {};
+              headers = config.my.aiProxy.headers;
             };
           };
       })

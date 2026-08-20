@@ -63,17 +63,19 @@ in {
 
   my.pi.litellm.enable = true;
 
-  my.opencode.litellm = {
+  my.aiProxy = {
     enable = true;
     baseUrl = "https://ai-proxy.infra.corp.arista.io";
     apiKeyEnv = "LITELLM_API_KEY";
     keyFile = "${config.home.homeDirectory}/.config/ai-keys/litellm";
   };
 
+  my.opencode.litellm.enable = true;
+
   programs.codex.settings = {
     model_providers.ai_proxy = {
       name = "Arista AI Proxy";
-      base_url = "https://ai-proxy.infra.corp.arista.io/";
+      base_url = "${config.my.aiProxy.baseUrl}/";
       auth = {
         command = "${config.home.homeDirectory}/.codex/codex-api-key-helper";
         timeout_ms = 5000;
