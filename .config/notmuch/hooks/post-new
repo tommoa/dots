@@ -43,6 +43,28 @@ sent=${sent:-'Sent'}
 
 tags="$(notmuch config get user.folder_tags 2>/dev/null)"
 
+move_to_folder() {
+    file="$1"
+    folder="$2"
+
+    # A previous step in this hook may already have moved this path.
+    [ -f "${file}" ] || return 0
+
+    name="${file##*/}"
+    flags="${name##*:}"
+    directory=${file%%/${name}}
+    # If its in the "new" directory, we need to set the flags ourselves
+    if [ "${directory##*/}" = "new" ]; then flags="2,"; fi
+
+    destination="${dir}/${folder}/cur/$(uuidgen):${flags%%T}"
+    if mv "${file}" "${destination}"; then
+        printf "Moved %s to %s\n" "${file}" "${folder}"
+    else
+        printf "Failed to move %s to %s; retaining the source\n" "${file}" "${folder}" >&2
+        return 1
+    fi
+}
+
 folder_to_tag() {
     # Usage: folder_to_tag "tag" "folder"
     folder="$2"
@@ -62,9 +84,14 @@ notmuch tag +deleted -inbox -- folder:"\"${trash}\""
 # If its been sent, pass that on through
 notmuch tag +sent -unread -- folder:"\"${sent}\"" and not tag:sent
 
-# If it has been deleted from an inbox, make sure we remove it from
-# the IMAP folder
-notmuch search --output=files tag:inbox | grep 'T$' | xargs rm -f
+# A maildir filename ending in T means that a client has marked the message
+# deleted. Move it to the configured trash folder instead of removing it.
+while IFS= read -r file && [ -n "${file}" ];
+do
+    move_to_folder "${file}" "${trash}"
+done <<eof
+$(notmuch search --output=files tag:inbox | grep 'T$' || true)
+eof
 # If its already been archived, mark it as such
 notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not folder:'"/(INBOX|Inbox|.*@.*)/"' and not tag:archive
 # If its not in an inbox, don't mark it as "inbox"
@@ -90,17 +117,9 @@ ensure_tag_in_folder "archive" "${archive}"
 # These emails will be retagged below
 while IFS= read -r file && [ -n "${file}" ];
 do
-    name="${file##*/}"
-    # Get the IMAP flags
-    flags="${name##*:}"
-    directory=${file%%/${name}}
-    # If its in the "new" directory, we need to set the flags ourselves
-    if [ "${directory##*/}" = "new" ]; then flags="2,"; fi
-    echo "Trashing ${file}"
-    mv "${file}" "${dir}/${trash}/cur/$(uuidgen):${flags%%T}"
+    move_to_folder "${file}" "${trash}"
 done <<eof
-$(notmuch search --output=files tag:deleted and not folder:"\"${trash}\"" |
-    grep -iv "${trash_re}")
+$(notmuch search --output=files tag:deleted and not folder:"\"${trash}\"")
 eof
 
 # Retag things that have been deleted

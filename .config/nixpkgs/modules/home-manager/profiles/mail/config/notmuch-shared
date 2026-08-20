@@ -37,7 +37,6 @@ primary_email=emilyandtom.almeida@gmail.com
 
 type=gmail
 trash=[Gmail]/Bin
-trash_re=\\[Gmail\\]/Bin
 folder_tags=rsvp
 rsvp=RSVP
 

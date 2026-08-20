@@ -50,7 +50,6 @@ seine-release=seine-release
 design-reviews=Design Reviews
 
 trash=[Gmail]/Bin
-trash_re=\\[Gmail\\]/Bin
 
 type=gmail
 archive=Work

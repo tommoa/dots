@@ -36,7 +36,6 @@ primary_email=tom@tommoa.me
 sent=Sent Messages
 #sent_re=Sent\ Messages
 trash=Deleted Messages
-#trash_re=Deleted\ Messages
 # Configuration for "notmuch new"
 #
 # The following options are supported here:

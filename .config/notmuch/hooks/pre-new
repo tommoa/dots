@@ -27,19 +27,11 @@ gmail=$(notmuch config get user.type 2>/dev/null)
 trash=$(notmuch config get user.trash 2>/dev/null)
 trash=${trash:-${gmail:+'[Gmail]/Trash'}}
 trash=${trash:-'Trash'}
-trash_re=$(notmuch config get user.trash_re 2>/dev/null)
-trash_re=${trash_re:-$(notmuch config get user.trash 2>/dev/null)}
-trash_re=${trash_re:-${gmail:+'\[Gmail\]/Trash'}}
-trash_re=${trash_re:-'Trash'}
 
 # The tag and folder that will be used for archiving
 archive=$(notmuch config get user.archive 2>/dev/null)
 archive=${archive:-${gmail:+'[Gmail]/All Mail'}}
 archive=${archive:-'Archive'}
-archive_re=$(notmuch config get user.archive_re 2>/dev/null)
-archive_re=${archive_re:-$(notmuch config get user.archive 2>/dev/null)}
-archive_re=${archive_re:-${gmail:+'\[Gmail\]/All Mail'}}
-archive_re=${archive_re:-'Archive'}
 
 # The folder that will be used for sent mail
 sent=$(notmuch config get user.sent 2>/dev/null)
@@ -50,25 +42,35 @@ tags="$(notmuch config get user.folder_tags 2>/dev/null)"
 
 # Add a copy of all emails with a tag to a maildir folder
 tag_to_folder() {
-    # Usage: tag_to_folder "tag" "folder" "folder_re"
-    folder="$2"
-    folder_re="${3:-$folder}"
+    # Usage: tag_to_folder "tag" "folder"
     tag="$1"
+    folder="$2"
+    # An unconfigured optional tag is a no-op, not a copy failure: without a
+    # folder the grep guard collapses to `//` and cp would land in the
+    # maildir root. Return 0 so copy_failed still reflects real IO errors.
+    if [ -z "${folder}" ]; then
+        printf 'Skipping tag_to_folder for tag "%s": no folder configured\n' "${tag}" >&2
+        return 0
+    fi
     while IFS= read -r message && [ -n "${message}" ];
     do
         files="$(notmuch search --output=files --exclude=false ${message})"
-        existing="$(printf "${files}\n" | grep -i "${folder_re}")"
+        # Match the configured folder as a literal path segment.
+        existing="$(printf '%s\n' "${files}" | grep -F -i -- "/${folder}/")"
         if [ -z "${existing}" ];
         then
-            file=$(printf "${files}\n" | head -n1)
-            printf "Copying ${file} to ${folder}\n"
+            file=$(printf '%s\n' "${files}" | head -n1)
+            printf "Copying %s to %s\n" "${file}" "${folder}"
             name="${file##*/}"
             # Get the IMAP flags
             flags="${name##*:}"
             directory=${file%%/${name}}
             # If its in the "new" directory, we need to set the flags ourselves
             if [ "${directory##*/}" = "new" ]; then flags="2,"; fi
-            cp -f "${file}" "${dir}/${folder}/cur/$(uuidgen):${flags%%T}"
+            if ! cp -f "${file}" "${dir}/${folder}/cur/$(uuidgen):${flags%%T}"; then
+                printf "Failed to copy %s to %s; retaining the source\n" "${file}" "${folder}" >&2
+                return 1
+            fi
         fi
     done <<eof
 $(notmuch search --output=messages --exclude=false tag:${tag} and not folder:"\"${folder}\"")
@@ -77,14 +79,25 @@ eof
 
 folder_prune() {
     # Usage: folder_prune "tag" "folder"
-    folder="$2"
     tag="$1"
+    folder="$2"
+    # Without a configured folder the case pattern below (*""*) matches every
+    # path, which would silently delete unrelated mail. Skip instead.
+    if [ -z "${folder}" ]; then
+        printf 'Skipping folder_prune for tag "%s": no folder configured\n' "${tag}" >&2
+        return 0
+    fi
     while IFS= read -r file && [ -n "${file}" ];
     do
         case "${file}" in
-            *"${folder}"*) # The folder needs to be quoted in case of special characters (e.g. `[]`)
-                printf "Deleting ${file} -- doesn't have ${tag}\n"
-                rm -f "${file}"
+            */"${folder}"/*) # Match the folder as a literal path segment
+                             # to avoid, e.g., an `Inbox` prune touching
+                             # `InboxArchive/`. The folder itself needs to
+                             # be quoted for special characters (e.g. `[]`).
+                printf "Deleting %s -- doesn't have %s\n" "${file}" "${tag}"
+                if ! rm -f "${file}"; then
+                    printf "Failed to delete %s; retaining the source\n" "${file}" >&2
+                fi
             ;;
         esac
     done <<eof
@@ -92,14 +105,16 @@ $(notmuch search --output=files --exclude=false folder:"\"${folder}\"" and not t
 eof
 }
 
-tag_to_folder deleted "${trash}" "${trash_re}"
-tag_to_folder inbox INBOX
-tag_to_folder inbox Inbox
-tag_to_folder sent "${sent}"
+copy_failed=0
+
+tag_to_folder deleted "${trash}" || copy_failed=1
+tag_to_folder inbox INBOX || copy_failed=1
+tag_to_folder inbox Inbox || copy_failed=1
+tag_to_folder sent "${sent}" || copy_failed=1
 
 while IFS= read -r tag && [ -n "${tag}" ];
 do
-    tag_to_folder "${tag}" "$(notmuch config get user."${tag}")" "$(notmuch config get user."${tag}_re" 2>/dev/null)"
+    tag_to_folder "${tag}" "$(notmuch config get user."${tag}")" || copy_failed=1
 done <<eof
 ${tags}
 eof
@@ -107,16 +122,26 @@ eof
 # If it doesn't have a tag, then mark it as archived
 notmuch tag +archive -- not tag:archive and not tag:inbox and not tag:deleted and not tag:sent $(printf "${tags}" | sed 's/^/and not tag:/')
 
-tag_to_folder archive "${archive}" "${archive_re}"
+tag_to_folder archive "${archive}" || copy_failed=1
 
-folder_prune deleted "${trash}"
-folder_prune inbox INBOX
-while IFS= read -r tag && [ -n "${tag}" ];
-do
-    folder_prune "${tag}" "$(notmuch config get user."${tag}")"
-done <<eof
+# Pruning is destructive, so gate it on a fully successful copy phase. Copies
+# are idempotent (tag_to_folder skips folders that already contain the
+# message), so the next run reconciles anything that was skipped here. Return
+# 0 either way so notmuch still runs post-new (T-flag maildir moves) and the
+# mbsync push below still propagates the copies that did succeed.
+if [ "${copy_failed}" -eq 0 ]; then
+    folder_prune deleted "${trash}"
+    folder_prune inbox INBOX
+    folder_prune inbox Inbox
+    while IFS= read -r tag && [ -n "${tag}" ];
+    do
+        folder_prune "${tag}" "$(notmuch config get user."${tag}")"
+    done <<eof
 ${tags}
 eof
-[ -z "${gmail}" ] && folder_prune archive "${archive}"
+    [ -z "${gmail}" ] && folder_prune archive "${archive}"
+else
+    printf "Copy phase failed; skipping folder pruning until the next run\n" >&2
+fi
 
 mbsync "${mbdir}"

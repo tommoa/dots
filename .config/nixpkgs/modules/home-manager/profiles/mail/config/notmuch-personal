@@ -38,7 +38,6 @@ other_email=tom@tommoa.me;tommoa@ucc.asn.au;
 
 type=gmail
 trash=[Gmail]/Bin
-trash_re=\\[Gmail\\]/Bin
 
 # Configuration for "notmuch new"
 #
