@@ -74,7 +74,6 @@ apply_config_specific_exclusions() {
             print_info "Linux config detected: excluding nixpkgs-darwin, nix-darwin"
             ;;
         darwin)
-            # Darwin configs need both nixpkgs (via home-manager) and nixpkgs-darwin
             EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "codex-desktop-linux")
             print_info "Darwin config detected: excluding codex-desktop-linux"
             ;;
@@ -83,8 +82,8 @@ apply_config_specific_exclusions() {
     # Server vs Desktop detection
     case "$config_name" in
         *server*)
-            # Server configs don't need zen-browser (desktop-only)
             EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "zen-browser")
+            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "codex-desktop-linux")
             print_info "Server config detected: excluding zen-browser"
             ;;
     esac
