@@ -2,7 +2,7 @@
 -- Monitors
 ----------------
 
--- HDR/VRR enabled display: DP-3 at 2560x1440@165Hz.
+-- High-refresh VRR display: DP-3 at 2560x1440@165Hz.
 hl.monitor({
     output = "DP-3",
     mode = "2560x1440@165",
@@ -11,8 +11,6 @@ hl.monitor({
     bitdepth = 10,
     -- cm = "hdr",
     vrr = 2,
-    sdrbrightness = 1.2,
-    sdrsaturation = 1.1,
 })
 
 hl.monitor({
@@ -117,14 +115,13 @@ hl.config({
     },
 
     render = {
-        cm_enabled = true,
-        cm_auto_hdr = 1,
-        cm_fs_passthrough = 1,
+        cm_enabled = false,
+        cm_auto_hdr = 0,
         direct_scanout = true,
     },
 
     quirks = {
-        prefer_hdr = 1,
+        prefer_hdr = 0,
     },
 
     cursor = {
@@ -133,8 +130,6 @@ hl.config({
 })
 
 hl.env("XCURSOR_THEME", "Pop")
-hl.env("DXVK_HDR", "1")
-hl.env("ENABLE_HDR_WSI", "1")
 
 ----------------
 -- Keybindings
