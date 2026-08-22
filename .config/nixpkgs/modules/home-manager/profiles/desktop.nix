@@ -96,7 +96,7 @@
     };
     cursorTheme = {
       name = "Pop";
-      package = pkgs.pop-gtk-theme;
+      package = pkgs.pop-icon-theme;
     };
     theme = {
       name = "Pop-dark";
@@ -110,7 +110,7 @@
 
   home.pointerCursor = lib.mkIf pkgs.stdenv.isLinux {
     gtk.enable = true;
-    package = pkgs.pop-gtk-theme;
+    package = pkgs.pop-icon-theme;
     name = "Pop";
   };
 
@@ -133,9 +133,6 @@
   };
 
   services.mako = {
-    enable = pkgs.stdenv.isLinux;
-  };
-  services.swayidle = {
     enable = pkgs.stdenv.isLinux;
   };
   services.swayosd = {
