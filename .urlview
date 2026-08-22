@@ -1,8 +1,0 @@
-# Urlview configuration file.
-
-# Regular expression to use to match URLs.
-# The default REGEXP (((http|https|ftp|gopher)|mailto):(//)?[^ >"\t]*|www\.[-a-z0-9.]+)[^ .,;\t>">\):]
-REGEXP (((http|https|ftp|gopher)|mailto)[.:][^ >"\t]*|www\.[-a-z0-9.]+)[^ .,;\t>">\):]
-
-# Run the following command if the URL is selected
-COMMAND xdg-open %s
