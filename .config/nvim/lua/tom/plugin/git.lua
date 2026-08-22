@@ -7,7 +7,6 @@ return {
       'Gpush', 'Gpull', 'Gedit',
     },
     ft = { 'gitcommit', 'gitrebase' },
-    fn = { 'FugitiveHead' },
   },
   {
     'lewis6991/gitsigns.nvim',

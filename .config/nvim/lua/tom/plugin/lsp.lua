@@ -11,6 +11,7 @@ return {
   -- Languages.
   {
     'mrcjkb/rustaceanvim',
+    branch = 'main',
     dependencies = {
       'neovim/nvim-lspconfig',
     },
