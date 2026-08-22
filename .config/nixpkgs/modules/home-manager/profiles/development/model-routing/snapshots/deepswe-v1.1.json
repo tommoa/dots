@@ -347,6 +347,17 @@
       "runCount": 4
     },
     {
+      "sourceModel": "glm-5-3",
+      "effort": "max",
+      "passAt1": 0.6895787139689579,
+      "meanCostUsd": 3.9933584893126386,
+      "meanInputTokens": 13272344.266075388,
+      "meanOutputTokens": 80435.60975609756,
+      "meanAgentSteps": 124.47228381374723,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
       "sourceModel": "gpt-5-4",
       "effort": "xhigh",
       "passAt1": 0.5176991150442478,
