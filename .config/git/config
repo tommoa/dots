@@ -24,8 +24,8 @@
     gpgSign = if-asked
 [pull]
     rebase = true
-[sendmail]
-    smtpserver = msmtp
+[sendemail]
+    smtpServer = msmtp
     annotate = yes
 [filter "lfs"]
 	required = true
