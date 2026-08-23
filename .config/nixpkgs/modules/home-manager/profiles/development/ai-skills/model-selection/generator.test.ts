@@ -1,22 +1,25 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	TERMINAL_BENCH_SOURCE,
+	type BenchmarkSnapshot,
 	benchmarkCapabilityScores,
 	blendCapabilityScore,
 	execute,
 	normalizeDeepSwe,
 	normalizeTerminalBench,
+	parseArguments,
+	parseSnapshot,
 	percentileRanks,
+	renderSkill,
+	type RegionName,
+	regionNames,
 	renderRegions,
 	replaceGeneratedRegions,
 	staleRegions,
-	type BenchmarkSnapshot,
-	type RegionName,
+	TERMINAL_BENCH_SOURCE,
 	type TerminalBenchSnapshot,
-	regionNames,
 } from "./generator";
 import { models, taskTypes } from "./policy";
 
@@ -93,10 +96,20 @@ function terminalPayload(model = "openai/gpt-5.6-terra") {
 }
 
 function context(overrides: Partial<Record<RegionName, string>> = {}) {
+	return ["before", ...regionNames.flatMap((name) => [`<!-- BEGIN GENERATED: ${name} -->`, overrides[name] ?? "old", `<!-- END GENERATED: ${name} -->`, `prose after ${name}`]), "after", ""].join(
+		"\n",
+	);
+}
+
+function skillTemplate() {
 	return [
-		"before",
-		...regionNames.flatMap((name) => [`<!-- BEGIN GENERATED: ${name} -->`, overrides[name] ?? "old", `<!-- END GENERATED: ${name} -->`, `prose after ${name}`]),
-		"after",
+		"---",
+		"name: model-selection",
+		"description: Choose models and reasoning effort.",
+		"---",
+		"",
+		"# Model Selection",
+		...regionNames.flatMap((name) => [`<!-- BEGIN GENERATED: ${name} -->`, `<!-- END GENERATED: ${name} -->`]),
 		"",
 	].join("\n");
 }
@@ -116,18 +129,66 @@ describe("reviewed model policy", () => {
 			expect(model.cost).toBeWithin(1, 6);
 			expect(model.speed).toBeWithin(1, 6);
 		}
-		expect(ids.size).toBe(7);
+		expect(ids.size).toBe(8);
 	});
 
-	test("makes all reviewed models work-eligible and discounts every work GPT", () => {
-		expect(models.every((model) => model.profiles.work.eligible)).toBeTrue();
-		const workGpts = models.filter((model) => model.id.startsWith("gpt-") && model.profiles.work.eligible);
-		expect(workGpts.map((model) => model.id)).toEqual(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"]);
-		expect(workGpts.every((model) => model.workPriceMultiplier === 0.85)).toBeTrue();
+	test("marks only GPT-5.5 and Gemini as work-only", () => {
+		expect(models.filter((model) => model.availability === "work").map((model) => model.id)).toEqual(["gpt-5.5", "gemini-3.7-flash"]);
 	});
 
-	test("keeps GPT-5.5 out of the personal table", () => {
-		expect(models.find((model) => model.id === "gpt-5.5")?.profiles.personal.eligible).toBeFalse();
+	test("regenerates the skill after refreshing snapshots", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "model-selection-"));
+		const deepSwePath = join(directory, "deepswe.json");
+		const terminalPath = join(directory, "terminal.json");
+		const skillPath = join(directory, "SKILL.md");
+		const deepSweUrl = "https://benchmark.example/deepswe.json";
+		const terminalSubmissionUrl = "https://benchmark.example/terminal.json";
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (async (input) => {
+			const url = String(input);
+			if (url === deepSweUrl)
+				return Response.json(rawPayload([
+					rawRow("gpt-5-6-sol", "max", { pass_at_1: 1 }),
+					rawRow("unknown-model", "max", { pass_at_1: 0 }),
+				]));
+			if (url === TERMINAL_BENCH_SOURCE)
+				return Response.json([
+					{
+						name: "terminal.json",
+						type: "file",
+						download_url: terminalSubmissionUrl,
+					},
+				]);
+			if (url === terminalSubmissionUrl) return Response.json(terminalPayload("new-model"));
+			return new Response("not found", { status: 404 });
+		}) as typeof fetch;
+
+		try {
+			await writeFile(skillPath, context());
+			await execute({
+				command: "refresh",
+				snapshotPath: deepSwePath,
+				terminalSnapshotPath: terminalPath,
+				source: deepSweUrl,
+			});
+			await execute({
+				command: "generate",
+				templatePath: skillPath,
+				outputPath: skillPath,
+				snapshotPath: deepSwePath,
+				terminalSnapshotPath: terminalPath,
+				harness: "codex",
+				profile: "work",
+				codexCliProxy: false,
+				liteLLM: false,
+			});
+
+			const generated = await readFile(skillPath, "utf8");
+			expect(generated).toContain("| GPT-5.6 Sol | 5 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | 5 | 5 | 3 |");
+		} finally {
+			globalThis.fetch = originalFetch;
+			await rm(directory, { recursive: true, force: true });
+		}
 	});
 });
 
@@ -159,6 +220,29 @@ describe("DeepSWE normalization", () => {
 				runCount: 4,
 			},
 		]);
+	});
+
+	test("uses provider-aware benchmark identity lookup", () => {
+		const normalized = normalizeDeepSwe(rawPayload([rawRow("openai/gpt-5-6-sol", "high")]));
+		expect(normalized.rows[0]?.canonicalModel).toBe("gpt-5.6-sol");
+
+		const parsed = parseSnapshot(
+			snapshot([
+				{
+					sourceModel: "openai/gpt-5-6-sol",
+					canonicalModel: "gpt-5.6-sol",
+					effort: "high",
+					passAt1: 0.5,
+					meanCostUsd: 2,
+					meanInputTokens: 1000,
+					meanOutputTokens: 100,
+					meanAgentSteps: 10,
+					taskCount: 113,
+					runCount: 4,
+				},
+			]),
+		);
+		expect(parsed.rows[0]?.canonicalModel).toBe("gpt-5.6-sol");
 	});
 
 	test("sorts effort variants canonically", () => {
@@ -200,28 +284,59 @@ describe("Terminal-Bench normalization", () => {
 
 	test("rejects duplicate files and invalid accuracy", () => {
 		const payload = {
-			source_filter: { agent: "agent", model_name: "model", reasoning_effort: "high" },
+			source_filter: {
+				agent: "agent",
+				model_name: "model",
+				reasoning_effort: "high",
+			},
 			metadata: { date: "2026-07-01", reasoning_effort: "high" },
 			metrics: { accuracy: 50, n_trials: 100, reward_hacks: 0 },
 		};
-		expect(() => normalizeTerminalBench([{ sourceFile: "same.json", payload }, { sourceFile: "same.json", payload }])).toThrow("Invalid or duplicate");
-		expect(() => normalizeTerminalBench([{ sourceFile: "bad.json", payload: { ...payload, metrics: { ...payload.metrics, accuracy: 101 } } }])).toThrow("between 0 and 100");
+		expect(() =>
+			normalizeTerminalBench([
+				{ sourceFile: "same.json", payload },
+				{ sourceFile: "same.json", payload },
+			]),
+		).toThrow("Invalid or duplicate");
+		expect(() =>
+			normalizeTerminalBench([
+				{
+					sourceFile: "bad.json",
+					payload: {
+						...payload,
+						metrics: { ...payload.metrics, accuracy: 101 },
+					},
+				},
+			]),
+		).toThrow("between 0 and 100");
 	});
 });
 
 describe("refresh command", () => {
-	test("updates snapshots without reading or generating context", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "model-routing-"));
+	test("rejects render-only options", () => {
+		expect(() => parseArguments(["refresh", "--harness", "codex"])).toThrow("Render options are not valid with refresh");
+		expect(() => parseArguments(["refresh", "--template", "template.md"])).toThrow("Render options are not valid with refresh");
+	});
+
+	test("updates snapshots without reading or generating the skill", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "model-selection-"));
 		const deepSwePath = join(directory, "deepswe.json");
 		const terminalPath = join(directory, "terminal.json");
-		const missingContextPath = join(directory, "context.md");
+		const missingSkillPath = join(directory, "SKILL.md");
 		const deepSweUrl = "https://benchmark.example/deepswe.json";
 		const terminalSubmissionUrl = "https://benchmark.example/terminal.json";
 		const originalFetch = globalThis.fetch;
 		globalThis.fetch = (async (input) => {
 			const url = String(input);
 			if (url === deepSweUrl) return Response.json(rawPayload([rawRow("gpt-5-6-sol", "max")]));
-			if (url === TERMINAL_BENCH_SOURCE) return Response.json([{ name: "terminal.json", type: "file", download_url: terminalSubmissionUrl }]);
+			if (url === TERMINAL_BENCH_SOURCE)
+				return Response.json([
+					{
+						name: "terminal.json",
+						type: "file",
+						download_url: terminalSubmissionUrl,
+					},
+				]);
 			if (url === terminalSubmissionUrl) return Response.json(terminalPayload("new-model"));
 			return new Response("not found", { status: 404 });
 		}) as typeof fetch;
@@ -229,14 +344,13 @@ describe("refresh command", () => {
 		try {
 			await execute({
 				command: "refresh",
-				contextPath: missingContextPath,
 				snapshotPath: deepSwePath,
 				terminalSnapshotPath: terminalPath,
 				source: deepSweUrl,
 			});
 			expect(JSON.parse(await readFile(deepSwePath, "utf8")).rows).toHaveLength(1);
 			expect(JSON.parse(await readFile(terminalPath, "utf8")).rows).toHaveLength(1);
-			await expect(readFile(missingContextPath, "utf8")).rejects.toThrow();
+			await expect(readFile(missingSkillPath, "utf8")).rejects.toThrow();
 		} finally {
 			globalThis.fetch = originalFetch;
 			await rm(directory, { recursive: true, force: true });
@@ -246,14 +360,28 @@ describe("refresh command", () => {
 
 describe("percentile capability scoring", () => {
 	test("calculates tie-aware percentile ranks", () => {
-		expect([...percentileRanks([{ model: "a", value: 10 }, { model: "b", value: 20 }, { model: "c", value: 30 }, { model: "d", value: 40 }, { model: "e", value: 50 }])]).toEqual([
+		expect([
+			...percentileRanks([
+				{ model: "a", value: 10 },
+				{ model: "b", value: 20 },
+				{ model: "c", value: 30 },
+				{ model: "d", value: 40 },
+				{ model: "e", value: 50 },
+			]),
+		]).toEqual([
 			["a", 0],
 			["b", 0.25],
 			["c", 0.5],
 			["d", 0.75],
 			["e", 1],
 		]);
-		expect(percentileRanks([{ model: "a", value: 20 }, { model: "b", value: 20 }, { model: "c", value: 10 }])).toEqual(
+		expect(
+			percentileRanks([
+				{ model: "a", value: 20 },
+				{ model: "b", value: 20 },
+				{ model: "c", value: 10 },
+			]),
+		).toEqual(
 			new Map([
 				["a", 0.75],
 				["b", 0.75],
@@ -263,8 +391,20 @@ describe("percentile capability scoring", () => {
 	});
 
 	test("lets new models change existing scores and uses each model's best observation", () => {
-		expect(percentileRanks([{ model: "a", value: 10 }, { model: "b", value: 20 }]).get("b")).toBe(1);
-		expect(percentileRanks([{ model: "a", value: 10 }, { model: "b", value: 20 }, { model: "b", value: 15 }, { model: "c", value: 30 }]).get("b")).toBe(0.5);
+		expect(
+			percentileRanks([
+				{ model: "a", value: 10 },
+				{ model: "b", value: 20 },
+			]).get("b"),
+		).toBe(1);
+		expect(
+			percentileRanks([
+				{ model: "a", value: 10 },
+				{ model: "b", value: 20 },
+				{ model: "b", value: 15 },
+				{ model: "c", value: 30 },
+			]).get("b"),
+		).toBe(0.5);
 	});
 
 	test("blends multiple sources and falls back missing source weight to manual policy", () => {
@@ -275,7 +415,12 @@ describe("percentile capability scoring", () => {
 				{ source: "terminal-bench-2.1" as const, weight: 0.3 },
 			],
 		};
-		expect(blendCapabilityScore(5, mapping, { "deepswe-v1.1": 1, "terminal-bench-2.1": 3 })).toBe(3);
+		expect(
+			blendCapabilityScore(5, mapping, {
+				"deepswe-v1.1": 1,
+				"terminal-bench-2.1": 3,
+			}),
+		).toBe(3);
 		expect(blendCapabilityScore(5, mapping, { "deepswe-v1.1": 1 })).toBe(3);
 	});
 
@@ -295,11 +440,7 @@ describe("percentile capability scoring", () => {
 	test("uses Terminal-Bench for investigation and leaves missing models unscored", () => {
 		const scores = benchmarkCapabilityScores(
 			snapshot([]),
-			terminalSnapshot([
-				terminalRow("gpt-5.6-sol", 60, "gpt-5.6-sol"),
-				terminalRow("gpt-5.6-terra", 80, "gpt-5.6-terra"),
-				terminalRow("unknown", 70),
-			]),
+			terminalSnapshot([terminalRow("gpt-5.6-sol", 60, "gpt-5.6-sol"), terminalRow("gpt-5.6-terra", 80, "gpt-5.6-terra"), terminalRow("unknown", 70)]),
 		).investigation;
 		expect(scores?.get("gpt-5.6-sol")).toBe(4);
 		expect(scores?.get("gpt-5.6-terra")).toBe(5);
@@ -308,12 +449,41 @@ describe("percentile capability scoring", () => {
 });
 
 describe("generated Markdown", () => {
-	test("renders one model table with intrinsic cost", () => {
-		const table = renderRegions(snapshot([]))["model-selection"];
+	test("renders the selected profile model table with intrinsic cost", () => {
+		const regions = renderRegions(snapshot([]), { harness: "codex", profile: "work" }, terminalSnapshot([]));
+		const table = regions["model-selection"];
 		expect(table).toContain("| model | exploration | research | investigation | implementation | review | architecture | design | writing | synthesis | cost | speed |");
 		expect(table).toContain("| GPT-5.6 Sol | 5 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | 5 | 5 | 3 |");
 	});
 
+	test("renders only the selected profile", () => {
+		const personal = renderRegions(snapshot([]), { harness: "pi", profile: "personal" }, terminalSnapshot([]));
+		expect(personal["model-selection"]).not.toContain("GPT-5.5");
+		expect(personal["model-selection"]).not.toContain("Gemini 3.7 Flash");
+		expect(personal["reasoning-effort"]).not.toContain("GPT-5.5");
+		expect(personal.profile).toContain("personal");
+		expect(personal["model-selection"]).toContain("GPT-5.6 Sol");
+	});
+
+	test("renders harness-specific provider guidance in one skill", () => {
+		const codex = renderSkill(skillTemplate(), snapshot([]), terminalSnapshot([]), { harness: "codex", profile: "work", codexCliProxy: true });
+		const opencode = renderSkill(skillTemplate(), snapshot([]), terminalSnapshot([]), { harness: "opencode", profile: "work", liteLLM: true });
+		const pi = renderSkill(skillTemplate(), snapshot([]), terminalSnapshot([]), { harness: "pi", profile: "personal" });
+		expect(codex).toContain("CLIProxyAPI");
+		expect(codex).not.toContain("LiteLLM");
+		expect(opencode).toContain("LiteLLM");
+		expect(opencode).not.toContain("CLIProxyAPI");
+		expect(pi).not.toContain("CLIProxyAPI");
+		expect(pi).not.toContain("LiteLLM");
+		expect(pi).toContain("and the **personal** profile");
+		expect(pi).toContain("configured for the **pi** harness");
+	});
+
+	test("emits a complete valid skill variant", () => {
+		const generated = renderSkill(skillTemplate(), snapshot([]), terminalSnapshot([]), { harness: "opencode", profile: "work", liteLLM: true });
+		expect(generated).toStartWith("---\nname: model-selection\n");
+		expect(generated).toContain("BEGIN GENERATED: model-selection");
+	});
 });
 
 describe("generated region replacement", () => {

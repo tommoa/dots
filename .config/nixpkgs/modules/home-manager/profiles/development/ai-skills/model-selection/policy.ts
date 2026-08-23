@@ -8,14 +8,13 @@
  *    The canonical `id` is already treated as an alias. Do not use fuzzy
  *    matching: aliases make model identity changes explicit and reviewable.
  * 3. Fill every manual policy field. `capabilities` contains fallback scores;
- *    also set cost, work/personal eligibility, speed, work pricing adjustment,
- *    and reasoning-effort recommendations.
+ *    also set cost, availability, speed, and reasoning-effort recommendations.
  * 4. Run `./update-nix --none --model-benchmarks` so existing benchmark rows
  *    are remapped to the new model. The refresh overwrites snapshot edits and
  *    performs the normal detected Nix rebuild afterward.
- * 5. Do not edit generated regions in context.md. They remain blank in source
- *    and are populated from policy and snapshots during the Nix build.
- * 6. Run the model-routing tests. A model is selectable only after it has a
+ * 5. Do not edit generated regions in SKILL.md. They are populated from policy
+ *    and snapshots by the checked-in generator.
+ * 6. Run the model-selection tests. A model is selectable only after it has a
  *    policy entry; an unknown benchmark row only affects percentile ranks.
  *
  * Adding another benchmark source is separate work: extend `BenchmarkSource`,
@@ -38,7 +37,8 @@ export const taskTypes = [
 ] as const;
 
 export type TaskType = (typeof taskTypes)[number];
-export type Profile = "work" | "personal";
+export const profiles = ["personal", "work"] as const;
+export type Profile = (typeof profiles)[number];
 export type BenchmarkSource = "deepswe-v1.1" | "terminal-bench-2.1";
 
 export interface BenchmarkMapping {
@@ -49,10 +49,6 @@ export interface BenchmarkMapping {
 	}[];
 }
 
-interface ProfilePolicy {
-	eligible: boolean;
-}
-
 export interface ModelPolicy {
 	id: string;
 	name: string;
@@ -61,11 +57,10 @@ export interface ModelPolicy {
 	// Reviewed fallback values. Benchmarks currently replace implementation and
 	// investigation when a matching model row exists.
 	capabilities: Record<TaskType, number>;
-	// Cost, speed, eligibility, and effort remain manually maintained policy.
+	// Cost, availability, speed, and effort remain manually maintained policy.
 	cost: number;
-	profiles: Record<Profile, ProfilePolicy>;
+	availability: "all" | "work";
 	speed: number;
-	workPriceMultiplier: number;
 	effort: {
 		routine: string;
 		difficult: string;
@@ -103,12 +98,8 @@ export const models: ModelPolicy[] = [
 			synthesis: 5,
 		},
 		cost: 5,
-		profiles: {
-			work: { eligible: true },
-			personal: { eligible: true },
-		},
+		availability: "all",
 		speed: 3,
-		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "medium",
 			difficult: "high or extra high",
@@ -131,12 +122,8 @@ export const models: ModelPolicy[] = [
 			synthesis: 4,
 		},
 		cost: 3,
-		profiles: {
-			work: { eligible: true },
-			personal: { eligible: true },
-		},
+		availability: "all",
 		speed: 4,
-		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "medium or high",
 			difficult: "extra high",
@@ -159,12 +146,8 @@ export const models: ModelPolicy[] = [
 			synthesis: 3,
 		},
 		cost: 1,
-		profiles: {
-			work: { eligible: true },
-			personal: { eligible: true },
-		},
+		availability: "all",
 		speed: 5,
-		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "low or medium for bounded work; at least high for long-horizon implementation",
 			difficult: "high or extra high",
@@ -187,12 +170,8 @@ export const models: ModelPolicy[] = [
 			synthesis: 5,
 		},
 		cost: 4,
-		profiles: {
-			work: { eligible: true },
-			personal: { eligible: false },
-		},
+		availability: "work",
 		speed: 3,
-		workPriceMultiplier: 0.85,
 		effort: {
 			routine: "low for basic work; medium for substantial implementation",
 			difficult: "high",
@@ -206,7 +185,7 @@ export const models: ModelPolicy[] = [
 		capabilities: {
 			exploration: 5,
 			research: 4,
-			investigation: 5,
+			investigation: 4,
 			implementation: 4,
 			review: 4,
 			architecture: 5,
@@ -215,12 +194,8 @@ export const models: ModelPolicy[] = [
 			synthesis: 5,
 		},
 		cost: 5,
-		profiles: {
-			work: { eligible: true },
-			personal: { eligible: true },
-		},
+		availability: "all",
 		speed: 2,
-		workPriceMultiplier: 1,
 		effort: {
 			routine: "medium",
 			difficult: "high or extra high",
@@ -243,12 +218,8 @@ export const models: ModelPolicy[] = [
 			synthesis: 4,
 		},
 		cost: 3,
-		profiles: {
-			work: { eligible: true },
-			personal: { eligible: true },
-		},
+		availability: "all",
 		speed: 4,
-		workPriceMultiplier: 1,
 		effort: {
 			routine: "normal or high",
 			difficult: "high, or escalate to Opus",
@@ -271,19 +242,38 @@ export const models: ModelPolicy[] = [
 			synthesis: 3,
 		},
 		cost: 1,
-		profiles: {
-			work: { eligible: true },
-			personal: { eligible: true },
-		},
+		availability: "all",
 		speed: 5,
-		workPriceMultiplier: 1,
 		effort: {
 			routine: "no adaptive effort selection",
 			difficult: "prefer Sonnet",
 			extreme: "prefer Opus",
 		},
 	},
+	{
+		id: "gemini-3.7-flash",
+		name: "Gemini 3.7 Flash",
+		benchmarkAliases: ["gemini-3-7-flash"],
+		capabilities: {
+			exploration: 4,
+			research: 3,
+			investigation: 4,
+			implementation: 4,
+			review: 3,
+			architecture: 3,
+			design: 3,
+			writing: 4,
+			synthesis: 3,
+		},
+		cost: 1,
+		availability: "work",
+		speed: 5,
+		effort: {
+			routine: "low for bounded work; medium for coding and reasoning",
+			difficult: "medium or high",
+			extreme: "plateaus at medium; prefer GPT-5.6 or Opus for extreme work",
+		},
+	},
 ];
 
-export const modelByID = new Map(models.map((model) => [model.id, model]));
 export const modelByBenchmarkAlias = new Map(models.flatMap((model) => [model.id, ...model.benchmarkAliases].map((alias) => [alias, model] as const)));

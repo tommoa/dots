@@ -319,7 +319,7 @@ update_pseudo_inputs() {
 
         case "$pseudo" in
             model-benchmarks)
-                script="${flake_dir}/modules/home-manager/profiles/development/model-routing/update.sh"
+                script="${flake_dir}/modules/home-manager/profiles/development/ai-skills/model-selection/update.sh"
                 ;;
             obsidian-headless)
                 script="${flake_dir}/packages/obsidian-headless/update.sh"

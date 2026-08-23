@@ -70,6 +70,8 @@ in {
     keyFile = "${config.home.homeDirectory}/.config/ai-keys/litellm";
   };
 
+  my.modelSelection.profile = "work";
+
   my.opencode.litellm.enable = true;
 
   programs.codex.settings = {

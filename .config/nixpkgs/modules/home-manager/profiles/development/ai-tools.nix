@@ -41,20 +41,54 @@
     '';
   };
 
-  agentContext = pkgs.runCommandLocal "agent-context" {nativeBuildInputs = [pkgs.bun];} ''
-    mkdir -p "$TMPDIR/model-routing/snapshots" "$out"
-    cp ${./context.md} "$TMPDIR/context.md"
-    chmod u+w "$TMPDIR/context.md"
-    cp ${./model-routing/generator.ts} "$TMPDIR/model-routing/generator.ts"
-    cp ${./model-routing/policy.ts} "$TMPDIR/model-routing/policy.ts"
-    cp ${./model-routing/snapshots/deepswe-v1.1.json} "$TMPDIR/model-routing/snapshots/deepswe-v1.1.json"
-    cp ${./model-routing/snapshots/terminal-bench-2.1.json} "$TMPDIR/model-routing/snapshots/terminal-bench-2.1.json"
-    bun run "$TMPDIR/model-routing/generator.ts" generate \
-      --context "$TMPDIR/context.md" \
-      --snapshot "$TMPDIR/model-routing/snapshots/deepswe-v1.1.json" \
-      --terminal-snapshot "$TMPDIR/model-routing/snapshots/terminal-bench-2.1.json"
-    cp "$TMPDIR/context.md" "$out/context.md"
-  '';
+  opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.litellm.enable;
+  piLiteLLMEnabled = config.my.pi.enable && config.my.pi.litellm.enable;
+  codexCliProxyEnabled = (config.programs.codex.settings.model_provider or null) == "cli_proxy_api";
+  modelSelectionProfile = config.my.modelSelection.profile;
+
+  modelSelectionSkill = {
+    harness,
+    profile,
+    codexCliProxy ? false,
+    liteLLM ? false,
+  }:
+    pkgs.runCommandLocal "model-selection-${harness}-${profile}" {nativeBuildInputs = [pkgs.bun];}
+    ''
+      workdir="$TMPDIR/model-selection"
+      mkdir -p "$workdir/snapshots"
+      cp ${./ai-skills/model-selection/SKILL.md} "$workdir/SKILL.md"
+      cp ${./ai-skills/model-selection/generator.ts} "$workdir/generator.ts"
+      cp ${./ai-skills/model-selection/policy.ts} "$workdir/policy.ts"
+      cp ${./ai-skills/model-selection/snapshots/deepswe-v1.1.json} "$workdir/snapshots/deepswe-v1.1.json"
+      cp ${./ai-skills/model-selection/snapshots/terminal-bench-2.1.json} "$workdir/snapshots/terminal-bench-2.1.json"
+      bun run "$workdir/generator.ts" generate \
+        --template "$workdir/SKILL.md" \
+        --output "$out" \
+        --snapshot "$workdir/snapshots/deepswe-v1.1.json" \
+        --terminal-snapshot "$workdir/snapshots/terminal-bench-2.1.json" \
+        --harness ${harness} \
+        --profile ${profile} \
+        ${lib.optionalString codexCliProxy "--codex-cli-proxy"} \
+        ${lib.optionalString liteLLM "--litellm"}
+    '';
+
+  codexModelSelectionSkill = modelSelectionSkill {
+    harness = "codex";
+    profile = modelSelectionProfile;
+    codexCliProxy = codexCliProxyEnabled;
+  };
+
+  opencodeModelSelectionSkill = modelSelectionSkill {
+    harness = "opencode";
+    profile = modelSelectionProfile;
+    liteLLM = opencodeLiteLLMEnabled;
+  };
+
+  piModelSelectionSkill = modelSelectionSkill {
+    harness = "pi";
+    profile = modelSelectionProfile;
+    liteLLM = piLiteLLMEnabled;
+  };
 
   opencodeLiteLLMOptions = {
     baseUrl = config.my.aiProxy.baseUrl;
@@ -80,8 +114,6 @@
     cp ${./litellm/routing.ts} "$out/routing.ts"
   '';
 
-  opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.litellm.enable;
-  piLiteLLMEnabled = config.my.pi.enable && config.my.pi.litellm.enable;
   piLiteLLMProviderDir = "${config.home.homeDirectory}/.pi/agent/litellm-provider";
   piLiteLLMProviderSource = pkgs.runCommandLocal "pi-litellm-provider" {} ''
     mkdir -p "$out"
@@ -213,6 +245,15 @@ in {
     };
   };
 
+  options.my.modelSelection.profile = lib.mkOption {
+    type = lib.types.enum [
+      "personal"
+      "work"
+    ];
+    default = "personal";
+    description = "Model-selection profile used to generate installed skills";
+  };
+
   config = {
     programs.mcp.enable = true;
 
@@ -242,6 +283,10 @@ in {
       (lib.mkIf opencodeLiteLLMEnabled {
         ".config/opencode/litellm".source = opencodeLiteLLMSource;
         ".config/litellm".source = ./litellm;
+      })
+      (lib.mkIf config.my.pi.enable {
+        ".pi/agent/AGENTS.md".source = ./context.md;
+        ".pi/agent/skills/model-selection/SKILL.md".source = piModelSelectionSkill;
       })
       (lib.mkIf piLiteLLMEnabled {
         ".pi/litellm".source = ./litellm;
@@ -276,7 +321,7 @@ in {
       {
         ".codex/AGENTS.md" = {
           force = true;
-          source = "${agentContext}/context.md";
+          source = ./context.md;
         };
         ".codex/config.toml".force = true;
         ".tmux-codex.conf".text = ''
@@ -352,6 +397,7 @@ in {
       skills = {
         commit = ./opencode/commit/SKILL.md;
         change-amplification = ./ai-skills/change-amplification/SKILL.md;
+        model-selection = opencodeModelSelectionSkill;
       };
     };
 
@@ -412,6 +458,7 @@ in {
       skills = {
         commit = ./opencode/commit/SKILL.md;
         change-amplification = ./ai-skills/change-amplification/SKILL.md;
+        model-selection = codexModelSelectionSkill;
         rethink = ''
           ---
           name: rethink
@@ -437,6 +484,6 @@ in {
       };
     };
 
-    xdg.configFile."opencode/AGENTS.md".source = "${agentContext}/context.md";
+    xdg.configFile."opencode/AGENTS.md".source = ./context.md;
   };
 }
