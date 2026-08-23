@@ -64,8 +64,16 @@ export interface LiteLLMRouteOptions {
 }
 
 const responseParams = new Set(["verbosity", "safety_identifier"]);
+const responsesPackages = new Set([
+	"@ai-sdk/openai",
+	"@opencode-ai/ai/providers/openai",
+	"@opencode-ai/ai/providers/openai/responses",
+]);
 
-export function classifyLiteLLMRoute(entry: LiteLLMModelEntry, options: LiteLLMRouteOptions = {}): LiteLLMRoute {
+export function classifyLiteLLMRoute(
+	entry: LiteLLMModelEntry,
+	options: LiteLLMRouteOptions = {},
+): LiteLLMRoute {
 	const id = entryID(entry) ?? "";
 	const info = modelInfo(entry);
 	const chatOverrides = new Set(options.routeOverrides?.chat ?? []);
@@ -74,7 +82,11 @@ export function classifyLiteLLMRoute(entry: LiteLLMModelEntry, options: LiteLLMR
 	if (chatOverrides.has(id)) return "chat";
 	if (responsesOverrides.has(id)) return "responses";
 	if (info.mode === "responses") return "responses";
-	if (options.match?.providerPackage === "@ai-sdk/openai") return "responses";
+	if (
+		options.match?.providerPackage &&
+		responsesPackages.has(options.match.providerPackage)
+	)
+		return "responses";
 	if (options.match?.api === "openai-responses") return "responses";
 	if (isGpt5ReasoningModel(id, info)) return "responses";
 	if (hasResponsesParam(info)) return "responses";
@@ -105,15 +117,25 @@ export function splitDateSuffix(id: string) {
 	const month = Number(match[3]);
 	const day = Number(match[4]);
 	if (month < 1 || month > 12 || day < 1 || day > 31) return { baseID: id };
-	return { baseID: match[1], releaseDate: `${match[2]}-${match[3]}-${match[4]}`, displayDate: { month, day } };
+	return {
+		baseID: match[1],
+		releaseDate: `${match[2]}-${match[3]}-${match[4]}`,
+		displayDate: { month, day },
+	};
 }
 
 function hasResponsesParam(info: LiteLLMModelInfo) {
-	return info.supported_openai_params?.some((param) => responseParams.has(param)) ?? false;
+	return (
+		info.supported_openai_params?.some((param) => responseParams.has(param)) ??
+		false
+	);
 }
 
 function isGpt5ReasoningModel(id: string, info: LiteLLMModelInfo) {
-	return supportsReasoningEffort(info) && [id, info.base_model].some((value) => isGpt5FamilyModel(value));
+	return (
+		supportsReasoningEffort(info) &&
+		[id, info.base_model].some((value) => isGpt5FamilyModel(value))
+	);
 }
 
 function supportsReasoningEffort(info: LiteLLMModelInfo) {
@@ -123,5 +145,7 @@ function supportsReasoningEffort(info: LiteLLMModelInfo) {
 function isGpt5FamilyModel(id?: string | null) {
 	if (!id) return false;
 	const stripped = stripProviderPrefix(id);
-	return Boolean(stripped && canonicalModelID(stripped).toLowerCase().startsWith("gpt-5"));
+	return Boolean(
+		stripped && canonicalModelID(stripped).toLowerCase().startsWith("gpt-5"),
+	);
 }

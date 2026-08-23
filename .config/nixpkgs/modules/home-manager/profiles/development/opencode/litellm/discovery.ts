@@ -13,7 +13,7 @@ import {
 	type LiteLLMRoute as RouteKind,
 } from "./routing";
 
-type Modality = "text" | "audio" | "image" | "video" | "pdf";
+type Modality = string;
 
 export interface LiteLLMOptions {
 	baseUrl?: string;
@@ -44,7 +44,7 @@ export interface CatalogModelSnapshot {
 	name?: string;
 	family?: string;
 	releaseDate?: string;
-	status?: string;
+	status?: ModelStatus;
 	providerPackage?: string;
 	capabilities?: {
 		temperature?: boolean;
@@ -53,7 +53,9 @@ export interface CatalogModelSnapshot {
 		tools?: boolean;
 		input?: Modality[];
 		output?: Modality[];
-		interleaved?: boolean | { field: "reasoning" | "reasoning_content" | "reasoning_details" };
+		interleaved?:
+			| boolean
+			| { field: "reasoning" | "reasoning_content" | "reasoning_details" };
 	};
 	cost?: {
 		input?: number;
@@ -75,21 +77,17 @@ export interface CatalogModelSnapshot {
 	variants?: Record<string, Record<string, unknown>>;
 }
 
-export interface CatalogProviderSnapshot {
-	id: string;
-	models: CatalogModelSnapshot[];
-}
+export type CatalogSnapshot = ReadonlyMap<string, CatalogModelSnapshot>;
 
-export interface CatalogSnapshot {
-	providers: CatalogProviderSnapshot[];
-}
+export type ModelStatus = "alpha" | "beta" | "deprecated" | "active";
 
-interface NormalizedModel {
+export interface DiscoveredModel {
 	id: string;
+	catalogModelID?: string;
 	name: string;
 	family?: string;
 	releaseDate?: string;
-	status?: string;
+	status?: ModelStatus;
 	route: RouteKind;
 	capabilities: {
 		temperature?: boolean;
@@ -98,7 +96,9 @@ interface NormalizedModel {
 		tools?: boolean;
 		input: Modality[];
 		output: Modality[];
-		interleaved?: boolean | { field: "reasoning" | "reasoning_content" | "reasoning_details" };
+		interleaved?:
+			| boolean
+			| { field: "reasoning" | "reasoning_content" | "reasoning_details" };
 	};
 	cost?: {
 		input?: number;
@@ -125,18 +125,33 @@ export interface DiscoveredLiteLLM {
 	providerName: string;
 	baseUrl: string;
 	apiKeyEnv: string;
-	models: NormalizedModel[];
+	models: DiscoveredModel[];
 }
-
-export type V2Model = Record<string, unknown>;
 
 const COST_MULTIPLIER = 1_000_000;
 const defaultBaseUrl = "https://ai-proxy.infra.corp.arista.io";
 const defaultApiKeyEnv = "LITELLM_API_KEY";
 const modelDiscoveryTimeoutMs = 30_000;
-const canonicalProviderOrder = ["openai", "anthropic", "google", "opencode"];
-const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const brandMap: Record<string, string> = { claude: "Claude", gemini: "Gemini", gpt: "GPT" };
+const monthNames = [
+	"",
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec",
+];
+const brandMap: Record<string, string> = {
+	claude: "Claude",
+	gemini: "Gemini",
+	gpt: "GPT",
+};
 const tierWords: Record<string, string> = {
 	opus: "Opus",
 	sonnet: "Sonnet",
@@ -149,9 +164,6 @@ const tierWords: Record<string, string> = {
 	mini: "Mini",
 	preview: "Preview",
 };
-
-let cacheKey: string | undefined;
-let cache: Promise<DiscoveredLiteLLM> | undefined;
 
 export function warn(message: string) {
 	console.warn(`[opencode-litellm] ${message}`);
@@ -177,164 +189,65 @@ export function normalizeOptions(options?: LiteLLMOptions) {
 	};
 }
 
-export async function discoverLiteLLM(options?: LiteLLMOptions, catalog?: CatalogSnapshot): Promise<DiscoveredLiteLLM> {
-	const normalized = normalizeOptions(options);
-	const nextKey = JSON.stringify({
-		...normalized,
-		routeOverrides: {
-			responses: [...normalized.routeOverrides.responses].sort(),
-			chat: [...normalized.routeOverrides.chat].sort(),
-		},
-		catalogKey: catalogKey(catalog),
-	});
-	if (cache && cacheKey === nextKey) return cache;
-	cacheKey = nextKey;
-	cache = discover(normalized, catalog).catch((error) => {
-		cache = undefined;
-		cacheKey = undefined;
-		throw error;
-	});
-	return cache;
+export type NormalizedLiteLLMOptions = ReturnType<typeof normalizeOptions>;
+
+export async function discoverLiteLLM(
+	options: NormalizedLiteLLMOptions,
+	catalog?: CatalogSnapshot,
+): Promise<DiscoveredLiteLLM> {
+	return discover(options, catalog);
 }
 
-export function buildDiscoveryFromEntries(entries: LiteLLMModelEntry[], modelsUrl: string, options?: LiteLLMOptions, catalog?: CatalogSnapshot): DiscoveredLiteLLM {
-	const normalized = normalizeOptions(options);
+export function buildDiscoveryFromEntries(
+	entries: LiteLLMModelEntry[],
+	modelsUrl: string,
+	options: NormalizedLiteLLMOptions,
+	catalog?: CatalogSnapshot,
+): DiscoveredLiteLLM {
+	return buildDiscovery(entries, modelsUrl, options, catalog);
+}
+
+function buildDiscovery(
+	entries: LiteLLMModelEntry[],
+	modelsUrl: string,
+	options: NormalizedLiteLLMOptions,
+	catalog?: CatalogSnapshot,
+): DiscoveredLiteLLM {
 	const models = entries
-		.map((entry) => normalizeModel(entry, lookupCatalogModel(catalog, entry), normalized))
-		.filter((model): model is NormalizedModel => model !== undefined)
+		.map((entry) =>
+			normalizeModel(entry, lookupCatalogModel(catalog, entry), options),
+		)
+		.filter((model): model is DiscoveredModel => model !== undefined)
 		.sort((a, b) => a.id.localeCompare(b.id));
-	if (models.length === 0) throw new Error(`No LiteLLM chat models discovered from ${modelsUrl}`);
-	return {
-		providerID: "litellm",
-		providerName: normalized.providerName,
-		baseUrl: endpointBaseUrl(normalized.baseUrl, modelsUrl),
-		apiKeyEnv: normalized.apiKeyEnv,
-		models,
-	};
-}
-
-export function toV2Provider(discovery: DiscoveredLiteLLM) {
-	return {
-		id: discovery.providerID,
-		name: discovery.providerName,
-		integrationID: "litellm",
-		api: {
-			type: "aisdk" as const,
-			package: "@ai-sdk/openai-compatible",
-			url: discovery.baseUrl,
-		},
-		models: discovery.models.map((model) => toV2Model(model, discovery.baseUrl)),
-	};
-}
-
-export function toV1ProviderConfig(discovery: DiscoveredLiteLLM) {
-	return {
-		name: discovery.providerName,
-		env: [discovery.apiKeyEnv],
-		npm: "@ai-sdk/openai-compatible",
-		api: discovery.baseUrl,
-		options: {
-			baseURL: discovery.baseUrl,
-		},
-		models: Object.fromEntries(discovery.models.map((model) => [model.id, toV1Model(model, discovery.baseUrl)])),
-	};
-}
-
-export function classifyRoute(entry: LiteLLMModelEntry, match: CatalogModelSnapshot | undefined, options?: LiteLLMOptions): RouteKind {
-	const normalized = normalizeOptions(options);
-	return classifyLiteLLMRoute(entry, {
-		match,
-		routeOverrides: normalized.routeOverrides,
-	});
-}
-
-async function discover(options: ReturnType<typeof normalizeOptions>, catalog?: CatalogSnapshot): Promise<DiscoveredLiteLLM> {
-	const headers = buildHeaders(options);
-	const modelPayload = await fetchModels(modelUrls(options.baseUrl, options.modelsUrl), headers);
-	const models = modelPayload.entries
-		.map((entry) => normalizeModel(entry, lookupCatalogModel(catalog, entry), options))
-		.filter((model): model is NormalizedModel => model !== undefined)
-		.sort((a, b) => a.id.localeCompare(b.id));
-	if (models.length === 0) throw new Error(`No LiteLLM chat models discovered from ${modelPayload.modelsUrl}`);
+	if (models.length === 0)
+		throw new Error(`No LiteLLM chat models discovered from ${modelsUrl}`);
 	return {
 		providerID: "litellm",
 		providerName: options.providerName,
-		baseUrl: endpointBaseUrl(options.baseUrl, modelPayload.modelsUrl),
+		baseUrl: endpointBaseUrl(options.baseUrl, modelsUrl),
 		apiKeyEnv: options.apiKeyEnv,
 		models,
 	};
 }
 
-function toV2Model(model: NormalizedModel, baseUrl: string): V2Model {
-	const result: V2Model = {
-		id: model.id,
-		name: model.name,
-		api: {
-			id: model.id,
-			type: "aisdk",
-			package: model.route === "responses" ? "@ai-sdk/openai" : "@ai-sdk/openai-compatible",
-			url: baseUrl,
-			settings: {},
-		},
-		capabilities: {
-			temperature: model.capabilities.temperature ?? false,
-			reasoning: model.capabilities.reasoning ?? false,
-			attachment: model.capabilities.attachment ?? false,
-			tools: model.capabilities.tools ?? false,
-			input: model.capabilities.input,
-			output: model.capabilities.output,
-			interleaved: model.capabilities.interleaved ?? false,
-		},
-		cost: costToV2(model.cost),
-		limit: model.limit,
-		variants: Object.entries(model.variants).map(([id, body]) => toV2Variant(id, body)),
-		status: model.status ?? "active",
-		enabled: true,
-	};
-	if (model.family) result.family = model.family;
-	if (model.releaseDate) result.released = Date.parse(model.releaseDate) || 0;
-	return result;
+async function discover(
+	options: NormalizedLiteLLMOptions,
+	catalog?: CatalogSnapshot,
+): Promise<DiscoveredLiteLLM> {
+	const headers = buildHeaders(options);
+	const modelPayload = await fetchModels(
+		modelUrls(options.baseUrl, options.modelsUrl),
+		headers,
+	);
+	return buildDiscovery(
+		modelPayload.entries,
+		modelPayload.modelsUrl,
+		options,
+		catalog,
+	);
 }
 
-function toV1Model(model: NormalizedModel, baseUrl: string) {
-	const result: Record<string, unknown> = {
-		id: model.id,
-		name: model.name,
-		temperature: model.capabilities.temperature ?? false,
-		reasoning: model.capabilities.reasoning ?? false,
-		attachment: model.capabilities.attachment ?? false,
-		tool_call: model.capabilities.tools ?? false,
-		modalities: {
-			input: model.capabilities.input,
-			output: model.capabilities.output,
-		},
-		cost: model.cost,
-		limit: model.limit,
-		variants: model.variants,
-		status: model.status ?? "active",
-	};
-	if (model.family) result.family = model.family;
-	if (model.releaseDate) result.release_date = model.releaseDate;
-	if (model.capabilities.interleaved) result.interleaved = model.capabilities.interleaved;
-	if (model.route === "responses") {
-		result.provider = {
-			npm: "@ai-sdk/openai",
-			api: baseUrl,
-		};
-	}
-	return result;
-}
-
-function toV2Variant(id: string, body: Record<string, unknown>) {
-	return {
-		id,
-		headers: {},
-		body,
-		generation: {},
-	};
-}
-
-function buildHeaders(options: ReturnType<typeof normalizeOptions>) {
+function buildHeaders(options: NormalizedLiteLLMOptions) {
 	const headers = { ...options.headers };
 	const apiKey = process.env[options.apiKeyEnv] || readKeyFile(options.keyFile);
 	if (!apiKey) return headers;
@@ -342,7 +255,11 @@ function buildHeaders(options: ReturnType<typeof normalizeOptions>) {
 	return headers;
 }
 
-function normalizeModel(entry: LiteLLMModelEntry, catalogModel: CatalogModelSnapshot | undefined, options: ReturnType<typeof normalizeOptions>): NormalizedModel | undefined {
+function normalizeModel(
+	entry: LiteLLMModelEntry,
+	catalogModel: CatalogModelSnapshot | undefined,
+	options: NormalizedLiteLLMOptions,
+): DiscoveredModel | undefined {
 	const id = entryID(entry);
 	if (!id || isEmbeddingModel(id, entry)) return;
 	const info = modelInfo(entry);
@@ -354,9 +271,14 @@ function normalizeModel(entry: LiteLLMModelEntry, catalogModel: CatalogModelSnap
 	const cost = modelCost(info, catalogModel);
 	const input = inputModalities(info, catalogModel, options);
 	const output = outputModalities(info, catalogModel);
-	const reasoning = mergeCapability(info.supports_reasoning, catalogModel, "reasoning");
+	const reasoning = mergeCapability(
+		info.supports_reasoning,
+		catalogModel,
+		"reasoning",
+	);
 	return {
 		id,
+		catalogModelID: catalogModel?.id,
 		name: entry.name ?? catalogModel?.name ?? friendlyName(id),
 		family: catalogModel?.family,
 		releaseDate,
@@ -366,28 +288,60 @@ function normalizeModel(entry: LiteLLMModelEntry, catalogModel: CatalogModelSnap
 			temperature: temperatureCapability(id, info, catalogModel),
 			reasoning,
 			attachment: attachmentCapability(info, catalogModel),
-			tools: mergeCapability(info.supports_function_calling, catalogModel, "tools"),
+			tools: mergeCapability(
+				info.supports_function_calling,
+				catalogModel,
+				"tools",
+			),
 			input,
 			output,
 			interleaved: catalogModel?.capabilities?.interleaved,
 		},
 		cost,
 		limit: {
-			context: info.max_input_tokens ?? entry.max_input_tokens ?? info.max_tokens ?? entry.context_window ?? entry.max_tokens ?? catalogModel?.limit?.context ?? options.defaults.context,
-			input: info.max_input_tokens ?? entry.max_input_tokens ?? catalogModel?.limit?.input,
-			output: info.max_output_tokens ?? entry.max_output_tokens ?? catalogModel?.limit?.output ?? options.defaults.output,
+			context:
+				info.max_input_tokens ??
+				entry.max_input_tokens ??
+				info.max_tokens ??
+				entry.context_window ??
+				entry.max_tokens ??
+				catalogModel?.limit?.context ??
+				options.defaults.context,
+			input:
+				info.max_input_tokens ??
+				entry.max_input_tokens ??
+				catalogModel?.limit?.input,
+			output:
+				info.max_output_tokens ??
+				entry.max_output_tokens ??
+				catalogModel?.limit?.output ??
+				options.defaults.output,
 		},
-		variants: normalizedVariants(catalogModel?.variants, route, reasoning, id, releaseDate),
-	} satisfies NormalizedModel;
+		variants: normalizedVariants(
+			catalogModel?.variants,
+			route,
+			reasoning,
+			id,
+			releaseDate,
+		),
+	} satisfies DiscoveredModel;
 }
 
-async function fetchModels(urls: string[], headers: Record<string, string>): Promise<{ entries: LiteLLMModelEntry[]; modelsUrl: string }> {
+async function fetchModels(
+	urls: string[],
+	headers: Record<string, string>,
+): Promise<{ entries: LiteLLMModelEntry[]; modelsUrl: string }> {
 	let lastError: Error | undefined;
 	for (const url of urls) {
 		try {
-			const response = await fetch(url, { headers, signal: AbortSignal.timeout(modelDiscoveryTimeoutMs) });
+			const response = await fetch(url, {
+				headers,
+				signal: AbortSignal.timeout(modelDiscoveryTimeoutMs),
+			});
 			if (!response.ok) {
-				lastError = new Error(`GET ${url} failed with ${response.status} ${response.statusText}`);
+				lastError = new Error(
+					`GET ${url} failed with ${response.status} ${response.statusText}`,
+				);
 				continue;
 			}
 			const payload = (await response.json()) as LiteLLMModelsPayload;
@@ -398,7 +352,9 @@ async function fetchModels(urls: string[], headers: Record<string, string>): Pro
 			return { entries: payload.data, modelsUrl: url };
 		} catch (error) {
 			if (isAbortOrTimeoutError(error)) {
-				lastError = new Error(`GET ${url} timed out after ${modelDiscoveryTimeoutMs}ms`);
+				lastError = new Error(
+					`GET ${url} timed out after ${modelDiscoveryTimeoutMs}ms`,
+				);
 				continue;
 			}
 			lastError = error instanceof Error ? error : new Error(String(error));
@@ -408,38 +364,51 @@ async function fetchModels(urls: string[], headers: Record<string, string>): Pro
 }
 
 function isAbortOrTimeoutError(error: unknown) {
-	return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+	return (
+		error instanceof Error &&
+		(error.name === "AbortError" || error.name === "TimeoutError")
+	);
 }
 
 function modelUrls(baseUrl: string, modelsUrl?: string) {
 	if (modelsUrl) return [modelsUrl];
-	if (baseUrl.endsWith("/v1")) return [`${baseUrl}/model/info`, `${baseUrl}/models`];
-	return [`${baseUrl}/model/info`, `${baseUrl}/v1/model/info`, `${baseUrl}/v1/models`, `${baseUrl}/models`];
+	if (baseUrl.endsWith("/v1"))
+		return [`${baseUrl}/model/info`, `${baseUrl}/models`];
+	return [
+		`${baseUrl}/model/info`,
+		`${baseUrl}/v1/model/info`,
+		`${baseUrl}/v1/models`,
+		`${baseUrl}/models`,
+	];
 }
 
 function endpointBaseUrl(baseUrl: string, modelsUrl: string) {
 	const normalized = normalizeUrl(modelsUrl);
-	if (normalized.endsWith("/models")) return normalized.slice(0, -"/models".length);
+	if (normalized.endsWith("/models"))
+		return normalized.slice(0, -"/models".length);
 	return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 }
 
-function lookupCatalogModel(catalog: CatalogSnapshot | undefined, entry: LiteLLMModelEntry) {
+function lookupCatalogModel(
+	catalog: CatalogSnapshot | undefined,
+	entry: LiteLLMModelEntry,
+) {
 	if (!catalog) return;
-	const candidates = matchCandidates(entry);
-	const providers = [...catalog.providers]
-		.filter((provider) => provider.id !== "litellm")
-		.sort((a, b) => providerRank(a.id) - providerRank(b.id) || a.id.localeCompare(b.id));
-	for (const candidate of candidates) {
-		for (const provider of providers) {
-			const model = provider.models.find((item) => item.id === candidate);
-			if (model) return model;
-		}
+	for (const candidate of matchCandidates(entry)) {
+		const model = catalog.get(candidate);
+		if (model) return model;
 	}
 }
 
 function matchCandidates(entry: LiteLLMModelEntry) {
 	const info = modelInfo(entry);
-	const raw = [entryID(entry), entry.litellm_params?.model, info.base_model, stripProviderPrefix(entry.litellm_params?.model), stripProviderPrefix(info.base_model)].filter((item): item is string => Boolean(item));
+	const raw = [
+		entryID(entry),
+		entry.litellm_params?.model,
+		info.base_model,
+		stripProviderPrefix(entry.litellm_params?.model),
+		stripProviderPrefix(info.base_model),
+	].filter((item): item is string => Boolean(item));
 	const candidates: string[] = [];
 	for (const candidate of raw) {
 		for (const value of [candidate, canonicalModelID(candidate)]) {
@@ -449,20 +418,21 @@ function matchCandidates(entry: LiteLLMModelEntry) {
 	return candidates;
 }
 
-function providerRank(providerID: string) {
-	const rank = canonicalProviderOrder.indexOf(providerID);
-	return rank === -1 ? canonicalProviderOrder.length : rank;
-}
-
 function getMode(entry: LiteLLMModelEntry) {
 	return modelInfo(entry).mode ?? entry.mode ?? undefined;
 }
 
 function isEmbeddingModel(id: string, entry: LiteLLMModelEntry) {
-	return id.toLowerCase().includes("embedding") || getMode(entry) === "embedding";
+	return (
+		id.toLowerCase().includes("embedding") || getMode(entry) === "embedding"
+	);
 }
 
-function inputModalities(info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | undefined, options: ReturnType<typeof normalizeOptions>): Modality[] {
+function inputModalities(
+	info: LiteLLMModelInfo,
+	catalogModel: CatalogModelSnapshot | undefined,
+	options: NormalizedLiteLLMOptions,
+): Modality[] {
 	const input: Modality[] = ["text"];
 	if (info.supports_vision) input.push("image");
 	if (info.supports_pdf_input) input.push("pdf");
@@ -471,34 +441,66 @@ function inputModalities(info: LiteLLMModelInfo, catalogModel: CatalogModelSnaps
 	return catalogModel?.capabilities?.input ?? options.defaults.input;
 }
 
-function outputModalities(info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | undefined): Modality[] {
+function outputModalities(
+	info: LiteLLMModelInfo,
+	catalogModel: CatalogModelSnapshot | undefined,
+): Modality[] {
 	const output: Modality[] = ["text"];
 	if (info.supports_audio_output) output.push("audio");
 	if (output.length > 1) return output;
 	return catalogModel?.capabilities?.output ?? output;
 }
 
-function attachmentCapability(info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | undefined) {
-	if (info.supports_vision !== undefined || info.supports_pdf_input !== undefined || info.supports_audio_input !== undefined) {
-		return Boolean(info.supports_vision || info.supports_pdf_input || info.supports_audio_input);
+function attachmentCapability(
+	info: LiteLLMModelInfo,
+	catalogModel: CatalogModelSnapshot | undefined,
+) {
+	if (
+		info.supports_vision !== undefined ||
+		info.supports_pdf_input !== undefined ||
+		info.supports_audio_input !== undefined
+	) {
+		return Boolean(
+			info.supports_vision ||
+				info.supports_pdf_input ||
+				info.supports_audio_input,
+		);
 	}
 	return catalogModel?.capabilities?.attachment;
 }
 
-function temperatureCapability(id: string, info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | undefined) {
-	const litellm = Array.isArray(info.supported_openai_params) ? info.supported_openai_params.includes("temperature") : undefined;
-	if (canonicalModelID(id).toLowerCase().startsWith("claude") || canonicalModelID(id).toLowerCase().startsWith("gpt")) {
+function temperatureCapability(
+	id: string,
+	info: LiteLLMModelInfo,
+	catalogModel: CatalogModelSnapshot | undefined,
+) {
+	const litellm = Array.isArray(info.supported_openai_params)
+		? info.supported_openai_params.includes("temperature")
+		: undefined;
+	if (
+		canonicalModelID(id).toLowerCase().startsWith("claude") ||
+		canonicalModelID(id).toLowerCase().startsWith("gpt")
+	) {
 		return catalogModel?.capabilities?.temperature ?? litellm;
 	}
 	return litellm ?? catalogModel?.capabilities?.temperature;
 }
 
-function mergeCapability(value: boolean | null | undefined, catalogModel: CatalogModelSnapshot | undefined, key: "reasoning" | "tools") {
+function mergeCapability(
+	value: boolean | null | undefined,
+	catalogModel: CatalogModelSnapshot | undefined,
+	key: "reasoning" | "tools",
+) {
 	if (value !== undefined && value !== null) return Boolean(value);
-	return key === "reasoning" ? catalogModel?.capabilities?.reasoning : catalogModel?.capabilities?.tools;
+	return key === "reasoning"
+		? catalogModel?.capabilities?.reasoning
+		: catalogModel?.capabilities?.tools;
 }
 
-function modelCost(info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | undefined) {
+function modelCost(
+	info: LiteLLMModelInfo,
+	catalogModel: CatalogModelSnapshot | undefined,
+) {
 	const cost = compactCost({
 		input: perMillion(info.input_cost_per_token),
 		output: perMillion(info.output_cost_per_token),
@@ -508,9 +510,9 @@ function modelCost(info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | 
 	return completeCost(cost ?? catalogModel?.cost);
 }
 
-function completeCost(cost: NormalizedModel["cost"]) {
+function completeCost(cost: DiscoveredModel["cost"]) {
 	if (!cost) return undefined;
-	const normalized: NonNullable<NormalizedModel["cost"]> = {
+	const normalized: NonNullable<DiscoveredModel["cost"]> = {
 		input: cost.input ?? 0,
 		output: cost.output ?? 0,
 		cache_read: cost.cache_read ?? 0,
@@ -527,43 +529,48 @@ function completeCost(cost: NormalizedModel["cost"]) {
 	return normalized;
 }
 
-function costToV2(cost: NormalizedModel["cost"]) {
-	if (!cost) return [];
-	const base = {
-		input: cost.input ?? 0,
-		output: cost.output ?? 0,
-		cache: { read: cost.cache_read ?? 0, write: cost.cache_write ?? 0 },
-	};
-	if (!cost.context_over_200k) return [base];
-	return [
-		base,
-		{
-			tier: { type: "context", size: 200_000 },
-			input: cost.context_over_200k.input ?? 0,
-			output: cost.context_over_200k.output ?? 0,
-			cache: { read: cost.context_over_200k.cache_read ?? 0, write: cost.context_over_200k.cache_write ?? 0 },
-		},
-	];
-}
-
-function compactCost(cost: NonNullable<NormalizedModel["cost"]>) {
-	return Object.values(cost).some((value) => typeof value === "number" && value !== 0) ? cost : undefined;
+function compactCost(cost: NonNullable<DiscoveredModel["cost"]>) {
+	return Object.values(cost).some(
+		(value) => typeof value === "number" && value !== 0,
+	)
+		? cost
+		: undefined;
 }
 
 function perMillion(value?: number | string) {
-	const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : undefined;
-	return typeof numeric === "number" && Number.isFinite(numeric) ? Math.round(numeric * COST_MULTIPLIER * 10_000) / 10_000 : undefined;
+	const numeric =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && value.trim()
+				? Number(value)
+				: undefined;
+	return typeof numeric === "number" && Number.isFinite(numeric)
+		? Math.round(numeric * COST_MULTIPLIER * 10_000) / 10_000
+		: undefined;
 }
 
-function normalizedVariants(catalogVariants: CatalogModelSnapshot["variants"] | undefined, route: RouteKind, reasoning: boolean | undefined, id: string, releaseDate?: string) {
-	if (catalogVariants && Object.keys(catalogVariants).length > 0) return catalogVariants;
+function normalizedVariants(
+	catalogVariants: CatalogModelSnapshot["variants"] | undefined,
+	route: RouteKind,
+	reasoning: boolean | undefined,
+	id: string,
+	releaseDate?: string,
+) {
+	if (catalogVariants && Object.keys(catalogVariants).length > 0)
+		return catalogVariants;
 	if (!reasoning) return {};
-	return route === "responses" ? gptReasoningVariants(canonicalModelID(id).toLowerCase().replaceAll(".", "-"), releaseDate) : chatReasoningVariants(id);
+	return route === "responses"
+		? gptReasoningVariants(
+				canonicalModelID(id).toLowerCase().replaceAll(".", "-"),
+				releaseDate,
+			)
+		: chatReasoningVariants(id);
 }
 
 function chatReasoningVariants(id: string) {
 	const canonical = canonicalModelID(id).toLowerCase().replaceAll(".", "-");
-	if (isAdaptiveClaudeModel(canonical)) return claudeReasoningVariants(canonical);
+	if (isAdaptiveClaudeModel(canonical))
+		return claudeReasoningVariants(canonical);
 	return {
 		low: { reasoning_effort: "low" },
 		medium: { reasoning_effort: "medium" },
@@ -577,10 +584,17 @@ function isAdaptiveClaudeModel(canonical: string) {
 }
 
 function claudeReasoningVariants(canonical: string) {
-	const efforts = canonical.startsWith("claude-opus-4-7") ? ["low", "medium", "high", "xhigh", "max"] : ["low", "medium", "high", "max"];
+	const efforts = canonical.startsWith("claude-opus-4-7")
+		? ["low", "medium", "high", "xhigh", "max"]
+		: ["low", "medium", "high", "max"];
 	const thinking: Record<string, unknown> = { type: "adaptive" };
 	if (canonical.startsWith("claude-opus-4-7")) thinking.display = "summarized";
-	return Object.fromEntries(efforts.map((effort) => [`adaptive-${effort}`, { thinking, output_config: { effort } }]));
+	return Object.fromEntries(
+		efforts.map((effort) => [
+			`adaptive-${effort}`,
+			{ thinking, output_config: { effort } },
+		]),
+	);
 }
 
 function gptReasoningVariants(canonical: string, releaseDate?: string) {
@@ -588,12 +602,16 @@ function gptReasoningVariants(canonical: string, releaseDate?: string) {
 	const efforts = ["low", "medium", "high"];
 	if (canonical.includes("codex")) {
 		if (/\bgpt-5-[23]-codex\b/.test(canonical)) efforts.push("xhigh");
-		return Object.fromEntries(efforts.map((effort) => [effort, gptVariantOptions(effort)]));
+		return Object.fromEntries(
+			efforts.map((effort) => [effort, gptVariantOptions(effort)]),
+		);
 	}
 	if (canonical.startsWith("gpt-5")) efforts.unshift("minimal");
 	if (releaseDate && releaseDate >= "2025-11-13") efforts.unshift("none");
 	if (releaseDate && releaseDate >= "2025-12-04") efforts.push("xhigh");
-	return Object.fromEntries(efforts.map((effort) => [effort, gptVariantOptions(effort)]));
+	return Object.fromEntries(
+		efforts.map((effort) => [effort, gptVariantOptions(effort)]),
+	);
 }
 
 function gptVariantOptions(effort: string) {
@@ -604,8 +622,17 @@ function gptVariantOptions(effort: string) {
 	};
 }
 
-function inferReleaseDate(id: string, info: LiteLLMModelInfo, catalogModel: CatalogModelSnapshot | undefined) {
-	return normalizeReleaseDate(info.release_date) ?? normalizeReleaseDate(info.releaseDate) ?? normalizeReleaseDate(catalogModel?.releaseDate) ?? splitDateSuffix(id).releaseDate;
+function inferReleaseDate(
+	id: string,
+	info: LiteLLMModelInfo,
+	catalogModel: CatalogModelSnapshot | undefined,
+) {
+	return (
+		normalizeReleaseDate(info.release_date) ??
+		normalizeReleaseDate(info.releaseDate) ??
+		normalizeReleaseDate(catalogModel?.releaseDate) ??
+		splitDateSuffix(id).releaseDate
+	);
 }
 
 function normalizeReleaseDate(value?: string) {
@@ -650,14 +677,6 @@ function friendlyName(id: string) {
 	return `${result.join(" ")}${split.displayDate ? ` (${monthNames[split.displayDate.month]} ${split.displayDate.day})` : ""}`;
 }
 
-function catalogKey(catalog: CatalogSnapshot | undefined) {
-	if (!catalog) return "";
-	return catalog.providers
-		.filter((provider) => provider.id !== "litellm")
-		.map((provider) => `${provider.id}:${provider.models.map((model) => model.id).join(",")}`)
-		.join("|");
-}
-
 function normalizeUrl(url: string) {
 	return url.trim().replace(/\/+$/, "");
 }
@@ -668,7 +687,9 @@ function expandHome(value: string) {
 
 function readKeyFile(filepath: string) {
 	try {
-		return existsSync(filepath) ? readFileSync(filepath, "utf8").trim() : undefined;
+		return existsSync(filepath)
+			? readFileSync(filepath, "utf8").trim()
+			: undefined;
 	} catch {
 		return undefined;
 	}

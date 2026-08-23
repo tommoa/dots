@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { classifyLiteLLMRoute, type LiteLLMModelEntry } from "./routing";
 
-function route(entry: LiteLLMModelEntry, options?: Parameters<typeof classifyLiteLLMRoute>[1]) {
+function route(
+	entry: LiteLLMModelEntry,
+	options?: Parameters<typeof classifyLiteLLMRoute>[1],
+) {
 	return classifyLiteLLMRoute(entry, options);
 }
 
@@ -24,7 +27,11 @@ describe("LiteLLM route classification", () => {
 				model_name: "gpt-5.5",
 				model_info: {
 					mode: "chat",
-					supported_openai_params: ["temperature", "service_tier", "prediction"],
+					supported_openai_params: [
+						"temperature",
+						"service_tier",
+						"prediction",
+					],
 				},
 			}),
 		).toBe("chat");
@@ -53,7 +60,7 @@ describe("LiteLLM route classification", () => {
 		).toBe("responses");
 	});
 
-	test("OpenAI Responses catalog and API matches route through OpenAI Responses", () => {
+	test("OpenCode v1 and v2 OpenAI catalog matches route through OpenAI Responses", () => {
 		const entry = {
 			model_name: "gpt-5.5",
 			model_info: {
@@ -61,8 +68,16 @@ describe("LiteLLM route classification", () => {
 			},
 		};
 
-		expect(route(entry, { match: { providerPackage: "@ai-sdk/openai" } })).toBe("responses");
-		expect(route(entry, { match: { api: "openai-responses" } })).toBe("responses");
+		for (const providerPackage of [
+			"@ai-sdk/openai",
+			"@opencode-ai/ai/providers/openai",
+			"@opencode-ai/ai/providers/openai/responses",
+		]) {
+			expect(route(entry, { match: { providerPackage } })).toBe("responses");
+		}
+		expect(route(entry, { match: { api: "openai-responses" } })).toBe(
+			"responses",
+		);
 	});
 
 	test("chat override beats all Responses signals", () => {

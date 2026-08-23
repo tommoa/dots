@@ -291,9 +291,6 @@ in {
       package = config.my.opencode.package;
       tui = {
         theme = "one-dark";
-        plugin = lib.mkIf opencodeLiteLLMEnabled [
-          "${opencodeLiteLLMDir}/plugin-v2-tui.ts"
-        ];
       };
       settings = {
         lsp = {
@@ -307,17 +304,10 @@ in {
         };
         plugin = lib.mkIf opencodeLiteLLMEnabled [
           [
-            "${opencodeLiteLLMDir}/plugin-v2.ts"
+            "${opencodeLiteLLMDir}/plugin.ts"
             opencodeLiteLLMOptions
           ]
         ];
-        agent = {
-          orchestrator = {
-            description = "Orchestrates parallel subagents for multi-step remote data gathering";
-            mode = "subagent";
-            permission.task = "allow";
-          };
-        };
         formatter =
           {
             alejandra = {

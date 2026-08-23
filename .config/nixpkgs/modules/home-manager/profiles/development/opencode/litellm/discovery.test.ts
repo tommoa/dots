@@ -1,77 +1,95 @@
 import { describe, expect, test } from "bun:test";
-import { buildDiscoveryFromEntries, discoverLiteLLM, toV1ProviderConfig, toV2Provider, type CatalogSnapshot, type LiteLLMModelEntry, type LiteLLMOptions } from "./discovery";
+import {
+	buildDiscoveryFromEntries,
+	discoverLiteLLM,
+	normalizeOptions,
+	type CatalogModelSnapshot,
+	type CatalogSnapshot,
+	type LiteLLMModelEntry,
+	type LiteLLMOptions,
+} from "./discovery";
+import { toV1ProviderConfig } from "./projection-v1";
+import { toV2Provider } from "./projection-v2";
 
 const baseOptions: LiteLLMOptions = {
 	baseUrl: "https://proxy.example",
 	keyFile: "/nonexistent-litellm-key",
 };
 
-function providerFor(entries: LiteLLMModelEntry[], options: LiteLLMOptions = {}, catalog?: CatalogSnapshot) {
-	return toV2Provider(buildDiscoveryFromEntries(entries, "https://proxy.example/model/info", { ...baseOptions, ...options }, catalog));
+function providerFor(
+	entries: LiteLLMModelEntry[],
+	options: LiteLLMOptions = {},
+	catalog?: CatalogSnapshot,
+) {
+	return toV2Provider(discoveryFor(entries, options, catalog));
 }
 
-function v1ProviderFor(entries: LiteLLMModelEntry[], options: LiteLLMOptions = {}, catalog?: CatalogSnapshot) {
-	return toV1ProviderConfig(buildDiscoveryFromEntries(entries, "https://proxy.example/model/info", { ...baseOptions, ...options }, catalog));
+function v1ProviderFor(
+	entries: LiteLLMModelEntry[],
+	options: LiteLLMOptions = {},
+	catalog?: CatalogSnapshot,
+) {
+	return toV1ProviderConfig(discoveryFor(entries, options, catalog));
 }
 
-function modelPackage(entry: LiteLLMModelEntry, options?: LiteLLMOptions, catalog?: CatalogSnapshot) {
-	return (providerFor([entry], options, catalog).models[0].api as { package: string }).package;
+function discoveryFor(
+	entries: LiteLLMModelEntry[],
+	options: LiteLLMOptions = {},
+	catalog?: CatalogSnapshot,
+) {
+	return buildDiscoveryFromEntries(
+		entries,
+		"https://proxy.example/model/info",
+		normalizeOptions({ ...baseOptions, ...options }),
+		catalog,
+	);
 }
 
-function modelVariantIDs(entry: LiteLLMModelEntry, options?: LiteLLMOptions, catalog?: CatalogSnapshot) {
-	return providerFor([entry], options, catalog).models[0].variants?.map((variant) => variant.id);
+function modelPackage(
+	entry: LiteLLMModelEntry,
+	options?: LiteLLMOptions,
+	catalog?: CatalogSnapshot,
+) {
+	return providerFor([entry], options, catalog).models[0].package;
 }
 
-function modelVariants(entry: LiteLLMModelEntry, options?: LiteLLMOptions, catalog?: CatalogSnapshot) {
+function modelVariantIDs(
+	entry: LiteLLMModelEntry,
+	options?: LiteLLMOptions,
+	catalog?: CatalogSnapshot,
+) {
+	return providerFor([entry], options, catalog).models[0].variants?.map(
+		(variant) => variant.id,
+	);
+}
+
+function modelVariants(
+	entry: LiteLLMModelEntry,
+	options?: LiteLLMOptions,
+	catalog?: CatalogSnapshot,
+) {
 	return providerFor([entry], options, catalog).models[0].variants;
 }
 
-function catalog(model: CatalogSnapshot["providers"][number]["models"][number], providerID = "openai"): CatalogSnapshot {
-	return {
-		providers: [
-			{
-				id: providerID,
-				models: [model],
-			},
-		],
-	};
+function catalog(model: CatalogModelSnapshot): CatalogSnapshot {
+	return new Map([[model.id, model]]);
 }
 
-describe("LiteLLM route classification", () => {
-	test("responses-style params route through OpenAI Responses even when mode is chat", () => {
-		expect(
-			modelPackage({
-				model_name: "gpt-5.5",
-				model_info: {
-					mode: "chat",
-					supported_openai_params: ["temperature", "verbosity"],
-				},
-			}),
-		).toBe("@ai-sdk/openai");
-	});
-
+describe("LiteLLM route projection", () => {
 	test("chat-compatible params do not route through OpenAI Responses", () => {
 		expect(
 			modelPackage({
 				model_name: "gpt-5.5",
 				model_info: {
 					mode: "chat",
-					supported_openai_params: ["temperature", "service_tier", "prediction"],
+					supported_openai_params: [
+						"temperature",
+						"service_tier",
+						"prediction",
+					],
 				},
 			}),
-		).toBe("@ai-sdk/openai-compatible");
-	});
-
-	test("uncataloged GPT-5 reasoning_effort routes through OpenAI Responses", () => {
-		expect(
-			modelPackage({
-				model_name: "gpt-5.5",
-				model_info: {
-					mode: "chat",
-					supported_openai_params: ["reasoning_effort"],
-				},
-			}),
-		).toBe("@ai-sdk/openai");
+		).toBe("@opencode-ai/ai/providers/openai-compatible");
 	});
 
 	test("mode responses routes through OpenAI Responses", () => {
@@ -82,73 +100,7 @@ describe("LiteLLM route classification", () => {
 					mode: "responses",
 				},
 			}),
-		).toBe("@ai-sdk/openai");
-	});
-
-	test("chat override beats all Responses signals", () => {
-		expect(
-			modelPackage(
-				{
-					model_name: "gpt-5.5",
-					model_info: {
-						mode: "responses",
-						supported_openai_params: ["verbosity"],
-					},
-				},
-				{ routeOverrides: { chat: ["gpt-5.5"] } },
-			),
-		).toBe("@ai-sdk/openai-compatible");
-	});
-
-	test("responses override beats chat fallback", () => {
-		expect(
-			modelPackage(
-				{
-					model_name: "gpt-5.5",
-					model_info: {
-						mode: "chat",
-					},
-				},
-				{ routeOverrides: { responses: ["gpt-5.5"] } },
-			),
-		).toBe("@ai-sdk/openai");
-	});
-
-	test("reasoning_effort alone does not route Claude or Gemini through Responses", () => {
-		for (const model_name of ["claude-sonnet-4-5", "gemini-2.5-pro"]) {
-			expect(
-				modelPackage({
-					model_name,
-					model_info: {
-						mode: "chat",
-						supported_openai_params: ["reasoning_effort"],
-					},
-				}),
-			).toBe("@ai-sdk/openai-compatible");
-		}
-	});
-
-	test("Claude catalog matches do not switch to Anthropic routing", () => {
-		expect(
-			modelPackage(
-				{
-					model_name: "claude-sonnet-4-5",
-					litellm_params: { model: "anthropic/claude-sonnet-4-5" },
-					model_info: {
-						mode: "chat",
-					},
-				},
-				{},
-				catalog(
-					{
-						id: "claude-sonnet-4-5",
-						name: "Claude Sonnet 4.5",
-						providerPackage: "@ai-sdk/anthropic",
-					},
-					"anthropic",
-				),
-			),
-		).toBe("@ai-sdk/openai-compatible");
+		).toBe("@opencode-ai/ai/providers/openai/responses");
 	});
 });
 
@@ -187,7 +139,7 @@ describe("LiteLLM generated variants", () => {
 		).toEqual(["none", "minimal", "low", "medium", "high", "xhigh"]);
 	});
 
-	test("Responses generated variants store runtime settings in the request body", () => {
+	test("Responses generated variants store runtime options in settings", () => {
 		const variants = modelVariants({
 			model_name: "gpt-5.2-codex",
 			model_info: {
@@ -198,13 +150,11 @@ describe("LiteLLM generated variants", () => {
 
 		expect(variants?.find((variant) => variant.id === "xhigh")).toEqual({
 			id: "xhigh",
-			headers: {},
-			body: {
+			settings: {
 				reasoningEffort: "xhigh",
 				reasoningSummary: "auto",
 				include: ["reasoning.encrypted_content"],
 			},
-			generation: {},
 		});
 	});
 });
@@ -262,12 +212,10 @@ describe("LiteLLM catalog enrichment", () => {
 		expect(model.variants).toEqual([
 			{
 				id: "high",
-				headers: {},
-				body: {
+				settings: {
 					reasoningEffort: "high",
 					textVerbosity: "medium",
 				},
-				generation: {},
 			},
 		]);
 	});
@@ -286,7 +234,27 @@ describe("LiteLLM catalog enrichment", () => {
 });
 
 describe("LiteLLM OpenCode v1 provider config", () => {
-	test("injects a config provider that current OpenCode can load", () => {
+	test("keeps catalog provenance internal to discovery", () => {
+		const snapshot = catalog({
+			id: "gpt-5.5",
+			name: "GPT-5.5",
+			providerPackage: "@ai-sdk/openai",
+		});
+		const entry = {
+			model_name: "work-gpt",
+			litellm_params: { model: "openai/gpt-5.5" },
+			model_info: { mode: "responses" },
+		};
+
+		expect(discoveryFor([entry], {}, snapshot).models[0].catalogModelID).toBe(
+			"gpt-5.5",
+		);
+		expect(
+			v1ProviderFor([entry], {}, snapshot).models["work-gpt"],
+		).not.toHaveProperty("catalogModelID");
+	});
+
+	test("injects a provider that OpenCode v1 can load", () => {
 		const provider = v1ProviderFor([
 			{
 				model_name: "gpt-5.5",
@@ -309,9 +277,7 @@ describe("LiteLLM OpenCode v1 provider config", () => {
 			env: ["LITELLM_API_KEY"],
 			npm: "@ai-sdk/openai-compatible",
 			api: "https://proxy.example/v1",
-			options: {
-				baseURL: "https://proxy.example/v1",
-			},
+			options: { baseURL: "https://proxy.example/v1" },
 		});
 		expect(provider.models["gpt-5.5"].provider).toEqual({
 			npm: "@ai-sdk/openai",
@@ -385,16 +351,27 @@ describe("LiteLLM runtime discovery", () => {
 					reject(new Error(`Missing signal for ${String(input)}`));
 					return;
 				}
-				signal.addEventListener("abort", () => reject(new DOMException("The operation timed out.", "TimeoutError")), { once: true });
+				signal.addEventListener(
+					"abort",
+					() =>
+						reject(
+							new DOMException("The operation timed out.", "TimeoutError"),
+						),
+					{ once: true },
+				);
 			})) as typeof globalThis.fetch;
 
 		try {
 			await expect(
-				discoverLiteLLM({
-					baseUrl: "https://timeout.example",
-					keyFile: "/nonexistent-litellm-key",
-				}),
-			).rejects.toThrow("GET https://timeout.example/models timed out after 30000ms");
+				discoverLiteLLM(
+					normalizeOptions({
+						baseUrl: "https://timeout.example",
+						keyFile: "/nonexistent-litellm-key",
+					}),
+				),
+			).rejects.toThrow(
+				"GET https://timeout.example/models timed out after 30000ms",
+			);
 			expect(timeoutCalls).toEqual([30_000, 30_000, 30_000, 30_000]);
 		} finally {
 			globalThis.fetch = originalFetch;
