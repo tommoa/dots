@@ -118,10 +118,14 @@
 
   sharedSkillSources = {
     architectural-decision-record = ./ai-skills/architectural-decision-record;
+    arena = ./ai-skills/arena;
+    arena-loop = ./ai-skills/arena-loop;
     change-amplification = ./ai-skills/change-amplification;
     commit = ./ai-skills/commit;
+    grilling = ./ai-skills/grilling;
     rethink = ./ai-skills/rethink;
     simplification-loop = ./ai-skills/simplification-loop;
+    ui-design-evaluation = ./ai-skills/ui-design-evaluation;
   };
 
   withModelSelection = modelSelection: sharedSkillSources // {model-selection = modelSelection;};
@@ -139,7 +143,13 @@
       name: source:
         mkCodexSkill {
           inherit name source;
-          allowImplicitInvocation = name != "simplification-loop";
+          # Multi-round loops are intentional, comparatively expensive
+          # workflows; keep them available only through `$skill`.
+          allowImplicitInvocation =
+            !builtins.elem name [
+              "arena-loop"
+              "simplification-loop"
+            ];
         }
     )
     skillSourcesByHarness.codex;

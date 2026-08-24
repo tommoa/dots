@@ -1,8 +1,8 @@
 ---
 name: rethink
 description: >-
-  Stress-test proposed architectures, interfaces, and complex implementations
-  against simpler and more maintainable alternatives.
+  Stress-test a proposed architecture, interface, or complex implementation
+  when simpler or more maintainable alternatives may exist.
 ---
 
 # Rethink the Design

@@ -45,9 +45,11 @@ in the commit body only in surrounding prose.
 Do not fill a message, issue reference, or other field that the user explicitly
 reserved for later; request the missing value instead.
 
-Follow local message conventions. Otherwise use a concise conventional header
-such as `<type>(<scope>): <imperative description>` without a trailing period.
-Write one or two flowing, non-imperative paragraphs wrapped at 72 characters.
+Follow local message conventions unless they conflict with these rules. When no
+local convention applies, use a concise conventional header such as
+`<type>(<scope>): <imperative description>` without a trailing period. Use
+imperative mood only in the header. Write the body as one or two flowing,
+declarative, non-imperative paragraphs wrapped at 72 characters.
 The body must stand alone: start with the problem or pressure, explain the
 chosen approach and why it fits, and note non-obvious behavior, risk, or scope.
 Be specific about affected modules, functions, APIs, commands, or constraints;
