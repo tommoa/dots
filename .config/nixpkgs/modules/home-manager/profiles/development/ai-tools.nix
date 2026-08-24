@@ -46,6 +46,32 @@
   codexCliProxyEnabled = (config.programs.codex.settings.model_provider or null) == "cli_proxy_api";
   modelSelectionProfile = config.my.modelSelection.profile;
 
+  codexNoImplicitInvocationPolicy = (pkgs.formats.yaml {}).generate "codex-skill-openai.yaml" {
+    policy.allow_implicit_invocation = false;
+  };
+
+  # Keep complete skill directories intact. Only copy a skill when Codex-specific
+  # metadata must be overlaid without changing the source used by other harnesses.
+  mkCodexSkill = {
+    name,
+    source,
+    allowImplicitInvocation ? true,
+  }:
+    if allowImplicitInvocation
+    then source
+    else
+      pkgs.runCommandLocal "codex-skill-${name}" {}
+      ''
+        mkdir -p "$out"
+        cp -R ${source}/. "$out/"
+        if [ -e "$out/agents/openai.yaml" ]; then
+          echo "${name} already provides agents/openai.yaml; merge its policy explicitly" >&2
+          exit 1
+        fi
+        mkdir -p "$out/agents"
+        cp ${codexNoImplicitInvocationPolicy} "$out/agents/openai.yaml"
+      '';
+
   modelSelectionSkill = {
     harness,
     profile,
@@ -55,7 +81,7 @@
     pkgs.runCommandLocal "model-selection-${harness}-${profile}" {nativeBuildInputs = [pkgs.bun];}
     ''
       workdir="$TMPDIR/model-selection"
-      mkdir -p "$workdir/snapshots"
+      mkdir -p "$out" "$workdir/snapshots"
       cp ${./ai-skills/model-selection/SKILL.md} "$workdir/SKILL.md"
       cp ${./ai-skills/model-selection/generator.ts} "$workdir/generator.ts"
       cp ${./ai-skills/model-selection/policy.ts} "$workdir/policy.ts"
@@ -63,7 +89,7 @@
       cp ${./ai-skills/model-selection/snapshots/terminal-bench-2.1.json} "$workdir/snapshots/terminal-bench-2.1.json"
       bun run "$workdir/generator.ts" generate \
         --template "$workdir/SKILL.md" \
-        --output "$out" \
+        --output "$out/SKILL.md" \
         --snapshot "$workdir/snapshots/deepswe-v1.1.json" \
         --terminal-snapshot "$workdir/snapshots/terminal-bench-2.1.json" \
         --harness ${harness} \
@@ -89,6 +115,43 @@
     profile = modelSelectionProfile;
     liteLLM = piLiteLLMEnabled;
   };
+
+  sharedSkillSources = {
+    architectural-decision-record = ./ai-skills/architectural-decision-record;
+    change-amplification = ./ai-skills/change-amplification;
+    commit = ./ai-skills/commit;
+    rethink = ./ai-skills/rethink;
+    simplification-loop = ./ai-skills/simplification-loop;
+  };
+
+  withModelSelection = modelSelection: sharedSkillSources // {model-selection = modelSelection;};
+
+  # Every harness gets the same shared skill directories. Only model-selection
+  # varies because its provider guidance is generated for the target harness.
+  skillSourcesByHarness = {
+    codex = withModelSelection codexModelSelectionSkill;
+    opencode = withModelSelection opencodeModelSelectionSkill;
+    pi = withModelSelection piModelSelectionSkill;
+  };
+
+  codexSkills =
+    lib.mapAttrs (
+      name: source:
+        mkCodexSkill {
+          inherit name source;
+          allowImplicitInvocation = name != "simplification-loop";
+        }
+    )
+    skillSourcesByHarness.codex;
+
+  piSkillFiles =
+    lib.mapAttrs' (
+      name: source:
+        lib.nameValuePair ".pi/agent/skills/${name}" {
+          inherit source;
+        }
+    )
+    skillSourcesByHarness.pi;
 
   opencodeLiteLLMOptions = {
     baseUrl = config.my.aiProxy.baseUrl;
@@ -284,10 +347,12 @@ in {
         ".config/opencode/litellm".source = opencodeLiteLLMSource;
         ".config/litellm".source = ./litellm;
       })
-      (lib.mkIf config.my.pi.enable {
-        ".pi/agent/AGENTS.md".source = ./context.md;
-        ".pi/agent/skills/model-selection/SKILL.md".source = piModelSelectionSkill;
-      })
+      (lib.mkIf config.my.pi.enable (
+        {
+          ".pi/agent/AGENTS.md".source = ./context.md;
+        }
+        // piSkillFiles
+      ))
       (lib.mkIf piLiteLLMEnabled {
         ".pi/litellm".source = ./litellm;
         ".pi/agent/litellm-provider".source = piLiteLLMProviderSource;
@@ -394,11 +459,7 @@ in {
           - Can you hide any special cases?
         '';
       };
-      skills = {
-        commit = ./opencode/commit/SKILL.md;
-        change-amplification = ./ai-skills/change-amplification/SKILL.md;
-        model-selection = opencodeModelSelectionSkill;
-      };
+      skills = skillSourcesByHarness.opencode;
     };
 
     programs.codex = {
@@ -455,33 +516,7 @@ in {
           theme = "one-half-dark";
         };
       };
-      skills = {
-        commit = ./opencode/commit/SKILL.md;
-        change-amplification = ./ai-skills/change-amplification/SKILL.md;
-        model-selection = codexModelSelectionSkill;
-        rethink = ''
-          ---
-          name: rethink
-          description: Make sure the agent rethinks its architectural decisions
-          ---
-
-          Please carefully consider the following questions, then provide a thorough
-          response for each of them to the user.
-
-          - Is it the right way to solve this issue?
-          - Will it be the most maintainable option?
-          - Is this actually a bug in a different system that we should be fixing?
-          - Is this the right interface to use?
-          - What is the simplest interface that will cover all my current needs?
-          - In how many situations will this method be used?
-          - Is this API easy to use for my current needs?
-          - Does any information get used in multiple places?
-          - Will users be able to determine a better value than can be determined
-            here? (for configuration)
-          - Is there any code that needs to be written more than once?
-          - Can you hide any special cases?
-        '';
-      };
+      skills = codexSkills;
     };
 
     xdg.configFile."opencode/AGENTS.md".source = ./context.md;
