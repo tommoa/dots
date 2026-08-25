@@ -56,10 +56,10 @@ skill to the criteria, evidence requirements and vetoes. Do not hard-code
 domain skills or let them take over candidate or judge orchestration. If no
 domain skill applies, derive the rubric from the task and available evidence.
 
-If unresolved preferences or other user-owned criteria could change the
-contract, invoke the `grilling` skill before freezing them. Ask about decisions,
-not facts that can be discovered. If the needed answer is unavailable, stop
-before spawning or synthesis and report the unknown.
+Before freezing, separate discoverable facts from user-owned choices. If an
+unresolved choice could change the contract, rubric, or execution policy,
+invoke the `grilling` skill and wait for the user's confirmation. Do not infer
+preferences from suggestive wording or from your own recommendations.
 
 Choose one mode:
 

@@ -24,13 +24,16 @@ verification, backlog, and terminal state.
 
 - **INPUT.** Freeze intended outcome, user scope and permissions, domain
   invariants/non-goals, selected-model policy and round budget. Apply the
-  `arena` skill's framing rules once to freeze the candidate contract, judge
-  metadata, required evidence, advancement rubric, fixed execution-policy
-  fields and any applicable domain evaluation for the whole programme. Default
-  to two targeted challenger rounds. Record whether an incumbent exists and the
-  stopping rules. Classify design-space coverage as `required`, `already
-  evidenced`, or `not material`, with evidence or reason; freeze this
-  disposition before running rounds.
+  `arena` skill's framing and preference audit before freezing the candidate
+  contract, judge metadata, required evidence, advancement rubric, fixed
+  execution-policy fields and any applicable domain evaluation for the whole
+  programme. Record confirmed decisions and whether `grilling` was required.
+  Default to two targeted challenger rounds. Record whether an incumbent exists
+  and the stopping rules. Classify design-space coverage as `required`,
+  `already evidenced`, or `not material`, with evidence or reason; freeze this
+  disposition before running rounds. When resuming the loop or receiving a new
+  requirement, rerun the audit; affected evidence is stale until reframing
+  completes.
 - **SEED.** If there is no incumbent, invoke the `arena` skill once on the full
   task. Keep its verified artifact as round-zero incumbent; this establishes an
   incumbent, never convergence. If seeding cannot produce a verified artifact,
@@ -90,10 +93,10 @@ verification, backlog, and terminal state.
 
 ## Actor and permission rules
 
-Freeze criteria within each comparison. If unresolved user preference or policy
-would change the contract, invoke the `grilling` skill before spawning actors;
-do not guess. Propagate an explicitly user-selected model exactly to every
-`arena` actor, advancement judge, and nested delegation in every round;
+Freeze criteria within each comparison. Do not spawn actors while framing or
+`grilling` remains unresolved. Propagate an explicitly user-selected model
+exactly to every `arena` actor, advancement judge, and nested delegation in
+every round;
 otherwise record model choices. Never let chronology, identity, model, or
 lineage leak into neutral comparison labels. Required actors are genuinely
 independent executions: no internal passes, simulated candidates, or
