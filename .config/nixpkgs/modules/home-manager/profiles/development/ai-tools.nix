@@ -122,6 +122,7 @@
     arena = ./ai-skills/arena;
     arena-loop = ./ai-skills/arena-loop;
     change-amplification = ./ai-skills/change-amplification;
+    code-obviousness = ./ai-skills/code-obviousness;
     commit = ./ai-skills/commit;
     grilling = ./ai-skills/grilling;
     rethink = ./ai-skills/rethink;
