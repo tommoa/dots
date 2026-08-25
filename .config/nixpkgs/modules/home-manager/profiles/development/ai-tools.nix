@@ -117,6 +117,7 @@
   };
 
   sharedSkillSources = {
+    api-design-evaluation = ./ai-skills/api-design-evaluation;
     architectural-decision-record = ./ai-skills/architectural-decision-record;
     arena = ./ai-skills/arena;
     arena-loop = ./ai-skills/arena-loop;
