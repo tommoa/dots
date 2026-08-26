@@ -125,6 +125,7 @@
     code-obviousness = ./ai-skills/code-obviousness;
     commit = ./ai-skills/commit;
     grilling = ./ai-skills/grilling;
+    obscurity-review = ./ai-skills/obscurity-review;
     rethink = ./ai-skills/rethink;
     simplification-loop = ./ai-skills/simplification-loop;
     ui-design-evaluation = ./ai-skills/ui-design-evaluation;
