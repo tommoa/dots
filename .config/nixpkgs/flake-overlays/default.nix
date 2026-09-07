@@ -4,9 +4,16 @@ inputs: self: super: let
     config.allowUnfree = true;
   };
 
-  neovim-unwrapped-wasm = unstable.neovim-unwrapped.override {
-    wasmSupport = true;
-  };
+  neovim-unwrapped-wasm =
+    (unstable.neovim-unwrapped.override {
+      wasmSupport = true;
+    }).overrideAttrs (old: {
+      postPatch =
+        builtins.replaceStrings
+        ["find_package(Wasmtime 36.0.6 EXACT REQUIRED)"]
+        ["find_package(Wasmtime 36.0 EXACT REQUIRED)"]
+        old.postPatch;
+    });
 in {
   # Zen Browser currently requires ffmpeg_9, while the 26.05 release
   # nixpkgs followed by this flake still exposes ffmpeg_7. Reuse the
