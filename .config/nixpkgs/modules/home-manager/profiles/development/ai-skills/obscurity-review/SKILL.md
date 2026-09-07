@@ -1,42 +1,40 @@
 ---
 name: obscurity-review
 description: >-
-  Use when reviewing a system-level change or operational decision for hidden
-  contracts, assumptions, lifecycle hazards, duplicated knowledge, or missing
-  evidence across boundaries.
+  Review system-level changes or operational decisions for hidden contracts,
+  lifecycle hazards, duplicated knowledge, or missing cross-boundary evidence.
 metadata:
   short-description: Review system-level discoverability
 ---
 
 # Obscurity Review
 
-Review from a maintainer’s point of view: what must be discoverable to make a
-concrete system decision safely? Work read-only by default; propose probes and
-run only demonstrably non-mutating probes when authorized. Unknown unknowns
-cannot be enumerated: inspect reachable discovery paths and label remaining
-gaps as unknowns. Keep this system-level; do not turn it into local
-readability, caller-facing API, history, or general architecture review.
+Review whether a maintainer can discover enough to assess the decision safely.
+Establish the decision and boundary from the request and available evidence.
+Before declaring either ungrounded, perform bounded, read-only inspection of
+relevant code, configuration, tests, or documentation within the authorized
+scope. If neither can be grounded, report supported observations and the
+smallest missing input, then stop. If only one is grounded, report the remaining
+unknown and limit conclusions to what the evidence supports. Stay read-only;
+run only authorized, demonstrably non-mutating probes.
 
-State the decision and relevant boundary. If neither can be grounded, report
-insufficient evidence and stop. Follow only boundaries, variants, and evidence
-paths that could change the decision. Apply all four lenses:
+Trace only paths that could change the decision. Apply all four lenses:
 
-1. **Contracts and assumptions:** preconditions, defaults, dependencies,
-   configuration, and variants.
-2. **Lifecycle and failure:** startup, reload, shutdown, partial failure,
-   recovery, rollback, and degradation.
-3. **Ownership and duplicated knowledge:** sources of truth, copied policies,
-   leaked boundaries, and non-local change surfaces.
-4. **Evidence and observability:** tests, documentation, logs, metrics, traces,
-   alerts, and diagnostic paths.
+1. **Contracts:** assumptions, preconditions, defaults, dependencies,
+   configuration, variants.
+2. **Lifecycle:** startup, reload, shutdown, failure, recovery, rollback.
+3. **Ownership:** sources of truth, copies, leaks, non-local change surfaces.
+4. **Evidence:** tests, documentation, telemetry, and diagnostics.
 
-For each lens, give a concise observation, consequence, and unknowns; keep clean
-lenses brief. For each material concern, give evidence, consequence, relevant
-unknowns, and the smallest discriminating probe or proportionate remedy. A
-probe must state confirming and disconfirming signals, its safety boundary, and
-its stop condition. Report exclusions, unresolved evidence, and whether more
-investigation is needed. A missing preferred artifact is not a finding without
-a concrete discovery consequence.
+Under each lens, report evidence, consequence, and unknowns; keep clean lenses
+brief. Findings require a concrete discovery consequence, not merely a missing
+preferred artifact. Give the smallest remedy or discriminating probe. For a
+probe, name confirming and disconfirming signals, its safety boundary, and stop
+condition.
+
+Report exclusions, unresolved evidence, and whether more investigation is
+needed. Gaps beyond reachable discovery paths remain unknown. Exclude local
+readability, caller-facing API, history, and general architecture.
 
 If no material issue exists, say: **No material discoverability finding; the
 boundary is proportionate to the available evidence.**

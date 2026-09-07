@@ -8,155 +8,138 @@ description: >-
 
 # Arena
 
-Use this single-round workflow to make a consequential choice visible and
-testable. It does not expand the user's request, permissions, or writable
-scope. For read-only work, candidates write proposals in temporary
-destinations, not the target. The `arena-loop` skill owns immutable incumbents,
-cross-round advancement, backlog, repeated challenges, and convergence.
+Run one frozen, auditable comparison, then return a verified artifact and round
+record. The workflow ends after this round.
 
-## Non-negotiables
+## Guardrails
 
-- A candidate is a separate subagent execution. A judge is another separate,
-  read-only subagent execution. Never simulate candidates, role-play a judge,
-  or count your own passes as independent evidence.
-- If delegation cannot create and run the required independent executions,
-  stop before synthesis and report the framing plus the blocker. Do not
-  silently continue with an internal or single-agent arena.
-- If the user explicitly selected a model, pass that exact model to every
-  candidate, judge, and nested delegation. Otherwise choose models appropriate
-  to the task; record the choice and propagate it through nested calls.
-- The order is strict: spawn all candidates concurrently where possible, drain
-  or wait until each has finished or dropped out, then spawn the judge. Never
-  judge partial outputs or synthesize before judging.
-- Keep each candidate's writable state isolated in a worktree or unique
-  temporary directory. Separate prompts or turn-taking do not provide
-  isolation.
+- Candidates are separate subagent executions. Judges are different, read-only
+  subagent executions. Coordinator passes, role-play, and separate prompts are
+  not independent evidence.
+- If independent actors or isolated writable destinations are unavailable,
+  stop before synthesis and return the framing and blocker. For read-only work,
+  candidates write only to isolated temporary destinations.
+- Preserve the user's goal, permissions, and writable scope. If the user chose
+  a model, pass that exact model to every actor and nested delegation;
+  otherwise choose suitable models. Record each choice and propagate it through
+  nested calls.
+- Drain every candidate before judging. Judges receive complete outputs only.
 - Record each actor's ID, role, model, destination, terminal status, and
-  evidence paths so claimed independence and completion remain auditable.
+  evidence paths.
 
 ## 1. Frame
 
-Run one arena round only when alternatives may change structure, interface,
-workflow, argument, or another expensive-to-reverse decision. Before spawning,
-freeze:
+Use an arena only when alternatives could materially change an
+expensive-to-reverse structure, interface, workflow, argument, or artifact.
+Before spawning, freeze:
 
-1. **Candidate contract (visible):** the artifact and output format; intended
-   outcome; every real user requirement; invariants, scenarios, non-goals,
-   scope/permission boundary, shared facts or snapshot, and required checks.
-2. **Judge metadata (judge-only):** three to six observable criteria, weights
-   or tie-breakers, diagnostic probes, and blocker rules. Do not hide a real
-   requirement: candidates must see it in the contract.
-3. **Execution policy:** candidate count, models, isolation, exploration mode,
-   synthesis mode, verification, and budget for this round. Default to three
-   candidates; two is the minimum useful comparison.
+1. **Candidate contract (visible):** artifact and output format, outcome, every
+   requirement, invariants, scenarios, non-goals, permissions, shared facts,
+   and required checks.
+2. **Judge metadata (judge-only):** three to six observable, non-duplicative
+   criteria; weights or tie-breakers; probes; and blocker rules. Requirements
+   belong in the candidate contract, not hidden here.
+3. **Execution policy:** candidate count and models, isolation, arena mode,
+   synthesis policy, verification, and round budget. Default to three
+   candidates; two is the minimum.
 
-If a caller supplies a frozen candidate contract and judge metadata, preserve
-them unchanged. Otherwise, before freezing, apply any relevant domain-evaluation
-skill to the criteria, evidence requirements and vetoes. Do not hard-code
-domain skills or let them take over candidate or judge orchestration. If no
-domain skill applies, derive the rubric from the task and available evidence.
+Preserve caller-supplied frozen inputs unchanged. Otherwise apply the evidence
+requirements, criteria, and vetoes from any relevant domain-evaluation skill;
+derive them from the task when none applies. Domain skills strengthen
+evaluation but do not orchestrate the arena.
 
-Before freezing, separate discoverable facts from user-owned choices. If an
-unresolved choice could change the contract, rubric, or execution policy,
-invoke the `grilling` skill and wait for the user's confirmation. Do not infer
-preferences from suggestive wording or from your own recommendations.
+Discover facts yourself. If a user-owned choice could change the contract,
+rubric, or policy, use `grilling` and wait for confirmation before freezing.
 
 Choose one mode:
 
-- **Ordinary:** give candidates the full relevant artifact. Use identical
-  hypotheses to test independent agreement, or predeclare materially different
-  hypotheses when the decision space warrants them. Cosmetic variation is not
-  diversity.
-- **Blind exploration:** give candidates identical requirements and sanitized
-  domain facts, but withhold incumbent presentation, implementation, lineage,
-  votes and prior visual or structural evidence. Require materially different
-  hypotheses and redirect duplicates before implementation. Record exactly what
-  each candidate received.
-- **Targeted challenger:** freeze the incumbent and one falsifiable hypothesis.
-  Give every candidate the unchanged incumbent and create isolated children
-  that retain stated invariants and avoid unrelated cleanup. When borrowing an
-  idea, identify its source and exclude any source blocker that cannot be
-  separated from it.
+- **Ordinary:** provide the full artifact. Use identical hypotheses to test
+  agreement, or predeclare materially different hypotheses. Cosmetic variation
+  is not diversity.
+- **Blind exploration:** provide identical requirements and sanitized facts;
+  withhold incumbent presentation, implementation, lineage, votes, and prior
+  structural evidence. Require distinct hypotheses, redirect duplicates before
+  implementation, and record exactly what each candidate received.
+- **Targeted challenger:** freeze one incumbent and one falsifiable hypothesis.
+  Give each candidate the unchanged incumbent and an isolated child retaining
+  its invariants and excluding unrelated cleanup.
 
-Audit the metadata for observable, non-duplicative criteria. At the end of
-framing, record and freeze the candidate contract, judge metadata, and
-execution policy for this round. After spawning, no actor may add a requirement
-or criterion, silently alter the contract, or retroactively grade only some
-candidates. If judging, synthesis, or verification reveals a genuinely new
-requirement or criterion, invalidate the comparison for every affected
-candidate: return a **reframing-required** blocked round, or rerun the entire
-affected comparison under the revised framing only if the already frozen round
-budget permits it. Never silently patch one artifact or claim cross-round
-convergence. Give every candidate the same contract, grounding, and repository
-rules, plus only its hypothesis and destination. Targeted candidates also
-receive the unchanged incumbent; blind-exploration candidates must not receive
-it or its presentation and implementation evidence. Do not reveal candidate
-identity, model, chronology, or judge-only metadata.
+Give every candidate the same contract, facts, and repository rules, plus only
+its hypothesis and destination. Hide judge metadata and actor identity, model,
+and chronology. After spawning, a new requirement or criterion invalidates
+every affected comparison: return **reframing-required**, or rerun all affected
+candidates only when the frozen budget permits. Never patch or regrade a
+favored subset.
+
+**Frame complete:** contract, judge metadata, execution policy, mode, and all
+material preferences are frozen.
 
 ## 2. Spawn and drain
 
-Launch all candidates as separate subagent calls. Require each to return:
+Launch candidates as separate calls, concurrently where possible. Each returns:
 
 - the complete artifact at its isolated destination;
-- a concise rationale, including alternatives rejected;
-- checks performed, evidence and unknowns; and
+- concise rationale and rejected alternatives;
+- checks, evidence, and unknowns; and
 - assumptions, limitations, and unresolved decisions.
 
-Drain or wait for every call before proceeding. Record dropouts. If fewer than
-two independent usable candidates remain for the intended comparison, stop
-this round before judging or synthesis and report the blocker.
+Drain every call and record dropouts. With fewer than two independent usable
+candidates, stop before judging or synthesis.
+
+**Generation complete:** every candidate finished or dropped out, and at least
+two independent usable candidates remain.
 
 ## 3. Judge
 
-After the drain completes, normalize candidates to neutral labels and remove
-lineage, model, and chronology cues. Spawn one or more separate, independent,
-read-only judges; scale actor topology with risk and any required domain lenses,
-and prefer a different model family when no user model was fixed. Every required
-criterion still needs evidence when one judge covers several lenses. Judges
-receive the contract, judge-only metadata, and complete candidate artifacts and
-rationales—never partial outputs. Propagate the selected model to any nested
-delegation.
+Normalize candidates to neutral labels, removing lineage, model, and chronology
+cues. Spawn one or more independent, read-only judges, scaling topology with
+risk and required domain lenses. Prefer a different model family when the user
+did not fix one. Judges receive the frozen contract, judge metadata, and every
+complete artifact and rationale.
 
-The judge scores every criterion with concrete evidence, marks each required
-item **supported**, **contradicted**, or **unknown**, identifies blockers and
-missing verification, recommends a whole-artifact base, and names compatible
-ideas worth borrowing. Unknown required evidence blocks selection; absence of
-evidence is not a pass. Differences caused by unequal facts indicate grounding
-failure, not quality. Domain evaluation may strengthen required evidence,
-specialist vetoes or selection thresholds, but never weaken these rules.
+Judges support every criterion with concrete evidence; mark each required item
+**supported**, **contradicted**, or **unknown**; identify blockers and missing
+verification; recommend a whole-artifact base; and name compatible borrow
+ideas. Required unknowns and verified blockers prevent selection. Unequal facts
+are a grounding failure, not a quality difference. Domain rules may strengthen
+evidence, vetoes, or thresholds, never weaken them.
 
-Read every artifact and rationale yourself, reconcile disagreements against the
-evidence, and record the verdict. Verified blockers prevent selection.
+The coordinator reads every artifact and rationale, reconciles disagreements
+against evidence, and records the verdict.
+
+**Judging complete:** every criterion has an evidence-backed disposition,
+blockers and unknowns are recorded, and the verdict is reconciled.
 
 ## 4. Synthesize
 
-Select the strongest whole artifact as base, then use exactly one policy chosen
-in framing:
+Select the strongest whole artifact as base, then apply the frozen policy:
 
-- **Composable:** hand-graft compatible ideas while preserving one mental model.
-- **Coupled/judgment-sensitive:** make an attributable child from the unchanged
+- **Composable:** graft compatible ideas while preserving one mental model.
+- **Coupled/judgment-sensitive:** create an attributable child of the unchanged
   base and compare it directly with its parent.
-- **Indivisible:** choose a whole candidate; if no candidate is usable, report
-  the blocker without manufacturing a result.
+- **Indivisible:** choose one whole candidate, or report that none is usable.
 
-Record each material graft with its source and each rejection with its reason.
-Do not combine ideas with conflicting assumptions or inherit a blocker. When a
-shared defect prevents fair comparison, apply only an identical neutral repair
-to isolated copies and do not count that repair as evidence of superiority.
+Attribute every material graft and explain every rejection. Exclude conflicting
+assumptions and source blockers. A shared defect may receive the same neutral
+repair in isolated copies, but that repair is not evidence of superiority.
+
+**Synthesis complete:** one artifact is selected and every graft or
+rejection is recorded under the chosen policy.
 
 ## 5. Verify and return
 
-Verify the synthesized artifact using real domain evidence, examples,
-invariants, callers, and failure or extension checks—not candidate self-report.
-Compare against the unchanged base when synthesis could introduce coupled or
-subjective regressions. Mark runtime claims unverified rather than implementing
-merely to test a design-only request.
+Verify with real domain evidence: examples, invariants, callers, and failure or
+extension checks. Candidate self-report is not verification. Compare with the
+unchanged base when synthesis risks coupled or subjective regressions. For
+design-only work, keep implementation out of scope and mark runtime claims
+unverified.
 
-Return one verified artifact when established, plus a compact round record:
-the frozen contract and judge-metadata summary; actor/dropout records and
-neutral labels; judge verdict and criterion evidence; selected base; grafts and
-rejections; verification; blockers, unknowns, and remaining uncertainty; and
-compatible borrow ideas or next hypotheses for the caller. If stopped before
+Return the verified artifact plus a compact record of the frozen inputs,
+actors/dropouts and neutral labels, criterion evidence and verdict, selected
+base, grafts and rejections, verification, blockers, unknowns, remaining
+uncertainty, and useful borrow ideas or next hypotheses. If stopped before
 synthesis, return only framing, evidence, actor/dropout records, and blockers.
-Do not claim cross-round convergence or advance an incumbent: the `arena-loop`
-skill alone owns those decisions.
+Do not advance an incumbent or claim convergence.
+
+**Round complete:** the verified artifact and round record are returned, or the
+relevant blocker and evidence are returned instead.

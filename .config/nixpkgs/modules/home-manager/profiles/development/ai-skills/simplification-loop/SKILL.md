@@ -1,43 +1,29 @@
 ---
 name: simplification-loop
 description: >-
-  Repeatedly simplify, verify, and independently review an explicitly writable
-  implementation when the user requests the loop and authorizes changes.
+  Iteratively simplify, verify, and independently review an implementation to
+  convergence.
 ---
 
 # Simplification Loop
 
-## Setup
+Define the current state or diff, intended outcome, and scope. For each
+delegation, choose the least-cost sufficient model, breaking ties by speed.
 
-1. Require an explicitly writable target and user-authorized implementation.
-   Otherwise stop: invoking this implementation loop in read-only work is a
-   user error, not a request for a proposal-only fallback.
-2. Define the target state or diff, intended outcome, and scope.
-3. Select each delegation independently using the cheapest, fastest model with
-   sufficient capability. Escalate only for a concrete capability gap or risk.
+## Loop
 
-## Simplify to convergence
+1. Give a simplifier the current state or diff, outcome, scope, and repository
+   guidance. Have it apply `rethink` and rank concrete proposals.
+2. Accept only in-scope proposals that improve ownership or reduce total
+   complexity. Ask the user before removing compatibility, validation, error
+   handling, or tests if that changes support policy.
+3. Have the simplifier implement accepted proposals. Review and adopt the
+   result, verify proportionately, and repeat until none are accepted.
+4. Have a different subagent conduct a defect-first review; validate its
+   findings. If no in-scope defect is confirmed, the loop has converged.
+5. Otherwise, have the reviewer repair confirmed defects. Review and adopt the
+   result, verify it, then return to step 1.
 
-1. Give a proposal subagent the current state or diff, outcome, and repository
-   guidance. Ask it to apply the `rethink` skill and rank concrete
-   simplifications.
-2. Reject scope expansion and proposals that merely relocate complexity without
-   improving ownership or reducing total complexity. If removing compatibility,
-   validation, error handling, or tests changes support policy, ask the user
-   before implementing it.
-3. Ask the proposal subagent to implement the accepted proposals.
-   Review and adopt its resulting state, then run proportionate verification.
-4. Repeat until a proposal pass yields no accepted simplification, then review.
-
-## Review and repair
-
-1. Have an independent subagent perform a defect-first review and validate its
-   findings.
-2. Stop when no in-scope defect is confirmed.
-3. Ask the reviewing subagent to fix its confirmed defects. Review
-   and adopt its resulting state, verify it, then return to
-   **Simplify to convergence**.
-
-Stop if a simplification would reintroduce a previously repaired defect, the
-same state recurs, progress requires unresolved user guidance, or verification
-fails.
+Stop without convergence if the state repeats, verification fails, user
+guidance remains unresolved, or a simplification would reintroduce a repaired
+defect.

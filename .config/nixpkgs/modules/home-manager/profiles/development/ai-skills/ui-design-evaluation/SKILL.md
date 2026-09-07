@@ -1,76 +1,65 @@
 ---
 name: ui-design-evaluation
 description: >-
-  Apply UI-specific criteria, rendered evidence requirements, accessibility and
-  recovery safeguards, and acceptance rubrics when evaluating, planning,
-  comparing, or reviewing user interfaces.
+  Evaluate, plan, compare, or review user interfaces using rendered task
+  evidence, accessibility and recovery safeguards, and blocker-based acceptance
+  criteria.
 ---
 
 # UI Design Evaluation
 
-Evaluate whether people can understand and complete real work through a
-truthful, accessible, coherent and recoverable interface. This skill supplies a
-domain contract only: it does not choose candidate topology, dispatch judges,
-advance a winner or claim convergence.
+Evaluate whether people can complete real work through a truthful, accessible,
+coherent, and recoverable interface. This domain contract supplies criteria;
+callers own orchestration, judging, advancement, and convergence.
 
-## Ground the evaluation
+## Ground in tasks and evidence
 
-Use product-specific goals, roles, capabilities, scenarios and fixtures. Keep
-them equal across alternatives, along with theme, viewport, input method,
-permissions and available behavior. Resolve user-owned priorities when they
-materially affect the criteria; do not invent product policy.
+Build a product-specific **task matrix** from goals, roles, capabilities,
+fixtures, and applicable cases: routine and repeated work; lifecycle and
+recovery; long or empty content; narrow and intermediate widths; keyboard and
+touch; and validation, loading, and error states. For comparisons, hold the
+matrix, theme, viewport, input method, permissions, and available behavior
+constant. Material priorities and product policy remain user-owned.
 
-For each scenario, record the expected result and the observed path, including
-hesitation, wrong turns, recovery and outcome. Use rendered evidence for visual,
-geometry, focus, reflow and interaction claims. Source can corroborate semantics
-or validation but cannot replace rendered behavior. Mark unavailable evidence
-incomplete and unsupported capabilities not comparable; infrastructure failure
-is not design evidence.
+For each scenario, record its expected result and observed path, including
+hesitation, wrong turns, recovery, and outcome. Require rendered evidence for
+visual, geometry, focus, reflow, and interaction claims; source only
+corroborates semantics or validation. Classify unavailable evidence
+**incomplete**, unsupported capabilities **not comparable**, and infrastructure
+failures **non-design evidence**.
 
 ## Apply the domain lenses
 
-Cover every applicable lens. They are criterion bundles, not mandatory actor
-roles.
+Cover every applicable lens as a criterion bundle, not an actor role.
 
 - **Operations and recovery:** task identification, decision cost, preserved
-  context, truthful state, predictable lifecycle actions, correction and error
-  recovery, destructive confirmation and unsaved-change safety.
-- **Accessibility and targets:** semantic structure and announcements,
-  contextual accessible names, keyboard operation, focus order/visibility and
-  return focus, honest target geometry, target size and spacing, contrast and
-  color-independent state, responsive reflow, zoom and disabled-state
-  explanations.
-- **Visual and information architecture:** hierarchy, grouping, density,
-  context, action prediction, label and destination clarity, responsive and
-  long-content composition, and credible extension without an undifferentiated
-  dumping ground.
+  context, truthful state, predictable lifecycle actions, recovery, destructive
+  confirmation, and unsaved-change safety.
+- **Accessibility and targets:** semantics and announcements, contextual names,
+  keyboard use, focus order/visibility/return, honest target geometry, size and
+  spacing, contrast and color-independent state, reflow, zoom, and explanations
+  for disabled states.
+- **Visual and information architecture:** hierarchy, grouping, density and
+  context, action and destination clarity, responsive and long-content
+  composition, and coherent extensibility.
 - **Interaction consistency:** stable rules across surfaces, entities, states,
-  widths and input methods. For recurring controls, compare visible and
+  widths, and input methods. Compare recurring controls by visible and
   accessible labels, affordance, scope, outcome, risk, destination/return path,
-  state behavior and responsive/input behavior.
+  state, and responsiveness.
 
-Equal-looking or equal-labelled controls should behave alike; materially
-different outcomes should look and read differently. Selection, passive
-information, navigation, disclosure and mutation must not masquerade as one
-another. Equivalent rows and cards need predictable targets, and lifecycle
-state must remain consistent wherever it affects action.
+Like-looking or like-labelled controls should behave alike; different outcomes
+should look and read differently. Keep selection, information, navigation,
+disclosure, and mutation distinct. Equivalent rows and cards need predictable
+targets; actionable lifecycle state must remain consistent.
 
-## Build relevant scenarios
+## Apply blocker-based acceptance
 
-Derive concrete scenarios from the product rather than a fixed application
-catalogue. Consider routine work, repeated similar items, lifecycle transitions,
-correction and recovery, long or empty histories, phone and intermediate widths,
-keyboard and touch operation, and validation/loading/error states when relevant.
+Blockers are inaccessible critical paths, unusable reflow or focus order,
+misleading targets, unsafe destructive behavior, unpredictable action scope,
+and state or input inconsistencies that create stale assumptions. Blockers
+outrank aggregate scores and visual polish. Callers may add stronger evidence
+requirements, specialist vetoes, or thresholds.
 
-## Treat safety evidence as decisive
-
-Inaccessible critical paths, unusable reflow or focus order, misleading targets,
-unsafe destructive behavior, unpredictable action scope, and state or
-input-method inconsistencies that can create stale assumptions are blockers.
-Do not average them away or let visual polish outweigh them. A caller may impose
-stronger evidence, specialist vetoes or thresholds, but must not weaken these
-domain safeguards.
-
-For a standalone evaluation, return concrete evidence, defects, trade-offs,
-incomplete evidence and applicable blockers. Comparative preference is not a
-tournament advancement or convergence decision.
+Return evidence, defects, trade-offs, incomplete evidence, and blockers. A
+standalone comparative preference does not advance a tournament or establish
+convergence.

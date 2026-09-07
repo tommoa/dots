@@ -1,43 +1,37 @@
 ---
 name: code-obviousness
 description: >-
-  Use when reviewing a concrete implementation or diff for behavior that is
-  hard to infer locally.
+  Review a concrete implementation or diff when behavior is hard to infer
+  locally.
 ---
 
 # Code Obviousness
 
-Audit concrete implementations and diffs using current code, diffs, callers,
-tests, and local conventions. Follow a maintainer's reading path from local
-meaning through behavior, intent, and peer comparison. Do not infer from
-history. Report only concrete reader burden or risk; formatting, taste, and
-unfamiliarity alone are not findings. Preserve clean/control behavior and state
-unknowns rather than guessing.
+Review concrete code or diffs along a maintainer's reading path. Use current
+code, callers, tests, and local conventions; exclude history. A finding requires
+concrete reader burden or risk: formatting, taste, unfamiliarity, and
+non-uniformity alone are insufficient.
 
-For each lens, give compact **Observation** (evidence), **Inference**
-(reader-facing consequence), and **Unknowns** (missing evidence). Keep each
-concern independently actionable.
+For every lens, give a compact **Observation** (evidence), **Inference**
+(reader consequence), and **Unknowns** (missing evidence). Keep clean lenses
+brief and each concern independently actionable.
 
-1. **Names and local meaning.** Check whether names, types, scopes, and nearby
-   expressions reveal the actual domain meaning, units, ownership, and effects.
-2. **Control flow and state.** Trace branches, mutation, ordering, lifetimes,
-   failure paths, callbacks, and hidden effects. Flag behavior that cannot be
-   inferred locally or makes a reader simulate needless state.
-3. **Comments and intent.** Require concise comments for non-trivial functions
-   or blocks: useful what and why, including constraints or invariants. Reject
-   line-by-line narration and comments on self-explanatory statements.
-4. **Semantic consistency and conventions.** Compare related code, callers,
-   tests, and local conventions for conflicting terminology, defaults, error
-   meaning, lifecycle, or equivalent behavior expressed inconsistently. First
-   establish that peers share a domain and contract: preserve intentional
-   differences in domain meaning, policy, or lifecycle, and do not turn
-   non-uniformity into a style finding. Report a difference only when evidence
-   shows it obscures or contradicts the relevant shared semantics.
+1. **Local meaning:** Do names, types, scopes, and nearby expressions reveal
+   domain meaning, units, ownership, and effects?
+2. **Control and state:** Trace branches, mutation, ordering, lifetimes,
+   failures, callbacks, and hidden effects. Identify behavior that is not
+   locally inferable or forces needless state simulation.
+3. **Comments and intent:** Non-trivial functions or blocks need concise comments
+   explaining what and why, including constraints or invariants. Skip
+   self-explanatory statements and line-by-line narration.
+4. **Semantic consistency:** Compare related code, callers, tests, and
+   conventions for conflicting terminology, defaults, error meaning, lifecycle,
+   or equivalent behavior. Compare only peers sharing a domain and contract;
+   preserve intentional differences in meaning, policy, or lifecycle.
 
-Expand each material finding with evidence, reader-facing consequence, smallest
-viable alternative, trade-offs, and verification. Use tests, targeted
-inspection, or another observable check when relevant. Say what evidence would
-resolve an Unknown. Keep clean lenses clean. If no material finding exists,
+Expand each material finding with evidence, reader consequence, the smallest
+viable alternative, trade-offs, and a check that would confirm or disconfirm the
+concern. State what would resolve each unknown. If there is no material finding,
 state exactly:
 
 **No material code-obviousness finding; the implementation is proportionate to the available evidence.**

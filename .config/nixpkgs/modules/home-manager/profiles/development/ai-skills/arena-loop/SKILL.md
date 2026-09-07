@@ -1,120 +1,101 @@
 ---
 name: arena-loop
 description: >-
-  Repeatedly challenge and improve a consequential artifact through bounded
-  arena rounds when the user explicitly requests sustained iteration toward
-  evidence-based convergence.
+  Run bounded, resumable arena rounds when the user explicitly requests
+  sustained iteration on a consequential artifact toward evidence-based
+  convergence.
 ---
 
 # Arena Loop
 
-Run a resumable programme of targeted `arena` rounds. The `arena` skill owns
-candidate generation, within-round judging, synthesis, and verification; this
-skill owns the incumbent, cross-round evidence, advancement, backlog, budget,
-and stopping.
-Keep domain workflows authoritative for domain-specific evidence and vetoes.
+Orchestrate `arena` rounds against a frozen incumbent. `arena` owns each round;
+this skill owns cross-round state, advancement, backlog, budget, and stopping.
+Domain workflows own domain evidence and vetoes.
 
-## State machine
+## Set up the programme
 
-Maintain a durable ledger (and return it) with the programme input, immutable
-artifact paths and hashes, round records, actor records, advancement evidence,
-verification, backlog, and terminal state.
+Create and return a durable ledger of programme input, immutable artifacts and
+hashes, rounds, actors, evidence, verification, backlog, and terminal state.
 
-`INPUT → [SEED] → SELECT → ARENA → GATE → RECORD → (CONVERGED | STOP | SELECT)`
+Before any round:
 
-- **INPUT.** Freeze intended outcome, user scope and permissions, domain
-  invariants/non-goals, selected-model policy and round budget. Apply the
-  `arena` skill's framing and preference audit before freezing the candidate
-  contract, judge metadata, required evidence, advancement rubric, fixed
-  execution-policy fields and any applicable domain evaluation for the whole
-  programme. Record confirmed decisions and whether `grilling` was required.
-  Default to two targeted challenger rounds. Record whether an incumbent exists
-  and the stopping rules. Classify design-space coverage as `required`,
-  `already evidenced`, or `not material`, with evidence or reason; freeze this
-  disposition before running rounds. When resuming the loop or receiving a new
-  requirement, rerun the audit; affected evidence is stale until reframing
-  completes.
-- **SEED.** If there is no incumbent, invoke the `arena` skill once on the full
-  task. Keep its verified artifact as round-zero incumbent; this establishes an
-  incumbent, never convergence. If seeding cannot produce a verified artifact,
-  fail closed.
-- **SELECT.** Pick exactly one highest-materiality, untested backlog hypothesis,
-  ordered by blocker severity, user impact, evidence, and regression risk. State
-  the falsifiable expected improvement, retained invariants, non-goals,
-  affected scenario, required evidence, and the frozen incumbent. A hypothesis
-  must be in scope, distinct, and testable; disposition optional/low-value ideas
-  (`deferred` or `rejected`, with reason) instead of using them to force rounds.
-  If design-space coverage is `required`, select a blind broad challenge before
-  claiming convergence. Otherwise use a broad arena only when new evidence
-  shows the design space remains materially underexplored.
-- **ARENA.** Invoke the `arena` skill with the frozen incumbent and one
-  hypothesis, using targeted-challenger mode for focused tests and blind-
-  exploration mode for required design-space coverage. Pass the frozen
-  candidate contract and judge metadata unchanged. It must return a complete
-  verified challenger and provenance.
-  Its candidates remain isolated children or temporary artifacts. Do not
-  simulate actors, self-judge, or mutate the incumbent. Preserve challenger and
-  all round evidence. If required delegation, isolation, verification, or
-  actors fail, stop the round and fail closed.
-- **GATE.** After the `arena` round drains, normalize incumbent/challenger to
-  neutral labels and send both complete artifacts, fixed facts/rubric, and
-  identical evidence to a separate, read-only advancement judge. The arena
-  winner is not an advancement decision. Read both artifacts and the verdict.
-  Advance only
-  when the challenger is preferred under the fixed rule, has no verified
-  blocker or material regression, satisfies every required criterion with
-  non-unknown evidence, and passes domain vetoes. Applicable domain evaluation
-  may require specialist lenses, stronger evidence, additional vetoes or a
-  stricter threshold, but cannot weaken this gate. Ties, split specialist
-  verdicts, unknown required evidence, or failed verification preserve the
-  incumbent. Record blockers, regressions, unknowns, compatible borrow ideas,
-  and recommendation even when rejecting.
-- **RECORD.** Preserve both immutable artifacts and append the round, actor
-  identities/roles/models/destinations/statuses, hypothesis, evidence, verdict,
-  and verification. Adopt only the gated challenger; otherwise retain the
-  incumbent. Update each backlog item as `untested`, `adopted`, `rejected`,
-  `incompatible`, or `deferred` with evidence and reason. Record remaining
-  weaknesses, design-space coverage and the next eligible hypothesis. A new
-  requirement makes affected evidence stale and requires reframing before
-  another round.
-- **CONVERGED.** Claim convergence only if the incumbent has no verified
-  blocker or required unknown; its highest-priority known weakness received a
-  focused challenge; every material compatible item has a reasoned disposition;
-  required design-space coverage received a blind broad challenge (or remains
-  supported as `already evidenced` or `not material`); and the latest
-  independent evidence identifies no further material, in-scope,
+1. Freeze the outcome, scope, permissions, invariants, non-goals, model policy,
+   budget, incumbent, and stopping rules. Default to two targeted rounds.
+2. Apply `arena` framing and preference audit. Freeze its contract, judge
+   metadata, evidence, advancement rubric, execution policy, and domain
+   evaluation programme-wide. Record decisions and any use of `grilling`.
+3. Classify design-space coverage as `required`, `already evidenced`, or `not
+   material`, with its evidence or reason.
+
+On resume or a new requirement, repeat the audit; affected evidence stays stale
+until reframing completes. Begin actors only after resolving framing and
+user-owned choices.
+
+## Run one round
+
+1. **Seed if needed.** With no incumbent, invoke `arena` once on the full task
+   and keep its verified artifact as round zero. Seeding establishes an
+   incumbent, not convergence. Stop if it produces no verified artifact.
+2. **Select one hypothesis.** Choose the highest-materiality in-scope,
+   distinct, testable untested backlog item, ordered by blockers, user impact,
+   evidence, and regression risk. Record its falsifiable improvement,
+   invariants, non-goals, scenario, required evidence, and frozen incumbent.
+   Mark low-value ideas `deferred` or `rejected` with reasons.
+   When design-space coverage is `required`, select a blind broad challenge
+   before convergence; otherwise use broad exploration only when evidence
+   shows material underexploration.
+3. **Run `arena`.** Use targeted-challenger mode for a focused hypothesis and
+   blind-exploration mode for required coverage. Pass the frozen incumbent,
+   candidate contract, and judge metadata unchanged. Preserve the verified
+   challenger, provenance, and round evidence as complete, isolated, immutable
+   artifacts. Failure of required delegation, isolation, verification, or
+   actors ends the round without advancement.
+4. **Gate advancement.** After the arena drains, give the neutrally labeled,
+   complete artifacts, fixed facts and rubric, and identical evidence to a
+   separate read-only judge. Advance only when the challenger is preferred,
+   has no verified blocker or material regression, satisfies every required
+   criterion with known evidence, and passes all domain vetoes. Domain
+   evaluation may only strengthen this gate. Ties, split verdicts, unknowns,
+   and failed verification retain the incumbent.
+5. **Record and continue.** Append actors, models, destinations, statuses,
+   hypothesis, evidence, verdict, recommendation, blockers, regressions,
+   unknowns, borrow ideas, and verification. Adopt only the gated challenger.
+   Mark each backlog item `untested`, `adopted`, `rejected`, `incompatible`, or
+   `deferred` with evidence and reason. Record weaknesses, coverage, and the
+   next eligible hypothesis.
+
+## Preserve independence and authority
+
+- Keep criteria fixed within each comparison. The arena winner is evidence,
+  not the advancement decision.
+- Use separate executions for actors and the advancement judge. Record their
+  identity, role, model, destination, and status. Keep those details out of
+  neutral labels.
+- Propagate an explicitly user-selected model exactly to every arena actor,
+  advancement judge, and nested delegation. Otherwise record the selected
+  models.
+- Preserve the user's goal, scope, permissions, and verification authority.
+  Isolate read-only work in temporary destinations. Keep artifacts immutable
+  until the gate completes.
+
+## Finish
+
+Claim **converged** only when all of these hold:
+
+- the incumbent has no verified blocker or required unknown;
+- its highest-priority known weakness received a focused challenge;
+- every material compatible backlog item has a reasoned disposition;
+- required broad coverage was tested, or remains evidenced as `already
+  evidenced` or `not material`; and
+- the latest independent evidence exposes no further material, in-scope,
   evidence-supported hypothesis.
-- **STOP.** Stop without a convergence claim when budget is exhausted, state
-  repeats, two properly formed challenges fail on the same hypothesis,
-  verification/evidence/required actors are unavailable, or unresolved
-  user-owned policy needs the `grilling` skill or other guidance. Return the
-  best verified incumbent and unmet convergence conditions; if none exists,
-  return blockers and programme state only.
 
-## Actor and permission rules
+Stop without convergence when the budget expires, state repeats, two valid
+challenges fail on one hypothesis, evidence, verification, isolation, or actors
+are unavailable, or a user-owned choice remains unresolved.
 
-Freeze criteria within each comparison. Do not spawn actors while framing or
-`grilling` remains unresolved. Propagate an explicitly user-selected model
-exactly to every `arena` actor, advancement judge, and nested delegation in
-every round;
-otherwise record model choices. Never let chronology, identity, model, or
-lineage leak into neutral comparison labels. Required actors are genuinely
-independent executions: no internal passes, simulated candidates, or
-coordinator self-judgment.
-
-The loop never broadens the user's goal, writable scope, permissions, or
-verification authority. In read-only work, all proposals and ledger records go
-to temporary/isolated destinations. Incumbents and challengers are immutable;
-never patch an incumbent in place before a gate. If delegation or isolation is
-not available, stop before synthesis or advancement rather than silently
-continuing.
-
-## Return contract
-
-Return the best verified incumbent (or only blockers if none was established),
-convergence status (explicitly distinguish “best verified” from “converged”),
-complete resumable ledger and backlog dispositions, round/actor records,
-advancement evidence, verification, stopping reason, remaining uncertainty,
-and unmet convergence conditions. Include compatible borrow ideas and the next
-hypothesis when useful. Do not reduce domain evidence to generic score
-arithmetic or claim convergence from a winning streak.
+Return the best verified incumbent labeled `converged` or `best verified`;
+resumable ledger and backlog; advancement and verification evidence; stopping
+reason; uncertainty; and unmet conditions. Without an incumbent, return only
+blockers and programme state. Include borrow ideas and the next hypothesis when
+useful. Evaluate domain evidence directly: a winning streak is not convergence.
