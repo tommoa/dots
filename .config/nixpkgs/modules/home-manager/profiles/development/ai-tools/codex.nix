@@ -78,6 +78,7 @@ in {
         agents = {
           default_subagent_model = "gpt-5.6-luna";
           default_subagent_reasoning_effort = "high";
+          max_concurrent_threads_per_session = 32;
         };
         # This needs to be disabled for now, as my work proxy rejects reasoning summaries
         # for codex-auto-review.
