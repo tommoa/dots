@@ -328,6 +328,28 @@
       "runCount": 4
     },
     {
+      "sourceModel": "gemini-3-8-flash",
+      "effort": "medium",
+      "passAt1": 0.7101769911504425,
+      "meanCostUsd": 1.9671024789823006,
+      "meanInputTokens": 16863939.814159293,
+      "meanOutputTokens": 124684.36283185841,
+      "meanAgentSteps": 147.30088495575222,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "gemini-3-8-flash",
+      "effort": "high",
+      "passAt1": 0.738255033557047,
+      "meanCostUsd": 2.362349413758389,
+      "meanInputTokens": 21734449.25279642,
+      "meanOutputTokens": 143242.6644295302,
+      "meanAgentSteps": 166.3131991051454,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
       "sourceModel": "glm-5-2",
       "effort": "high",
       "passAt1": 0.36283185840707965,
@@ -357,6 +379,17 @@
       "meanInputTokens": 13272344.266075388,
       "meanOutputTokens": 80435.60975609756,
       "meanAgentSteps": 124.47228381374723,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "glm-5-3-flash",
+      "effort": "max",
+      "passAt1": 0.6339285714285714,
+      "meanCostUsd": 0.48196371245535713,
+      "meanInputTokens": 12387025.401785715,
+      "meanOutputTokens": 72829.77008928571,
+      "meanAgentSteps": 122.890625,
       "taskCount": 113,
       "runCount": 4
     },
@@ -596,6 +629,61 @@
       "meanInputTokens": 9230560.541019956,
       "meanOutputTokens": 71938.62527716186,
       "meanAgentSteps": 75.9290465631929,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "gpt-6-astra",
+      "effort": "low",
+      "passAt1": 0.6703539823008849,
+      "meanCostUsd": 2.188762706637168,
+      "meanInputTokens": 494506.91150442476,
+      "meanOutputTokens": 10579.53982300885,
+      "meanAgentSteps": 19.537610619469028,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "gpt-6-astra",
+      "effort": "medium",
+      "passAt1": 0.7278761061946902,
+      "meanCostUsd": 4.379527705752213,
+      "meanInputTokens": 1008238.2898230088,
+      "meanOutputTokens": 20361.809734513274,
+      "meanAgentSteps": 26.030973451327434,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "gpt-6-astra",
+      "effort": "high",
+      "passAt1": 0.7323008849557522,
+      "meanCostUsd": 5.723721956194691,
+      "meanInputTokens": 1283270.8030973452,
+      "meanOutputTokens": 26505.853982300883,
+      "meanAgentSteps": 27.424778761061948,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "gpt-6-astra",
+      "effort": "xhigh",
+      "passAt1": 0.7411504424778761,
+      "meanCostUsd": 6.52377356460177,
+      "meanInputTokens": 1456927.0929203539,
+      "meanOutputTokens": 29557.327433628318,
+      "meanAgentSteps": 28.754424778761063,
+      "taskCount": 113,
+      "runCount": 4
+    },
+    {
+      "sourceModel": "gpt-6-astra",
+      "effort": "max",
+      "passAt1": 0.7323008849557522,
+      "meanCostUsd": 12.369032401327434,
+      "meanInputTokens": 2183033.681415929,
+      "meanOutputTokens": 61148.50663716814,
+      "meanAgentSteps": 28.45353982300885,
       "taskCount": 113,
       "runCount": 4
     },
