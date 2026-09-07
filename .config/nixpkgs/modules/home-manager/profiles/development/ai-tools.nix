@@ -124,6 +124,7 @@
     change-amplification = ./ai-skills/change-amplification;
     code-obviousness = ./ai-skills/code-obviousness;
     commit = ./ai-skills/commit;
+    data-oriented-review = ./ai-skills/data-oriented-review;
     grilling = ./ai-skills/grilling;
     obscurity-review = ./ai-skills/obscurity-review;
     rethink = ./ai-skills/rethink;
