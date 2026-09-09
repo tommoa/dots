@@ -79,6 +79,8 @@
         "@testpilot-containers" = "multi-account-containers";
         "@contain-facebook" = "facebook-container";
         "{04188724-64d3-497b-a4fd-7caffe6eab29}" = "rust-search-extension";
+        "enhancerforyoutube@maximerf.addons.mozilla.org" = "enhancer-for-youtube";
+        "{c49b13b1-5dee-4345-925e-0c793377e3fa}" = "youtube-enhancer-vc";
       };
     };
     nativeMessagingHosts =
