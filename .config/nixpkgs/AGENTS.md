@@ -1,7 +1,8 @@
 # Agent Guidelines for Nix Configuration Repository
 
 ## Build/Update Commands
-- **Update system**: `./update-nix [system|home|both] [config-name]` (auto-detects: apollo, james)
+- **Update configuration**: `./update-nix [system|home] [config-name]` (defaults to system when available, otherwise standalone home-manager; system rebuilds include home-manager)
+- **Test updater**: `python3 -m unittest discover -s tests -p 'test_update_nix.py'` (mocked commands under `/bin/sh` and Dash; no real updates or switches)
 - **Validate flake**: `nix flake check` (validates flake syntax and builds)
 - **Format code**: `nix fmt` (uses `nixfmt-rfc-style`)
 - **Build home config**: `nix build .#homeConfigurations."toma@work".activationPackage`

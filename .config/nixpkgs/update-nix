@@ -1,159 +1,92 @@
 #!/bin/sh
 
-# POSIX shell script to detect and upgrade current nix configuration
-# Handles both system configurations and home-manager configurations
+# Shell script to update and activate the current Nix configuration.
+# `local` is supported by the shells used for this script, including Dash.
 
 set -e
 
-# Nix command flags for experimental features
+# Nix command flags for experimental features.
 NIX_FLAGS="--extra-experimental-features nix-command --extra-experimental-features flakes $NIX_FLAGS"
 
-# Colors for output
-blue=$'\033[38;5;4m'
-green=$'\033[38;5;85m'
-red=$'\033[38;5;1m'
-orange=$'\033[38;5;208m'
-cyan=$'\033[38;5;6m'
-bold=$'\033[1m'
-reset=$'\033[m'
-
-# Inputs excluded from updates by default (space-separated)
+# Keep the flake location and resource policy in one place.  The two pseudo-
+# inputs are package-local resources that are refreshed alongside the flake.
+FLAKE_DIR="${HOME}/.config/nixpkgs"
 DEFAULT_EXCLUDED_INPUTS="obsidian-headless model-benchmarks"
-
-# Pseudo-inputs: not real flake inputs but refreshable resources with the same
-# --<name>/--no-<name> flag UX. Skipped during flake input validation.
 PSEUDO_INPUTS="obsidian-headless model-benchmarks"
 
-# Function to print colored output
+# Dash does not implement Bash's $'...' quoting.  printf also gives these
+# values the same escape sequences when the script is run by /bin/sh.
+blue=$(printf '\033[38;5;4m')
+green=$(printf '\033[38;5;85m')
+red=$(printf '\033[38;5;1m')
+orange=$(printf '\033[38;5;208m')
+cyan=$(printf '\033[38;5;6m')
+bold=$(printf '\033[1m')
+reset=$(printf '\033[m')
+
+# Values resolved during preflight.
+SYSTEM_TYPE=""
+HAS_SYSTEM=false
+HAS_HOME=false
+MODE=""
+TARGET_CONFIG=""
+FLAKE_ATTR=""
+ALL_INPUTS=""
+SELECTED_REAL_INPUTS=""
+SELECTED_PSEUDO_INPUTS=""
+SKIPPED_INPUTS=""
+
 print_info() {
-    printf "${blue}[INFO]${reset} %s\n" "$1"
+    printf '%s[INFO]%s %s\n' "$blue" "$reset" "$1"
 }
 
 print_success() {
-    printf "${green}[SUCCESS]${reset} %s\n" "$1"
+    printf '%s[SUCCESS]%s %s\n' "$green" "$reset" "$1"
 }
 
 print_error() {
-    printf "${red}[ERROR]${reset} %s\n" "$1"
+    printf '%s[ERROR]%s %s\n' "$red" "$reset" "$1" >&2
 }
 
 print_warning() {
-    printf "${orange}[WARNING]${reset} %s\n" "$1"
+    printf '%s[WARNING]%s %s\n' "$orange" "$reset" "$1"
 }
 
-# Function to get all flake inputs from lockfile
-get_flake_inputs() {
-    local flake_dir="${HOME}/.config/nixpkgs"
-    jq -r '.nodes.root.inputs | keys[]' "${flake_dir}/flake.lock"
-}
-
-# Function to apply config-specific exclusions based on system type and config name
-# This adds exclusions for inputs not needed by the specific configuration
-apply_config_specific_exclusions() {
-    local config_name="$1"
-    local system_type="$2"
-    local mode="$3"
-
-    # Skip if user explicitly requested all or none (respect user intent)
-    if [ "$USE_ALL" = "true" ] || [ "$USE_NONE" = "true" ]; then
-        return 0
-    fi
-
-    # Handle 'both' mode: we need to determine what inputs are needed by either config
-    if [ "$mode" = "both" ]; then
-        # For both mode, we'll compute this separately after we have both config names
-        return 0
-    fi
-
-    # Platform-specific exclusions
-    case "$system_type" in
-        linux)
-            # Linux configs don't need Darwin-specific inputs
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "nixpkgs-darwin")
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "nix-darwin")
-            print_info "Linux config detected: excluding nixpkgs-darwin, nix-darwin"
-            ;;
-        darwin)
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "codex-desktop-linux")
-            print_info "Darwin config detected: excluding codex-desktop-linux"
-            ;;
-    esac
-
-    # Server vs Desktop detection
-    case "$config_name" in
-        *server*)
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "zen-browser")
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "codex-desktop-linux")
-            print_info "Server config detected: excluding zen-browser"
-            ;;
-    esac
-}
-
-# Function to check if a value is in a space-separated list
 list_contains() {
     local list="$1"
     local item="$2"
-    for i in $list; do
-        if [ "$i" = "$item" ]; then
+    local value
+
+    for value in $list; do
+        if [ "$value" = "$item" ]; then
             return 0
         fi
     done
     return 1
 }
 
-# Function to add item to space-separated list (if not already present)
 list_add() {
     local list="$1"
     local item="$2"
-    if ! list_contains "$list" "$item"; then
-        if [ -z "$list" ]; then
-            echo "$item"
-        else
-            echo "$list $item"
-        fi
+
+    if list_contains "$list" "$item"; then
+        printf '%s\n' "$list"
+    elif [ -n "$list" ]; then
+        printf '%s %s\n' "$list" "$item"
     else
-        echo "$list"
+        printf '%s\n' "$item"
     fi
 }
 
-# Function to remove item from space-separated list
-list_remove() {
-    local list="$1"
-    local item="$2"
-    local result=""
-    for i in $list; do
-        if [ "$i" != "$item" ]; then
-            if [ -z "$result" ]; then
-                result="$i"
-            else
-                result="$result $i"
-            fi
-        fi
-    done
-    echo "$result"
-}
-
-# Function to detect system type and available configurations
 detect_system() {
-    local system_type=""
-    local has_system_config=false
-    local has_home_config=false
-
-    # Detect system type
     case "$(uname -s)" in
         Darwin)
-            system_type="darwin"
-            # Check if we have nix-darwin
-            if command -v darwin-rebuild >/dev/null 2>&1; then
-                has_system_config=true
-            fi
+            SYSTEM_TYPE=darwin
+            command -v darwin-rebuild >/dev/null 2>&1 && HAS_SYSTEM=true
             ;;
         Linux)
-            system_type="linux"
-            # Check if we have nixos
-            if command -v nixos-rebuild >/dev/null 2>&1; then
-                has_system_config=true
-            fi
+            SYSTEM_TYPE=linux
+            command -v nixos-rebuild >/dev/null 2>&1 && HAS_SYSTEM=true
             ;;
         *)
             print_error "Unsupported system: $(uname -s)"
@@ -161,180 +94,295 @@ detect_system() {
             ;;
     esac
 
-    # Check if we have standalone home-manager CLI.
-    # When home-manager is integrated into darwin/nixos (via darwinModules or
-    # nixosModules), the CLI typically isn't available as a standalone command,
-    # so this check effectively distinguishes integrated vs standalone setups.
     if command -v home-manager >/dev/null 2>&1; then
-        has_home_config=true
+        HAS_HOME=true
     fi
-
-    echo "${system_type}:${has_system_config}:${has_home_config}"
 }
 
-# Function to detect current home-manager configuration
 detect_home_config() {
     local username="$(whoami)"
-    local system_type="$1"
 
-    # Check if we're in a known work environment
-    local config_type="personal"
-    if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ "$(ps -o comm= -p $PPID)" = "sshd" ]; then
-        # Likely an SSH session to a server
-        config_type="server"
-    elif [ "$username" = "toma" ]; then
-        config_type="work"
+    # Hostnames are intentionally not used here: an SSH session identifies a
+    # server even when that server has an arbitrary hostname.
+    if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ "$(ps -o comm= -p "$PPID")" = "sshd" ]; then
+        printf '%s@server\n' "$username"
+    elif [ "$username" = toma ]; then
+        printf '%s\n' "$username@work"
+    else
+        printf '%s\n' "$username@personal"
     fi
-
-    echo "${username}@${config_type}"
 }
 
-# Function to detect current system configuration
-detect_system_config() {
-    echo "$(hostname)"
+show_modes() {
+    print_info "Available update modes on ${SYSTEM_TYPE}:"
+    if [ "$HAS_SYSTEM" = true ]; then
+        if [ "$SYSTEM_TYPE" = darwin ]; then
+            print_info "  ${bold}system${reset} - Update nix-darwin system configuration"
+        else
+            print_info "  ${bold}system${reset} - Update NixOS system configuration"
+        fi
+    fi
+    if [ "$HAS_HOME" = true ]; then
+        print_info "  ${bold}home${reset} - Update home-manager configuration"
+    fi
 }
 
-# Function to check if configuration exists in flake
-check_config_exists() {
-    local config_type="$1"  # "system" or "home"
-    local config_name="$2"
-    local flake_dir="${HOME}/.config/nixpkgs"
+resolve_target() {
+    local requested_mode="$1"
+    local config_override="$2"
 
-    if [ ! -f "${flake_dir}/flake.nix" ]; then
-        print_error "Flake not found at ${flake_dir}/flake.nix"
-        exit 1
+    if [ -z "$requested_mode" ]; then
+        if [ "$HAS_SYSTEM" = true ]; then
+            requested_mode=system
+        elif [ "$HAS_HOME" = true ]; then
+            requested_mode=home
+        else
+            print_error "No rebuild command or home-manager is available"
+            exit 1
+        fi
     fi
 
-    local flake_attr=""
-    case "$config_type" in
+    case "$requested_mode" in
         system)
-            case "$(uname -s)" in
-                Darwin) flake_attr="darwinConfigurations" ;;
-                Linux) flake_attr="nixosConfigurations" ;;
+            if [ "$HAS_SYSTEM" != true ]; then
+                print_error "System configuration is not available on this system"
+                show_modes
+                exit 1
+            fi
+            MODE=system
+            TARGET_CONFIG="${config_override:-$(hostname)}"
+            case "$SYSTEM_TYPE" in
+                darwin) FLAKE_ATTR=darwinConfigurations ;;
+                linux) FLAKE_ATTR=nixosConfigurations ;;
             esac
             ;;
         home)
-            flake_attr="homeConfigurations"
+            if [ "$HAS_HOME" != true ]; then
+                print_error "Home-manager is not available on this system"
+                show_modes
+                exit 1
+            fi
+            MODE=home
+            TARGET_CONFIG="${config_override:-$(detect_home_config)}"
+            FLAKE_ATTR=homeConfigurations
+            ;;
+        both)
+            print_error "The 'both' mode has been removed; integrated system configurations include Home Manager"
+            show_modes
+            exit 1
+            ;;
+        *)
+            print_error "Invalid mode: $requested_mode"
+            show_modes
+            exit 1
             ;;
     esac
 
-    # Check if the configuration exists in the flake
-    local config_exists=$(nix eval ${NIX_FLAGS} "${flake_dir}#${flake_attr}" --apply "builtins.hasAttr \"${config_name}\"" 2>/dev/null)
-    if [ "$config_exists" != "true" ]; then
-        print_error "Configuration '${config_name}' not found in ${flake_attr}"
-        print_info "Available configurations:"
-        nix eval ${NIX_FLAGS} "${flake_dir}#${flake_attr}" --apply builtins.attrNames
+    print_info "Update mode: ${bold}${MODE}${reset}"
+    print_info "Configuration: ${bold}${TARGET_CONFIG}${reset}"
+}
+
+check_config_exists() {
+    local config_attrs
+    local available
+
+    if [ ! -f "${FLAKE_DIR}/flake.nix" ]; then
+        print_error "Flake not found at ${FLAKE_DIR}/flake.nix"
+        exit 1
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        print_error "jq is required to inspect flake metadata"
+        exit 1
+    fi
+
+    # Evaluate only the fixed output attribute, and compare the user supplied
+    # configuration name as data with jq.  This avoids putting that name into
+    # Nix source and keeps evaluation read-only.
+    if ! config_attrs=$(nix eval ${NIX_FLAGS} --no-write-lock-file --json \
+        "${FLAKE_DIR}#${FLAKE_ATTR}" --apply builtins.attrNames); then
+        print_error "Could not evaluate ${FLAKE_ATTR} from ${FLAKE_DIR}"
+        exit 1
+    fi
+    if printf '%s\n' "$config_attrs" | jq -e --arg config "$TARGET_CONFIG" \
+        'index($config) != null' >/dev/null; then
+        return 0
+    fi
+
+    print_error "Configuration '${TARGET_CONFIG}' not found in ${FLAKE_ATTR}"
+    available=$(printf '%s\n' "$config_attrs" | jq -r '.[]' | tr '\n' ' ')
+    print_info "Available configurations: ${available}"
+    exit 1
+}
+
+get_flake_inputs() {
+    local metadata
+
+    if ! metadata=$(nix flake metadata ${NIX_FLAGS} --no-write-lock-file --json "$FLAKE_DIR"); then
+        print_error "Could not inspect flake metadata"
+        exit 1
+    fi
+
+    # Metadata's lock graph names its root node explicitly.  Reading that
+    # node handles flakes whose root is not literally named `root` and avoids
+    # consulting a possibly stale flake.lock directly.
+    if ! printf '%s\n' "$metadata" | jq -r '
+        .locks as $locks
+        | ($locks.nodes[$locks.root].inputs // {})
+        | keys[]
+    '; then
+        print_error "Could not read root inputs from flake metadata"
         exit 1
     fi
 }
 
-# Function to update flake inputs
-update_flake() {
-    local flake_dir="${HOME}/.config/nixpkgs"
+validate_explicit_inputs() {
+    local input
 
-    print_info "Updating flake inputs..."
-
-    # First, sync flake.lock with flake.nix (adds new inputs, removes deleted ones)
-    if ! nix flake lock ${NIX_FLAGS} "$flake_dir"; then
-        print_error "Failed to lock flake"
-        exit 1
-    fi
-
-    # Get current inputs from metadata
-    local all_inputs=$(get_flake_inputs)
-
-    # Validate explicitly mentioned inputs (error if not found)
-    validate_explicit_inputs "$all_inputs" "$MENTIONED_INPUTS"
-
-    # Validate default exclusions (warn if not found, remove from list)
-    validate_default_exclusions "$all_inputs"
-
-    # Build lists of inputs to update and skip
-    local to_update=""
-    local to_skip=""
-    for input in $all_inputs; do
-        if list_contains "$EXCLUDED_INPUTS" "$input"; then
-            to_skip=$(list_add "$to_skip" "$input")
-        else
-            to_update=$(list_add "$to_update" "$input")
-        fi
-    done
-
-    # Append pseudo-input status to the skip/update lists for display
-    local pseudo_skip=""
-    local pseudo_update=""
-    for pseudo in $PSEUDO_INPUTS; do
-        if list_contains "$EXCLUDED_INPUTS" "$pseudo"; then
-            pseudo_skip=$(list_add "$pseudo_skip" "$pseudo")
-        else
-            pseudo_update=$(list_add "$pseudo_update" "$pseudo")
-        fi
-    done
-
-    # Print what we're doing
-    local skip_display="$to_skip"
-    if [ -n "$pseudo_skip" ]; then
-        if [ -n "$skip_display" ]; then
-            skip_display="$skip_display $pseudo_skip"
-        else
-            skip_display="$pseudo_skip"
-        fi
-    fi
-    local update_display="$to_update"
-    if [ -n "$pseudo_update" ]; then
-        if [ -n "$update_display" ]; then
-            update_display="$update_display $pseudo_update"
-        else
-            update_display="$pseudo_update"
-        fi
-    fi
-    if [ -n "$skip_display" ]; then
-        print_info "Skipping: ${cyan}${skip_display}${reset}"
-    fi
-    if [ -n "$update_display" ]; then
-        print_info "Updating: ${cyan}${update_display}${reset}"
-    fi
-
-    # Run the update if there are inputs to update
-    if [ -n "$to_update" ]; then
-        if ! nix flake update ${NIX_FLAGS} $to_update --flake "$flake_dir"; then
-            print_error "Failed to update flake inputs"
-            exit 1
-        fi
-    else
-        print_info "No inputs to update"
-    fi
-}
-
-# Function to update pseudo-inputs backed by package-local update scripts
-update_pseudo_inputs() {
-    local flake_dir="${HOME}/.config/nixpkgs"
-    local pseudo=""
-    local script=""
-
-    for pseudo in $PSEUDO_INPUTS; do
-        if list_contains "$EXCLUDED_INPUTS" "$pseudo"; then
+    for input in $MENTIONED_INPUTS; do
+        if list_contains "$PSEUDO_INPUTS" "$input"; then
             continue
         fi
+        if ! list_contains "$ALL_INPUTS" "$input"; then
+            print_error "Unknown input: '$input'"
+            print_info "Available inputs: $(printf '%s\n' "$ALL_INPUTS" | tr '\n' ' ')"
+            exit 1
+        fi
+    done
+}
 
-        case "$pseudo" in
-            model-benchmarks)
-                script="${flake_dir}/modules/home-manager/profiles/development/ai-skills/model-selection/update.sh"
-                ;;
-            obsidian-headless)
-                script="${flake_dir}/packages/obsidian-headless/update.sh"
-                ;;
-            *)
-                print_error "No updater configured for pseudo-input: '$pseudo'"
-                exit 1
-                ;;
-        esac
+validate_default_exclusions() {
+    local input
 
+    for input in $DEFAULT_EXCLUDED_INPUTS; do
+        if ! list_contains "$PSEUDO_INPUTS" "$input" && \
+            ! list_contains "$ALL_INPUTS" "$input"; then
+            print_warning "Excluded input '$input' does not exist in flake"
+        fi
+    done
+}
+
+# Selection is deliberately centralized.  For every real or pseudo input the
+# invariant is: explicit exclusion > explicit inclusion > --none > --all >
+# default and platform/server exclusions.  Thus flag order cannot change the
+# result, and explicit includes can opt into a normally filtered input.
+resource_selected() {
+    local input="$1"
+
+    if list_contains "$EXPLICIT_EXCLUDES" "$input"; then
+        return 1
+    fi
+    if list_contains "$EXPLICIT_INCLUDES" "$input"; then
+        return 0
+    fi
+    if [ "$USE_NONE" = true ]; then
+        return 1
+    fi
+    if [ "$USE_ALL" = true ]; then
+        return 0
+    fi
+    if list_contains "$DEFAULT_EXCLUDED_INPUTS" "$input"; then
+        return 1
+    fi
+
+    case "$SYSTEM_TYPE:$TARGET_CONFIG:$input" in
+        linux:*:nixpkgs-darwin|linux:*:nix-darwin)
+            return 1
+            ;;
+        darwin:*:codex-desktop-linux)
+            return 1
+            ;;
+        *server*:zen-browser|*server*:codex-desktop-linux)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+select_inputs() {
+    local input
+
+    SELECTED_REAL_INPUTS=""
+    SELECTED_PSEUDO_INPUTS=""
+    SKIPPED_INPUTS=""
+    # Metadata keys and the separate pseudo-input names are unique, so these
+    # result lists can be appended directly without deduplication or removal.
+    for input in $ALL_INPUTS $PSEUDO_INPUTS; do
+        if ! resource_selected "$input"; then
+            SKIPPED_INPUTS="${SKIPPED_INPUTS:+$SKIPPED_INPUTS }$input"
+        elif list_contains "$PSEUDO_INPUTS" "$input"; then
+            SELECTED_PSEUDO_INPUTS="${SELECTED_PSEUDO_INPUTS:+$SELECTED_PSEUDO_INPUTS }$input"
+        else
+            SELECTED_REAL_INPUTS="${SELECTED_REAL_INPUTS:+$SELECTED_REAL_INPUTS }$input"
+        fi
+    done
+}
+
+pseudo_script() {
+    case "$1" in
+        model-benchmarks)
+            printf '%s\n' "${FLAKE_DIR}/modules/home-manager/profiles/development/ai-skills/model-selection/update.sh"
+            ;;
+        obsidian-headless)
+            printf '%s\n' "${FLAKE_DIR}/packages/obsidian-headless/update.sh"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+validate_pseudo_updaters() {
+    local pseudo
+    local script
+
+    for pseudo in $SELECTED_PSEUDO_INPUTS; do
+        if ! script=$(pseudo_script "$pseudo"); then
+            print_error "No updater configured for pseudo-input: '$pseudo'"
+            exit 1
+        fi
         if [ ! -x "$script" ]; then
             print_error "Pseudo-input updater is missing or not executable: $script"
             exit 1
         fi
+    done
+}
 
+show_selected_inputs() {
+    local selected="${SELECTED_REAL_INPUTS:+$SELECTED_REAL_INPUTS }$SELECTED_PSEUDO_INPUTS"
+
+    if [ -n "$SKIPPED_INPUTS" ]; then
+        print_info "Skipping: ${cyan}${SKIPPED_INPUTS}${reset}"
+    fi
+    if [ -n "$selected" ]; then
+        print_info "Updating: ${cyan}${selected}${reset}"
+    fi
+}
+
+reconcile_flake() {
+    print_info "Reconciling flake inputs..."
+    if ! nix flake lock ${NIX_FLAGS} "$FLAKE_DIR"; then
+        print_error "Failed to lock flake"
+        exit 1
+    fi
+}
+
+update_selected_inputs() {
+    if [ -n "$SELECTED_REAL_INPUTS" ]; then
+        if ! nix flake update ${NIX_FLAGS} $SELECTED_REAL_INPUTS --flake "$FLAKE_DIR"; then
+            print_error "Failed to update flake inputs"
+            exit 1
+        fi
+    else
+        print_info "No flake inputs to update"
+    fi
+}
+
+update_pseudo_inputs() {
+    local pseudo
+    local script
+
+    for pseudo in $SELECTED_PSEUDO_INPUTS; do
+        script=$(pseudo_script "$pseudo")
         print_info "Updating pseudo-input: ${cyan}${pseudo}${reset}"
         if ! "$script"; then
             print_error "Failed to update pseudo-input '${pseudo}'"
@@ -343,447 +391,172 @@ update_pseudo_inputs() {
     done
 }
 
-# Function to update system configuration
 update_system() {
-    local config_name="$1"
-    local flake_dir="${HOME}/.config/nixpkgs"
+    print_info "Switching to system configuration: ${bold}${TARGET_CONFIG}${reset}"
 
-    print_info "Switching to system configuration: ${bold}${config_name}${reset}"
-
-    case "$(uname -s)" in
-        Darwin)
-            if ! sudo darwin-rebuild switch --flake "${flake_dir}#${config_name}"; then
-                print_error "Failed to switch to darwin configuration '${config_name}'"
+    case "$SYSTEM_TYPE" in
+        darwin)
+            if ! sudo darwin-rebuild switch --flake "${FLAKE_DIR}#${TARGET_CONFIG}"; then
+                print_error "Failed to switch to darwin configuration '${TARGET_CONFIG}'"
                 exit 1
             fi
             ;;
-        Linux)
-            if ! sudo nixos-rebuild switch --flake "${flake_dir}#${config_name}"; then
-                print_error "Failed to switch to nixos configuration '${config_name}'"
+        linux)
+            if ! sudo nixos-rebuild switch --flake "${FLAKE_DIR}#${TARGET_CONFIG}"; then
+                print_error "Failed to switch to nixos configuration '${TARGET_CONFIG}'"
                 exit 1
             fi
             ;;
     esac
-
-    print_success "Successfully updated system configuration '${config_name}'"
+    print_success "Successfully updated system configuration '${TARGET_CONFIG}'"
 }
 
-# Function to update home-manager configuration
 update_home() {
-    local config_name="$1"
-    local flake_dir="${HOME}/.config/nixpkgs"
-
-    print_info "Switching to home-manager configuration: ${bold}${config_name}${reset}"
-    if ! home-manager switch ${NIX_FLAGS} --flake "${flake_dir}#${config_name}"; then
-        print_error "Failed to switch to home-manager configuration '${config_name}'"
+    print_info "Switching to home-manager configuration: ${bold}${TARGET_CONFIG}${reset}"
+    if ! home-manager switch ${NIX_FLAGS} --flake "${FLAKE_DIR}#${TARGET_CONFIG}"; then
+        print_error "Failed to switch to home-manager configuration '${TARGET_CONFIG}'"
         exit 1
     fi
-
-    print_success "Successfully updated home-manager configuration '${config_name}'"
+    print_success "Successfully updated home-manager configuration '${TARGET_CONFIG}'"
 }
 
-# Function to show available update modes
-show_modes() {
-    local system_info="$1"
-    local system_type="$(echo "$system_info" | cut -d: -f1)"
-    local has_system="$(echo "$system_info" | cut -d: -f2)"
-    local has_home="$(echo "$system_info" | cut -d: -f3)"
+show_help() {
+    cat << EOF
+Usage: $0 [OPTIONS] [MODE] [CONFIG_NAME]
 
-    print_info "Available update modes on ${system_type}:"
+Detects and updates one Nix configuration.
 
-    if [ "$has_system" = "true" ]; then
-        case "$system_type" in
-            darwin) print_info "  ${bold}system${reset} - Update nix-darwin system configuration" ;;
-            linux) print_info "  ${bold}system${reset} - Update NixOS system configuration" ;;
-        esac
-    fi
+MODES:
+  system    Update the nix-darwin or NixOS system configuration
+  home      Update the home-manager configuration
 
-    if [ "$has_home" = "true" ]; then
-        print_info "  ${bold}home${reset} - Update home-manager configuration"
-    fi
+If MODE is omitted, system is selected when a system rebuild command is
+available; otherwise home-manager is selected.  The old 'both' mode is not
+supported because integrated system configurations include Home Manager.
 
-    print_info "  ${bold}both${reset} - Update both system and home-manager (if available)"
+INPUT OPTIONS:
+  --all           Refresh all real and pseudo inputs (ignore automatic exclusions)
+  --none          Refresh only explicitly included inputs
+  --<input>       Include <input> (overrides default and smart exclusions)
+  --no-<input>    Exclude <input> (takes precedence over inclusion)
+
+By default, these resources are excluded: ${DEFAULT_EXCLUDED_INPUTS}
+Smart exclusions also remove nix-darwin inputs on Linux, codex-desktop-linux
+on Darwin, and zen-browser plus codex-desktop-linux for server configurations.
+Pseudo-inputs are refreshed by their package-local updater scripts.
+Flags are order-independent: exclusions win over inclusions, and --none wins
+over --all. Even with --none, flake.lock is reconciled with flake.nix before
+rebuilding; it can change when input declarations have changed.
+
+If CONFIG_NAME is provided, it is used instead of auto-detection.
+System configs use the hostname. Home configs use username@server over SSH;
+otherwise toma@work for user toma, and username@personal for other users.
+
+Examples:
+  $0
+  $0 system
+  $0 home
+  $0 home toma@server
+  $0 system apollo
+  $0 --llm-agents
+  $0 --all
+  $0 --all --no-llm-agents
+  $0 --none
+  $0 --none --nixpkgs
+  $0 --none --obsidian-headless
+  $0 --none --model-benchmarks
+EOF
 }
 
-# Main execution
-main() {
-    local mode="$1"
-    local config_override="$2"
-
-    # Detect system capabilities
-    local system_info="$(detect_system)"
-    local system_type="$(echo "$system_info" | cut -d: -f1)"
-    local has_system="$(echo "$system_info" | cut -d: -f2)"
-    local has_home="$(echo "$system_info" | cut -d: -f3)"
-
-    # Default mode selection
-    if [ -z "$mode" ]; then
-        if [ "$has_system" = "true" ] && [ "$has_home" = "true" ]; then
-            mode="both"
-        elif [ "$has_system" = "true" ]; then
-            mode="system"
-        elif [ "$has_home" = "true" ]; then
-            mode="home"
-        else
-            print_error "No nix configurations available (no darwin-rebuild, nixos-rebuild, or home-manager found)"
-            exit 1
-        fi
-    fi
-
-    print_info "Update mode: ${bold}${mode}${reset}"
-
-    # Determine configs and apply config-specific exclusions
-    local system_config=""
-    local home_config=""
-
-    case "$mode" in
-        system)
-            if [ "$has_system" = "true" ]; then
-                system_config="${config_override:-$(detect_system_config)}"
-                apply_config_specific_exclusions "$system_config" "$system_type" "$mode"
-            fi
-            ;;
-        home)
-            if [ "$has_home" = "true" ]; then
-                home_config="${config_override:-$(detect_home_config "$system_type")}"
-                apply_config_specific_exclusions "$home_config" "$system_type" "$mode"
-            fi
-            ;;
-        both)
-            # For 'both' mode, we need to compute the union of required inputs
-            # We'll handle this specially after we know both configs
-            ;;
-    esac
-
-    # Handle 'both' mode: compute union of inputs needed by both configs
-    if [ "$mode" = "both" ]; then
-        if [ "$has_system" = "true" ]; then
-            system_config="${config_override:-$(detect_system_config)}"
-        fi
-        if [ "$has_home" = "true" ]; then
-            home_config="${config_override:-$(detect_home_config "$system_type")}"
-        fi
-
-        # Build list of inputs to include (inverse of exclusion logic)
-        local all_inputs=$(get_flake_inputs)
-        local to_update=""
-
-        for input in $all_inputs; do
-            local should_include=true
-
-            # Check if excluded by defaults or CLI flags
-            if list_contains "$EXCLUDED_INPUTS" "$input"; then
-                should_include=false
-            fi
-
-            # Apply platform-specific filtering (only if not already excluded)
-            if [ "$should_include" = "true" ]; then
-                case "$system_type" in
-                    linux)
-                        # On Linux, we don't need Darwin inputs
-                        case "$input" in
-                            nixpkgs-darwin|nix-darwin)
-                                should_include=false
-                                ;;
-                        esac
-                        ;;
-                    darwin)
-                        # On Darwin, we need all inputs including nixpkgs-darwin
-                        # codex-desktop-linux only provides Linux packages and is
-                        # not needed by the Darwin system or home configuration.
-                        case "$input" in
-                            codex-desktop-linux)
-                                should_include=false
-                                ;;
-                        esac
-                        ;;
-                esac
-            fi
-
-            # Check if input is needed by either config
-            # For 'both' mode, we include inputs needed by system OR home config
-            if [ "$should_include" = "true" ]; then
-                case "$input" in
-                    zen-browser)
-                        # Only include zen-browser if either config is NOT a server
-                        local system_is_server=false
-                        local home_is_server=false
-
-                        case "$system_config" in
-                            *server*) system_is_server=true ;;
-                        esac
-                        case "$home_config" in
-                            *server*) home_is_server=true ;;
-                        esac
-
-                        # Include if at least one is not a server (i.e., is a desktop)
-                        if [ "$system_is_server" = "true" ] && [ "$home_is_server" = "true" ]; then
-                            should_include=false
-                        fi
-                        ;;
-                esac
-            fi
-
-            if [ "$should_include" = "true" ]; then
-                to_update=$(list_add "$to_update" "$input")
-            fi
-        done
-
-        # Override EXCLUDED_INPUTS for 'both' mode: exclude everything except to_update
-        if [ -n "$to_update" ]; then
-            local new_exclusions=""
-            for input in $all_inputs; do
-                if ! list_contains "$to_update" "$input"; then
-                    new_exclusions=$(list_add "$new_exclusions" "$input")
-                fi
-            done
-            # Preserve pseudo-input exclusions (they aren't in $all_inputs)
-            for pseudo in $PSEUDO_INPUTS; do
-                if list_contains "$EXCLUDED_INPUTS" "$pseudo"; then
-                    new_exclusions=$(list_add "$new_exclusions" "$pseudo")
-                fi
-            done
-            EXCLUDED_INPUTS="$new_exclusions"
-            print_info "Both mode: updating union of required inputs"
-        fi
-    fi
-
-    # Update flake inputs once
-    update_flake
-    update_pseudo_inputs
-
-    # Handle different modes
-    case "$mode" in
-        system)
-            if [ "$has_system" != "true" ]; then
-                print_error "System configuration not available on this system"
-                exit 1
-            fi
-
-            local system_config="${config_override:-$(detect_system_config)}"
-            check_config_exists "system" "$system_config"
-            update_system "$system_config"
-            ;;
-
-        home)
-            if [ "$has_home" != "true" ]; then
-                print_error "Home-manager not available on this system"
-                exit 1
-            fi
-
-            local home_config="${config_override:-$(detect_home_config "$system_type")}"
-            check_config_exists "home" "$home_config"
-            update_home "$home_config"
-            ;;
-
-        both)
-            if [ "$has_system" = "true" ]; then
-                local system_config="$(detect_system_config "$system_type")"
-                check_config_exists "system" "$system_config"
-                update_system "$system_config"
-            fi
-
-            if [ "$has_home" = "true" ]; then
-                local home_config="$(detect_home_config "$system_type")"
-                check_config_exists "home" "$home_config"
-                update_home "$home_config"
-            fi
-            ;;
-
-        *)
-            print_error "Invalid mode: $mode"
-            show_modes "$system_info"
-            exit 1
-            ;;
-    esac
-
-}
-
-# Parse input inclusion/exclusion flags
-# These must be parsed before other arguments
-# Uses two-pass approach so flag ordering doesn't matter
 parse_input_flags() {
+    local input_name
+    local positional_count=0
+
     USE_ALL=false
     USE_NONE=false
     EXPLICIT_INCLUDES=""
     EXPLICIT_EXCLUDES=""
     MENTIONED_INPUTS=""
-    REMAINING_ARGS=""
+    MODE_ARG=""
+    CONFIG_ARG=""
 
-    # First pass: collect all flags
     while [ $# -gt 0 ]; do
         case "$1" in
-            --all)
-                USE_ALL=true
-                ;;
-            --none)
-                USE_NONE=true
-                ;;
+            --all) USE_ALL=true ;;
+            --none) USE_NONE=true ;;
             --no-*)
-                local input_name="${1#--no-}"
+                input_name=${1#--no-}
+                if [ -z "$input_name" ]; then
+                    print_error "Input name cannot be empty"
+                    exit 1
+                fi
                 EXPLICIT_EXCLUDES=$(list_add "$EXPLICIT_EXCLUDES" "$input_name")
                 MENTIONED_INPUTS=$(list_add "$MENTIONED_INPUTS" "$input_name")
                 ;;
             --help|-h)
-                # Show help and exit immediately
                 show_help
                 exit 0
                 ;;
             --*)
-                local input_name="${1#--}"
+                input_name=${1#--}
+                if [ -z "$input_name" ]; then
+                    print_error "Input name cannot be empty"
+                    exit 1
+                fi
                 EXPLICIT_INCLUDES=$(list_add "$EXPLICIT_INCLUDES" "$input_name")
                 MENTIONED_INPUTS=$(list_add "$MENTIONED_INPUTS" "$input_name")
                 ;;
             *)
-                # Non-flag arguments (mode, config name)
-                if [ -z "$REMAINING_ARGS" ]; then
-                    REMAINING_ARGS="$1"
-                else
-                    REMAINING_ARGS="$REMAINING_ARGS $1"
-                fi
+                positional_count=$((positional_count + 1))
+                case "$positional_count" in
+                    1) MODE_ARG=$1 ;;
+                    2) CONFIG_ARG=$1 ;;
+                    *)
+                        print_error "Too many positional arguments: '$1'"
+                        show_help
+                        exit 1
+                        ;;
+                esac
                 ;;
         esac
         shift
     done
 
-    # Detect conflicts: --all and --none
-    if [ "$USE_ALL" = "true" ] && [ "$USE_NONE" = "true" ]; then
+    if [ "$USE_ALL" = true ] && [ "$USE_NONE" = true ]; then
         print_warning "'--all' and '--none' both specified; using '--none'"
         USE_ALL=false
     fi
-
-    # Detect conflicts: input in both includes and excludes
-    for input in $EXPLICIT_INCLUDES; do
-        if list_contains "$EXPLICIT_EXCLUDES" "$input"; then
-            print_warning "'$input' was both included and excluded; excluding"
-            # Remove from includes (excludes take precedence)
-            EXPLICIT_INCLUDES=$(list_remove "$EXPLICIT_INCLUDES" "$input")
+    for input_name in $EXPLICIT_INCLUDES; do
+        if list_contains "$EXPLICIT_EXCLUDES" "$input_name"; then
+            print_warning "'$input_name' was both included and excluded; excluding"
         fi
     done
+}
 
-    # Second pass: build final exclusion list
-    if [ "$USE_NONE" = "true" ]; then
-        # Start with all inputs excluded (flake + pseudo), only update explicit includes
-        EXCLUDED_INPUTS=$(get_flake_inputs | tr '\n' ' ')
-        for pseudo in $PSEUDO_INPUTS; do
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "$pseudo")
-        done
-        # Add explicit excludes (redundant but consistent)
-        for input in $EXPLICIT_EXCLUDES; do
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "$input")
-        done
-        # Remove explicit includes
-        for input in $EXPLICIT_INCLUDES; do
-            EXCLUDED_INPUTS=$(list_remove "$EXCLUDED_INPUTS" "$input")
-        done
-    elif [ "$USE_ALL" = "true" ]; then
-        # Start with empty, only add explicit excludes
-        EXCLUDED_INPUTS="$EXPLICIT_EXCLUDES"
+main() {
+    detect_system
+    resolve_target "$MODE_ARG" "$CONFIG_ARG"
+
+    # Everything through this point is read-only.  In particular, metadata
+    # and configuration evaluation happen before lock reconciliation.
+    check_config_exists
+    ALL_INPUTS=$(get_flake_inputs)
+    validate_explicit_inputs
+    validate_default_exclusions
+    select_inputs
+    validate_pseudo_updaters
+    show_selected_inputs
+
+    reconcile_flake
+    update_selected_inputs
+    update_pseudo_inputs
+
+    if [ "$MODE" = system ]; then
+        update_system
     else
-        # Start with defaults
-        EXCLUDED_INPUTS="$DEFAULT_EXCLUDED_INPUTS"
-        # Add explicit excludes
-        for input in $EXPLICIT_EXCLUDES; do
-            EXCLUDED_INPUTS=$(list_add "$EXCLUDED_INPUTS" "$input")
-        done
-        # Remove explicit includes
-        for input in $EXPLICIT_INCLUDES; do
-            EXCLUDED_INPUTS=$(list_remove "$EXCLUDED_INPUTS" "$input")
-        done
+        update_home
     fi
 }
 
-# Validate explicitly mentioned inputs exist (error if not)
-validate_explicit_inputs() {
-    local flake_inputs="$1"
-    local mentioned="$2"
-
-    for input in $mentioned; do
-        # Skip pseudo-inputs (not in flake.lock but handled separately)
-        if list_contains "$PSEUDO_INPUTS" "$input"; then
-            continue
-        fi
-        if ! list_contains "$flake_inputs" "$input"; then
-            print_error "Unknown input: '$input'"
-            # Convert newlines to spaces for display
-            local inputs_display=$(echo $flake_inputs | tr '\n' ' ')
-            print_info "Available inputs: $inputs_display"
-            exit 1
-        fi
-    done
-}
-
-# Validate default excluded inputs exist (warn if not, remove from list)
-validate_default_exclusions() {
-    local flake_inputs="$1"
-    local validated_exclusions=""
-
-    for input in $EXCLUDED_INPUTS; do
-        # Keep pseudo-inputs in the exclusion list (they're handled separately)
-        if list_contains "$PSEUDO_INPUTS" "$input"; then
-            validated_exclusions=$(list_add "$validated_exclusions" "$input")
-        elif list_contains "$flake_inputs" "$input"; then
-            validated_exclusions=$(list_add "$validated_exclusions" "$input")
-        elif list_contains "$DEFAULT_EXCLUDED_INPUTS" "$input" && ! list_contains "$EXPLICIT_EXCLUDES" "$input"; then
-            # Only warn for default exclusions, not explicit ones (those error in validate_explicit_inputs)
-            print_warning "Excluded input '$input' does not exist in flake"
-        fi
-    done
-
-    EXCLUDED_INPUTS="$validated_exclusions"
-}
-
-# Show help message
-show_help() {
-    cat << EOF
-Usage: $0 [OPTIONS] [MODE] [CONFIG_NAME]
-
-Detects and upgrades nix configurations (system and/or home-manager).
-
-MODES:
-  system    Update system configuration (nix-darwin/NixOS)
-  home      Update home-manager configuration
-  both      Update both system and home-manager (default if both available)
-
-INPUT OPTIONS:
-  --all           Update all flake inputs (ignore default exclusions)
-  --none          Skip all flake input updates (use with --<input> to include specific inputs)
-  --<input>       Include <input> in update (override default exclusion)
-  --no-<input>    Exclude <input> from update
-
-By default, these inputs are excluded: ${DEFAULT_EXCLUDED_INPUTS}
-
-Additionally, inputs are intelligently filtered based on configuration:
-  - Linux configs exclude: nixpkgs-darwin, nix-darwin
-  - Server configs exclude: zen-browser
-Use --all to disable smart filtering and update all inputs.
-
-If CONFIG_NAME is provided, uses that configuration instead of auto-detection.
-
-Auto-detection logic:
-  System configs: hostname
-  Home configs: toma@work (macOS), username@server (SSH), username@personal (default)
-
-Examples:
-  $0                        # Auto-detect mode and configs (excludes: ${DEFAULT_EXCLUDED_INPUTS})
-  $0 system                 # Update system only
-  $0 home                   # Update home-manager only
-  $0 both                   # Update both
-  $0 home toma@server       # Update specific home config
-  $0 system apollo          # Update specific system config
-  $0 --opencode             # Include opencode (overrides default exclusion)
-  $0 --all                  # Update all inputs
-  $0 --all --no-opencode    # Update all inputs except opencode
-  $0 --no-zen-browser       # Exclude zen-browser in addition to defaults
-  $0 --none                 # Skip all flake updates (just rebuild)
-  $0 --none --nixpkgs       # Only update nixpkgs
-  $0 --none --obsidian-headless # Only update obsidian-headless package metadata
-  $0 --none --model-benchmarks # Refresh benchmark snapshots before rebuilding
-EOF
-}
-
-# Parse input flags and extract remaining arguments
 parse_input_flags "$@"
-
-# shellcheck disable=SC2086
-main $REMAINING_ARGS
+main
