@@ -24,6 +24,7 @@ In auto mode all active CLIProxyAPI accounts are aggregated.  If none are
 active, the Codex then OpenCode OAuth credentials are tried. Disabled or
 incomplete CLIProxyAPI credential files are ignored. Cache refreshes are
 atomic; a failed refresh keeps the prior valid version-1 cache document.
+Additional limit pools include their model suffix when one is available.
 EOF
 }
 
@@ -63,7 +64,8 @@ normalize_usage_json() {
     def number_or($default): if . == null then $default elif type == "number" then . elif type == "string" then (tonumber? // $default) else $default end;
     def reset_secs: ((.reset_after_seconds // ((.reset_at // null) as $at | if $at == null then null elif ($at | type) == "number" then ($at - now | floor) elif ($at | type) == "string" then (($at | tonumber?) // ($at | fromdateiso8601?)) as $epoch | if $epoch == null then null else ($epoch - now | floor) end else null end)) | number_or(0) | if . < 0 then 0 else . end);
     def meaningful: type == "object" and (has("limit_window_seconds") or has("reset_at") or ((.reset_after_seconds | number_or(0)) > 0) or ((.used_percent | number_or(0)) > 0));
-    .rate_limit as $limits | if $limits == null then empty else {credits:{balance:(.credits.balance // null),has_credits:(.credits.has_credits // null)},rate_limit_reset_credits:(.rate_limit_reset_credits // {}),rate_limit:{allowed:(if ($limits | has("allowed")) then $limits.allowed else null end),limit_reached:(if ($limits | has("limit_reached")) then $limits.limit_reached else null end),windows:(if ($limits.windows | type) == "array" then $limits.windows else [$limits | to_entries[] | select(.key | endswith("_window")) | .value] end | map(select(meaningful) | {name:(.name // "window"),used_percent:(.used_percent | number_or(0)),reset_after_seconds:reset_secs,limit_window_seconds:(.limit_window_seconds | number_or(null))}))}} end'
+    def normalize_limit($limits): {allowed:(if ($limits | has("allowed")) then $limits.allowed else null end),limit_reached:(if ($limits | has("limit_reached")) then $limits.limit_reached else null end),windows:(if ($limits.windows | type) == "array" then $limits.windows else [$limits | to_entries[] | select(.key | endswith("_window")) | .value] end | map(select(meaningful) | {name:(.name // "window"),used_percent:(.used_percent | number_or(0)),reset_after_seconds:reset_secs,limit_window_seconds:(.limit_window_seconds | number_or(null))}))};
+    .rate_limit as $limits | if $limits == null then empty else {credits:{balance:(.credits.balance // null),has_credits:(.credits.has_credits // null)},rate_limit_reset_credits:(.rate_limit_reset_credits // {}),rate_limit:normalize_limit($limits),additional_rate_limits:[.additional_rate_limits[]? | . as $additional | ($additional.rate_limit // null) as $additional_limits | select($additional_limits != null) | {limit_id:($additional.metered_feature // null),limit_name:($additional.limit_name // $additional.metered_feature // "additional"),normal_model_slug:($additional.normal_model_slug // null),rate_limit:normalize_limit($additional_limits)}]} end'
 }
 
 normalize_reset_credits_json() {
@@ -175,6 +177,17 @@ print_usage_text_from_json() {
   done <<EOF
 $rows
 EOF
+  additional_rows="$(printf '%s\n' "$usage_json" | jq -er '
+    def model_suffix: (.normal_model_slug // "") as $slug | if $slug == "" then "" else ($slug | split("-") | last) end;
+    .additional_rate_limits[]? | . as $limit | (($limit.limit_name // $limit.limit_id // "additional") + (model_suffix as $model | if $model == "" then "" else "[\($model)]" end)) as $label | .rate_limit.windows[]? | [$label, (.reset_after_seconds // 0 | tostring), (.used_percent // 0 | round | tostring)] | @tsv' 2>/dev/null || true)"
+  if [ -n "$additional_rows" ]; then
+    while IFS="$(printf '\t')" read -r label reset pct; do
+      item="${label}=$(format_seconds "$reset"):${pct}%"
+      output="${output:+$output }$item"
+    done <<EOF
+$additional_rows
+EOF
+  fi
   credits="$(printf '%s\n' "$usage_json" | jq -er '.rate_limit_reset_credits.available_count // empty' 2>/dev/null || true)"
   if [ -n "$credits" ]; then
     if summary="$(format_reset_credits_summary_json "$usage_json")"; then output="$output ($summary)"; else output="$output ($credits)"; fi
