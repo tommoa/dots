@@ -1,5 +1,40 @@
 self: super:
 {
+  arista-browser-extension = import ../packages/arista-browser-extension {
+    inherit (super)
+      buildNpmPackage
+      fetchFromGitiles
+      jq
+      lib
+      nodejs_22
+      runCommand
+      zip
+      ;
+  };
+
+  arista-browser-extension-signed = import ../packages/arista-browser-extension/signed.nix {
+    inherit (super) requireFile;
+  };
+
+  update-arista-browser-extension = super.writeShellApplication {
+    name = "update-arista-browser-extension";
+    runtimeInputs = with super; [
+      coreutils
+      diffutils
+      git
+      gnused
+      jq
+      nix
+      nodejs_22
+      openssh
+      prefetch-npm-deps
+      unzip
+      web-ext
+    ];
+    text = builtins.readFile ../packages/arista-browser-extension/update.sh;
+    meta.mainProgram = "update-arista-browser-extension";
+  };
+
   # Claude Code to OpenCode plugin transformer
   claude-to-opencode = import ../packages/claude-to-opencode {
     inherit

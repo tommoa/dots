@@ -226,6 +226,7 @@
         "secrets/deploy-keys"
         "ssh"
         "ssh/work"
+        "work-browser"
       ];
       extraModules = [];
     };
@@ -346,22 +347,33 @@
     in
       forAllSystems (
         system: let
-          pkgs = import nixpkgs {inherit system;};
-        in {
-          claude-to-opencode =
-            (import ./packages/claude-to-opencode {
-              inherit
-                (pkgs)
-                lib
-                python3
-                runCommand
-                writeShellScriptBin
-                symlinkJoin
-                buildNpmPackage
-                nodejs
-                ;
-            }).package;
-        }
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [(import ./overlays)];
+          };
+        in
+          {
+            claude-to-opencode =
+              (import ./packages/claude-to-opencode {
+                inherit
+                  (pkgs)
+                  lib
+                  python3
+                  runCommand
+                  writeShellScriptBin
+                  symlinkJoin
+                  buildNpmPackage
+                  nodejs
+                  ;
+              }).package;
+          }
+          // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") {
+            inherit
+              (pkgs)
+              arista-browser-extension
+              update-arista-browser-extension
+              ;
+          }
       );
   };
 }

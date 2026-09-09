@@ -37,6 +37,11 @@ in {
   "ai/opencode-zen.age".publicKeys = all;
   "ai/openrouter.age".publicKeys = all;
   "ai/litellm.age".publicKeys = workSecrets;
+
+  # Mozilla Add-ons signing credentials
+  "amo/api-key.age".publicKeys = workSecrets;
+  "amo/api-secret.age".publicKeys = workSecrets;
+
   # Mail secrets
   # Note: Refresh tokens are stored locally per-machine in ~/.local/state/oauth2-gmail/
   # and are NOT managed by agenix (they are obtained via oauth2-gmail setup)
