@@ -8,11 +8,11 @@ set -e
 # Nix command flags for experimental features.
 NIX_FLAGS="--extra-experimental-features nix-command --extra-experimental-features flakes $NIX_FLAGS"
 
-# Keep the flake location and resource policy in one place.  The two pseudo-
-# inputs are package-local resources that are refreshed alongside the flake.
+# Keep the flake location and resource policy in one place. Pseudo-inputs are
+# package-local resources that are refreshed alongside the flake.
 FLAKE_DIR="${HOME}/.config/nixpkgs"
-DEFAULT_EXCLUDED_INPUTS="obsidian-headless model-benchmarks"
-PSEUDO_INPUTS="obsidian-headless model-benchmarks"
+DEFAULT_EXCLUDED_INPUTS="obsidian-headless"
+PSEUDO_INPUTS="obsidian-headless"
 
 # Dash does not implement Bash's $'...' quoting.  printf also gives these
 # values the same escape sequences when the script is run by /bin/sh.
@@ -319,9 +319,6 @@ select_inputs() {
 
 pseudo_script() {
     case "$1" in
-        model-benchmarks)
-            printf '%s\n' "${FLAKE_DIR}/modules/home-manager/profiles/development/ai-skills/model-selection/update.sh"
-            ;;
         obsidian-headless)
             printf '%s\n' "${FLAKE_DIR}/packages/obsidian-headless/update.sh"
             ;;
@@ -464,7 +461,6 @@ Examples:
   $0 --none
   $0 --none --nixpkgs
   $0 --none --obsidian-headless
-  $0 --none --model-benchmarks
 EOF
 }
 

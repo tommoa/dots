@@ -6,8 +6,9 @@
 }: let
   opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.litellm.enable;
   piLiteLLMEnabled = config.my.pi.enable && config.my.pi.litellm.enable;
-  codexCliProxyEnabled = (config.programs.codex.settings.model_provider or null) == "cli_proxy_api";
-  modelSelectionProfile = config.my.modelSelection.profile;
+  codexAIProxyAvailable =
+    config.my.aiProxy.enable
+    && (config.programs.codex.settings.model_provider or null) == "cli_proxy_api";
   codexNoImplicitInvocationPolicy = (pkgs.formats.yaml {}).generate "codex-skill-openai.yaml" {
     policy.allow_implicit_invocation = false;
   };
@@ -31,44 +32,40 @@
         mkdir -p "$out/agents"
         cp ${codexNoImplicitInvocationPolicy} "$out/agents/openai.yaml"
       '';
-  modelSelectionSkill = {
-    harness,
-    profile,
-    codexCliProxy ? false,
-    liteLLM ? false,
-  }:
-    pkgs.runCommandLocal "model-selection-${harness}-${profile}" {nativeBuildInputs = [pkgs.bun];} ''
-      workdir="$TMPDIR/model-selection"
-      mkdir -p "$out" "$workdir/snapshots"
-      cp ${../ai-skills/model-selection/SKILL.md} "$workdir/SKILL.md"
-      cp ${../ai-skills/model-selection/generator.ts} "$workdir/generator.ts"
-      cp ${../ai-skills/model-selection/policy.ts} "$workdir/policy.ts"
-      cp ${../ai-skills/model-selection/snapshots/deepswe-v1.1.json} "$workdir/snapshots/deepswe-v1.1.json"
-      cp ${../ai-skills/model-selection/snapshots/terminal-bench-2.1.json} "$workdir/snapshots/terminal-bench-2.1.json"
-      bun run "$workdir/generator.ts" generate \
-        --template "$workdir/SKILL.md" \
-        --output "$out/SKILL.md" \
-        --snapshot "$workdir/snapshots/deepswe-v1.1.json" \
-        --terminal-snapshot "$workdir/snapshots/terminal-bench-2.1.json" \
-        --harness ${harness} \
-        --profile ${profile} \
-        ${lib.optionalString codexCliProxy "--codex-cli-proxy"} \
-        ${lib.optionalString liteLLM "--litellm"}
+  providerGuidance = {
+    codexAIProxy = ''
+      ## Provider continuity
+
+      This configuration exposes corporate models through CLIProxyAPI under
+      `ai-proxy/*`. Use those slugs or other approved corporate models for
+      proprietary work. Inspect `~/.codex/config.toml` when the active model or
+      subagent provider matters.
+
     '';
+    liteLLM = ''
+      ## Provider continuity
+
+      Use model IDs discovered from the configured corporate AI proxy. If the
+      selected model uses LiteLLM, choose alternatives from that same provider.
+      If it does not use LiteLLM, do not introduce a LiteLLM model ID.
+
+    '';
+  };
+  modelSelectionSkill = {guidance ? ""}:
+    pkgs.writeTextDir "SKILL.md" (
+      builtins.replaceStrings
+      ["@profile@" "@provider-guidance@\n"]
+      [config.my.modelSelection.profile guidance]
+      (builtins.readFile ../ai-skills/model-selection/SKILL.md)
+    );
   codexModelSelectionSkill = modelSelectionSkill {
-    harness = "codex";
-    profile = modelSelectionProfile;
-    codexCliProxy = codexCliProxyEnabled;
+    guidance = lib.optionalString codexAIProxyAvailable providerGuidance.codexAIProxy;
   };
   opencodeModelSelectionSkill = modelSelectionSkill {
-    harness = "opencode";
-    profile = modelSelectionProfile;
-    liteLLM = opencodeLiteLLMEnabled;
+    guidance = lib.optionalString opencodeLiteLLMEnabled providerGuidance.liteLLM;
   };
   piModelSelectionSkill = modelSelectionSkill {
-    harness = "pi";
-    profile = modelSelectionProfile;
-    liteLLM = piLiteLLMEnabled;
+    guidance = lib.optionalString piLiteLLMEnabled providerGuidance.liteLLM;
   };
   sharedSkillSources = {
     api-design-evaluation = ../ai-skills/api-design-evaluation;
@@ -86,8 +83,8 @@
     ui-design-evaluation = ../ai-skills/ui-design-evaluation;
   };
   withModelSelection = modelSelection: sharedSkillSources // {model-selection = modelSelection;};
-  # Every harness gets the same shared skill directories. Only model-selection
-  # varies because its provider guidance is generated for the target harness.
+  # Provider guidance depends on both the harness and the integrations enabled
+  # on this machine; the model and effort policy remains shared.
   skillSourcesByHarness = {
     codex = withModelSelection codexModelSelectionSkill;
     opencode = withModelSelection opencodeModelSelectionSkill;
@@ -113,7 +110,7 @@ in {
   options.my.modelSelection.profile = lib.mkOption {
     type = lib.types.enum ["personal" "work"];
     default = "personal";
-    description = "Model-selection profile used to generate installed skills";
+    description = "Work or personal policy embedded in the model-selection skill";
   };
 
   config = {

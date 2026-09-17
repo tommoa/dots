@@ -1,31 +1,33 @@
 ---
 name: model-selection
-description: Choose a model and reasoning effort for a task in the configured harness and profile.
+description: >-
+  Required before spawning a subagent or selecting or changing an agent's model
+  or reasoning effort.
 ---
 
 # Model Selection
 
-<!-- BEGIN GENERATED: profile -->
-<!-- END GENERATED: profile -->
+This installation uses the **@profile@** profile.
 
-<!-- BEGIN GENERATED: provider-guidance -->
-<!-- END GENERATED: provider-guidance -->
+Optimise for the cheapest reliable completion using these defaults:
 
-1. Classify the dominant task type and difficulty. For mixed work, satisfy the
-   hardest part or split by task type.
-2. Choose the lowest-cost model with sufficient capability. Prefer
-   representative local results; break ties by speed.
-3. Use the lowest reliable effort: lower for bounded extraction,
-   classification, and broad parallel work; higher for judgement, incomplete
-   evidence, or costly mistakes. Change models when effort cannot close a
-   capability gap.
+- **Ordinary subagent:** GPT-5.6 Luna, **high** effort.
+- **New coordination subagent:** GPT-5.6 Sol, **high** effort.
+  Coordination means directing other agents and integrating their results;
+  a difficult individual task does not by itself qualify.
 
-## Models
+@provider-guidance@
+For an existing coordinator, preserve Sol and its current effort in the work
+profile, or Astra or Sol and its current effort in the personal profile.
+Astra is unavailable for work; do not select or retain it for work coordination.
 
-<!-- BEGIN GENERATED: model-selection -->
-<!-- END GENERATED: model-selection -->
+Use model IDs and effort supported by the configured harness. Keep delegated
+work on the same approved provider and proprietary data within approved work
+providers. Do not invent IDs or silently substitute an unsupported pair.
 
-## Reasoning effort
+Use other models or model families only when the user explicitly requests them.
+If there is uncertainty about the role, whether the default can complete the
+task reliably, or the available model, effort, or provider, ask the user before
+choosing. Reuse decisions already settled in the conversation.
 
-<!-- BEGIN GENERATED: reasoning-effort -->
-<!-- END GENERATED: reasoning-effort -->
+Use benchmarks only as evidence when reviewing these preferences with the user.

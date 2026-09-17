@@ -21,9 +21,6 @@ INPUTS = [
 ]
 PSEUDOS = {
     "obsidian-headless": "packages/obsidian-headless/update.sh",
-    "model-benchmarks": (
-        "modules/home-manager/profiles/development/ai-skills/model-selection/update.sh"
-    ),
 }
 
 # The fake metadata deliberately uses a non-default root node and a fresh input
@@ -49,7 +46,7 @@ if name in ("uname", "whoami", "hostname", "ps"):
 if name == "nix":
     stage = args[1] if args[0] == "flake" else args[0]
 elif name == "update.sh":
-    stage = "obsidian-headless" if "obsidian-headless" in sys.argv[0] else "model-benchmarks"
+    stage = "obsidian-headless"
 else:
     stage = "activate"
 with open(os.environ["TEST_LOG"], "a") as log:
@@ -255,9 +252,9 @@ class UpdateNixScenarios:
                 self.assertLess(self.stages().index(pseudo), self.stages().index("activate"))
 
     def test_explicit_pseudo_exclusion_wins_over_all_and_include(self):
-        self.run_script("--all", "--no-model-benchmarks", "--model-benchmarks")
-        self.assertNotIn("model-benchmarks", self.stages())
-        self.assertIn("obsidian-headless", self.stages())
+        self.run_script("--all", "--no-obsidian-headless", "--obsidian-headless")
+        self.assertNotIn("obsidian-headless", self.stages())
+        self.assertEqual(self.selected_inputs(), set(INPUTS))
 
     def test_custom_nix_flags_are_forwarded(self):
         self.env["NIX_FLAGS"] = "--option sandbox false"
@@ -281,6 +278,7 @@ class UpdateNixScenarios:
         for args in (("both",), ("invalid",), ("home", "toma@work", "extra"),
                      ("--",), ("--no-",),
                      ("--missing-input",), ("--no-missing-input",),
+                     ("--model-benchmarks",), ("--no-model-benchmarks",),
                      ("home", "missing-config"), ("system",)):
             with self.subTest(args=args):
                 self.run_script(*args, success=False)
@@ -292,7 +290,7 @@ class UpdateNixScenarios:
         self.assert_no_updates()
 
     def test_missing_selected_updater_fails_before_updates(self):
-        (self.flake / PSEUDOS["model-benchmarks"]).unlink()
+        (self.flake / PSEUDOS["obsidian-headless"]).unlink()
         self.run_script("--all", success=False)
         self.assert_no_updates()
 
@@ -304,7 +302,7 @@ class UpdateNixScenarios:
                 self.assert_no_updates()
 
     def test_update_failures_stop_later_actions(self):
-        for stage in ("lock", "update", "obsidian-headless", "model-benchmarks"):
+        for stage in ("lock", "update", "obsidian-headless"):
             with self.subTest(stage=stage):
                 self.env["TEST_FAIL"] = stage
                 self.run_script("--all", success=False)
