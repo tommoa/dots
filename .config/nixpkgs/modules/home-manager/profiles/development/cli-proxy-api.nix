@@ -4,9 +4,14 @@
   pkgs,
   ...
 }: let
-  # Remove this override once CLIProxyAPI supports input-modalities on CodexModel upstream.
+  # Remove these overrides once CLIProxyAPI supports both features upstream.
   proxyPackage = pkgs.llm-agents.cli-proxy-api.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [./cli-proxy-api-codex-input-modalities.patch];
+    patches =
+      (old.patches or [])
+      ++ [
+        ./cli-proxy-api-codex-input-modalities.patch
+        ./cli-proxy-api-codex-reserve.patch
+      ];
   });
   proxyBinary = "${proxyPackage}/bin/cli-proxy-api";
   proxyHome = "${config.home.homeDirectory}/.cli-proxy-api";
@@ -33,6 +38,18 @@
     };
     routing.strategy = "fill-first";
     ws-auth = true;
+    oauth-model-alias = {
+      codex = [
+        {
+          name = "gpt-reserve";
+          alias = "luna-reserve";
+          # Keep the native gpt-reserve entry visible while retaining the
+          # compatibility alias used by existing OpenCode configurations.
+          fork = true;
+          force-mapping = true;
+        }
+      ];
+    };
   };
   aiProxyOptions =
     (pkgs.formats.json {}).generate "cli-proxy-api-ai-proxy-options.json"
@@ -74,6 +91,8 @@
       "gpt-5.6-sol"
       "gpt-5.6-terra"
       "gpt-5.6-luna"
+      "gpt-reserve"
+      "luna-reserve"
       config.my.codex.defaultModel
     ]
     ++ config.my.cliProxyApi.models

@@ -1,0 +1,51 @@
+diff --git a/internal/registry/model_definitions.go b/internal/registry/model_definitions.go
+--- a/internal/registry/model_definitions.go
++++ b/internal/registry/model_definitions.go
+@@ -12,6 +12,7 @@ const (
+ 	codexBuiltinImage25FlareModelID    = "gpt-image-2.5-flare"
+ 	codexBuiltinImage25SunburstModelID = "gpt-image-2.5-sunburst"
+ 	codexBuiltinImage25ModelID         = "gpt-image-2.5"
++	codexBuiltinReserveModelID         = "gpt-reserve"
+ 	xaiBuiltinImageModelID             = "grok-imagine-image"
+ 	xaiBuiltinImageQualityModelID      = "grok-imagine-image-quality"
+ 	xaiBuiltinImage20ModelID           = "grok-imagine-image-2.0"
+@@ -117,6 +118,7 @@ func WithCodexBuiltins(models []*ModelInfo) []*ModelInfo {
+ 		codexBuiltinImage25FlareModelInfo(),
+ 		codexBuiltinImage25SunburstModelInfo(),
+ 		codexBuiltinImage25ModelInfo(),
++		codexBuiltinReserveModelInfo(),
+ 	)
+ }
+ 
+@@ -158,5 +160,18 @@ func codexBuiltinImage25ModelInfo() *ModelInfo {
+ 	}
+ }
+ 
++func codexBuiltinReserveModelInfo() *ModelInfo {
++	return &ModelInfo{
++		ID:          codexBuiltinReserveModelID,
++		Object:      "model",
++		Created:     1704067200, // 2024-01-01
++		OwnedBy:     "openai",
++		Type:        "openai",
++		DisplayName: "GPT-Reserve",
++		Description: "Codex reserve model.",
++		Version:     codexBuiltinReserveModelID,
++	}
++}
++
+ func xaiBuiltinImageModelInfo() *ModelInfo {
+ 	return &ModelInfo{
+ 		ID:          xaiBuiltinImageModelID,
+diff --git a/internal/registry/model_definitions_test.go b/internal/registry/model_definitions_test.go
+--- a/internal/registry/model_definitions_test.go
++++ b/internal/registry/model_definitions_test.go
+@@ -116,7 +116,8 @@ func TestWithCodexBuiltinsIncludesImage25Models(t *testing.T) {
+ 	expectedModels := map[string]string{
+ 		"gpt-image-2.5-flare":    "GPT Image 2.5 Flare",
+ 		"gpt-image-2.5-sunburst": "GPT Image 2.5 Sunburst",
+ 		"gpt-image-2.5":          "GPT Image 2.5",
++		"gpt-reserve":            "GPT-Reserve",
+ 	}
+ 
+ 	found := make(map[string]*ModelInfo)
