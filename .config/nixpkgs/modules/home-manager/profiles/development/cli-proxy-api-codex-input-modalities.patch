@@ -2,7 +2,7 @@ diff --git a/internal/config/config_types.go b/internal/config/config_types.go
 index 783f666..1f19ee7 100644
 --- a/internal/config/config_types.go
 +++ b/internal/config/config_types.go
-@@ -517,6 +517,9 @@ type CodexModel struct {
+@@ -642,8 +642,11 @@ type CodexModel struct {
  	// MaxContextLength overrides the context window advertised to Codex clients.
  	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
  
@@ -12,6 +12,8 @@ index 783f666..1f19ee7 100644
  	// ForceMapping rewrites upstream response model fields back to Alias.
  	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
  
+ 	// IsCompat converts Codex MultiAgentV2 agent_message items into portable
+ 	// Responses message/user input when codex.optimize-multi-agent-v2 is also true.
 @@ -535,10 +538,11 @@ func (m CodexModel) GetName() string { return m.Name }
  
  func (m CodexModel) GetAlias() string { return m.Alias }
