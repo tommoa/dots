@@ -1,6 +1,8 @@
 {
   lib,
   pkgs,
+  batteryEnabled ? false,
+  powerProfilesEnabled ? false,
 }:
 {
   "reload_style_on_change" = true;
@@ -16,17 +18,22 @@
     "clock"
     "custom/recording"
   ];
-  "modules-right" = [
-    "tray"
-    "idle_inhibitor"
-    "wireplumber"
-    "bluetooth"
-    "network"
-    "memory"
-    "cpu"
-    "temperature"
-    "group/group-power"
-  ];
+  "modules-right" =
+    [
+      "tray"
+      "idle_inhibitor"
+      "wireplumber"
+      "bluetooth"
+      "network"
+      "memory"
+      "cpu"
+      "temperature"
+    ]
+    ++ lib.optional powerProfilesEnabled "power-profiles-daemon"
+    ++ lib.optional batteryEnabled "battery"
+    ++ [
+      "group/group-power"
+    ];
   "hyprland/workspaces" = {
     "on-click" = "activate";
     "format" = "{icon}";
@@ -193,5 +200,60 @@
     "format" = "";
     "tooltip" = false;
     "on-click" = "${pkgs.systemd}/bin/systemctl poweroff";
+  };
+}
+// lib.optionalAttrs batteryEnabled {
+  battery = {
+    states = {
+      warning = 30;
+      critical = 15;
+    };
+    format = "{icon}";
+    "format-discharging" = "{icon}";
+    "format-charging" = "{icon}";
+    "format-plugged" = "";
+    "format-icons" = {
+      charging = [
+        "󰢜"
+        "󰂆"
+        "󰂇"
+        "󰂈"
+        "󰢝"
+        "󰂉"
+        "󰢞"
+        "󰂊"
+        "󰂋"
+        "󰂅"
+      ];
+      default = [
+        "󰁺"
+        "󰁻"
+        "󰁼"
+        "󰁽"
+        "󰁾"
+        "󰁿"
+        "󰂀"
+        "󰂁"
+        "󰂂"
+        "󰁹"
+      ];
+    };
+    "format-full" = "󰂅";
+    "tooltip-format-discharging" = "{power:>1.0f}W↓ {capacity}% · {time}";
+    "tooltip-format-charging" = "{power:>1.0f}W↑ {capacity}% · {time}";
+    interval = 5;
+  };
+}
+// lib.optionalAttrs powerProfilesEnabled {
+  "power-profiles-daemon" = {
+    format = "{icon}";
+    # Waybar 0.15 exposes one driver field, without separate CPU/platform fields.
+    "tooltip-format" = "Power profile: {profile}\nDriver: {driver}";
+    "format-icons" = {
+      default = "";
+      performance = "";
+      balanced = "";
+      "power-saver" = "";
+    };
   };
 }

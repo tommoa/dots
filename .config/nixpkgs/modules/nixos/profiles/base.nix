@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   imports = [
     ../../common/base.nix
     ../../common/nix.nix
@@ -25,7 +29,7 @@
   hardware.bluetooth.enable = true;
 
   # Timezone and locale
-  time.timeZone = "Australia/Sydney";
+  time.timeZone = lib.mkDefault "Australia/Sydney";
   i18n.defaultLocale = "en_AU.UTF-8";
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "en_AU.UTF-8";

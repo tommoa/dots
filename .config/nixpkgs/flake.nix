@@ -44,8 +44,6 @@
     agenix = {
       url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "home-manager";
-      inputs.darwin.follows = "nix-darwin";
     };
   };
 
@@ -158,7 +156,7 @@
                   zen-browser-module
                 ]
                 ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeConfig.profiles
-                ++ homeConfig.extraModules;
+                ++ (homeConfig.extraModules or []);
               home.username = homeConfig.username;
               home.homeDirectory = homeConfig.homeDirectory;
               targets.darwin.copyApps.enable = false;
@@ -202,7 +200,7 @@
                   zen-browser-module
                 ]
                 ++ map (profile: ./modules/home-manager/profiles/${profile}.nix) homeConfig.profiles
-                ++ homeConfig.extraModules;
+                ++ (homeConfig.extraModules or []);
               home.username = homeConfig.username;
               home.homeDirectory = homeConfig.homeDirectory;
             };
@@ -232,7 +230,6 @@
         "ssh/work"
         "work-browser"
       ];
-      extraModules = [];
     };
 
     personalHomeConfig = {
@@ -252,26 +249,25 @@
         "ssh"
         "ssh/personal"
       ];
-      extraModules = [];
     };
   in {
     # Standalone home-manager configurations
     homeConfigurations = {
       # Work desktop (macOS)
-      "toma@work" =
-        mkHomeConfig
-        (workHomeConfig
-          // {
-            system = "aarch64-darwin";
-          });
+      "toma@work" = mkHomeConfig (
+        workHomeConfig
+        // {
+          system = "aarch64-darwin";
+        }
+      );
 
       # Personal desktop (Linux)
-      "tommoa@personal" =
-        mkHomeConfig
-        (personalHomeConfig
-          // {
-            system = "x86_64-linux";
-          });
+      "tommoa@personal" = mkHomeConfig (
+        personalHomeConfig
+        // {
+          system = "x86_64-linux";
+        }
+      );
 
       # Server deployments (headless)
       "toma@server" = mkHomeConfig {
@@ -336,6 +332,30 @@
             {
               # This sensor path is specific to James's hardware.
               programs.waybar.settings.mainBar.temperature."hwmon-path-abs" = "/sys/devices/pci0000:00/0000:00:18.3/hwmon";
+            }
+          ];
+        };
+    };
+
+    nixosConfigurations."peter" = mkNixosConfig {
+      hostConfig = ./hosts/peter.nix;
+      homeConfig =
+        personalHomeConfig
+        // {
+          profiles =
+            personalHomeConfig.profiles
+            ++ [
+              "secrets/keyring-unlock"
+              "laptop"
+            ];
+          extraModules = [
+            {
+              # Select the AMD CPU sensor on Peter's hardware.
+              programs.waybar.settings.mainBar.temperature."hwmon-path-abs" = "/sys/devices/pci0000:00/0000:00:18.3/hwmon";
+              my.waybar = {
+                battery.enable = true;
+                powerProfiles.enable = true;
+              };
             }
           ];
         };
