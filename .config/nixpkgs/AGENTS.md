@@ -4,7 +4,7 @@
 - **Update configuration**: `./update-nix [system|home] [config-name]` (defaults to system when available, otherwise standalone home-manager; system rebuilds include home-manager)
 - **Test updaters**: `python3 -m unittest discover -s tests -p 'test_*.py'` (mocked commands; no real updates, signing, or switches)
 - **Validate flake**: `nix flake check` (validates flake syntax and builds)
-- **Format code**: `nix fmt` (uses `nixfmt-rfc-style`)
+- **Format code**: `nix fmt` (uses the Alejandra formatter configured in `flake.nix`)
 - **Build home config**: `nix build .#homeConfigurations."toma@work".activationPackage`
 - **Build darwin config**: `nix build .#darwinConfigurations.apollo.system`
 - **Build nixos config**: `nix build .#nixosConfigurations.james.config.system.build.toplevel`
