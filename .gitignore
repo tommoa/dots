@@ -32,6 +32,7 @@
 !/.config/fontconfig/fonts.conf
 /.config/fontconfig/conf.d/
 !/.config/git/
+/.config/git/config
 !/.config/hypr/
 /.config/hypr/hyprsunset.conf
 !/.config/imv/

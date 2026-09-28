@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }: {
@@ -8,6 +9,30 @@
   age.identityPaths = [
     "${config.home.homeDirectory}/.ssh/id_ed25519"
   ];
+
+  # Shared Git behavior and identity defaults; signing is configured separately.
+  programs.git = {
+    enable = true;
+    lfs.enable = true;
+    settings = {
+      core.editor = lib.getExe pkgs.neovim;
+      user = {
+        name = lib.mkDefault "Tom Almeida";
+        email = lib.mkDefault "tom@tommoa.me";
+      };
+      commit.verbose = true;
+      rebase.autoSquash = true;
+      pretty.fixes = "Fixes: %h (\"%s\")";
+      push.gpgSign = "if-asked";
+      pull.rebase = true;
+      sendemail = {
+        smtpServer = lib.getExe config.programs.msmtp.package;
+        annotate = true;
+      };
+    };
+  };
+
+  programs.gpg.enable = true;
 
   # Force kitty graphics protocol without negotiation (tmux intercepts detection).
   # Used by aerc's Vaxis TUI library for rendering image/* attachments.
@@ -31,8 +56,6 @@
     bat
     eza
     fd
-    git
-    gnupg
     gnumake
     jq
     ripgrep

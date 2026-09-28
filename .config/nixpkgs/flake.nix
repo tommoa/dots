@@ -224,6 +224,7 @@
         "secrets/ai-work"
         "secrets/arista-report"
         "secrets/deploy-keys"
+        "secrets/git-signing"
         "ssh"
         "ssh/work"
         "work-browser"
@@ -243,6 +244,7 @@
         "obsidian"
         "secrets/ai"
         "secrets/deploy-keys"
+        "secrets/git-signing"
         "ssh"
         "ssh/personal"
       ];
