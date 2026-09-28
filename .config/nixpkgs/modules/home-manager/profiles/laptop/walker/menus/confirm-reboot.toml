@@ -1,0 +1,13 @@
+name = "confirm-reboot"
+name_pretty = "Confirm reboot"
+icon = "system-reboot"
+
+[[entries]]
+text = "Cancel"
+submenu = "system"
+icon = "process-stop-symbolic"
+
+[[entries]]
+text = "Confirm reboot"
+actions = { "confirm" = "systemctl reboot" }
+icon = "system-reboot"

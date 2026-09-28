@@ -1,0 +1,66 @@
+theme = "one-dark"
+selection_wrap = true
+hide_quick_activation = true
+hide_action_hints = false
+actions_as_menu = true
+
+[placeholders]
+"default" = { input = "Search actions or applications", list = "No matches" }
+
+[keybinds]
+close = ["Escape"]
+next = ["Down"]
+previous = ["Up"]
+left = ["Left"]
+right = ["Right"]
+down = ["Down"]
+up = ["Up"]
+show_actions = ["alt j"]
+
+[providers]
+default = [
+  "desktopapplications",
+  "menus:default",
+  "menus:system",
+  "menus:devices",
+  "menus:capture",
+  "menus:desktop",
+  "menus:clipboard",
+  "menus:media",
+]
+empty = ["menus:default"]
+max_results = 50
+
+[[providers.prefixes]]
+prefix = "."
+provider = "symbols"
+
+[[providers.prefixes]]
+prefix = ":"
+provider = "clipboard"
+
+[providers.actions]
+fallback = [
+  { action = "menus:open", label = "open", after = "Nothing" },
+  { action = "menus:default", label = "run", after = "Close" },
+  { action = "menus:parent", label = "back", bind = "Escape", after = "Nothing" },
+]
+
+menus = [
+  { action = "open", default = true, bind = "Return", after = "Nothing" },
+  { action = "default", label = "Run", bind = "shift Return", after = "Close" },
+  { action = "parent", label = "Back", bind = "Escape", after = "Nothing" },
+]
+
+desktopapplications = [
+  { action = "start", default = true, bind = "Return" },
+]
+
+clipboard = [
+  { action = "copy", default = true, bind = "Return" },
+  { action = "remove", bind = "ctrl d", after = "AsyncReload" },
+]
+
+symbols = [
+  { action = "run_cmd", label = "select", default = true, bind = "Return" },
+]

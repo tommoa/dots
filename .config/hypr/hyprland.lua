@@ -140,7 +140,8 @@ local osdclient = [[swayosd-client --monitor "$(hyprctl monitors -j | jq -r '.[]
 
 hl.bind(mod .. " + Q", hl.dsp.window.close())
 hl.bind(mod .. " + return", hl.dsp.exec_cmd("uwsm app -- ghostty"))
-hl.bind(mod .. " + P", hl.dsp.exec_cmd("uwsm app -- wofi -diImSdrun"))
+hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd("uwsm app -- walker"))
+hl.bind(mod .. " + P", hl.dsp.exec_cmd("uwsm app -- wofi --show=drun --allow-images --allow-markup --insensitive"))
 
 -- Move focus with Colemak vim keys.
 hl.bind(mod .. " + " .. left, hl.dsp.focus({ direction = "left" }))

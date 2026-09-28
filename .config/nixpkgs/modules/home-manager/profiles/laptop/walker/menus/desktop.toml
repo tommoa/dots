@@ -1,0 +1,114 @@
+name = "desktop"
+name_pretty = "Desktop"
+icon = "preferences-desktop"
+
+[[entries]]
+text = "Focus window"
+keywords = ["window", "switch", "focus"]
+actions = { "focus" = "clients=$(hyprctl -j clients | jq -r '.[] | ((.title // .class // \"Untitled\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \")) as $title | ((.class // \"\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \")) as $class | \"\\($title) — \\($class) [\\(.address)]\"'); selection=$(printf '%s\\n' \"$clients\" | wofi --dmenu --insensitive --prompt 'Focus window') || exit 0; address=$(printf '%s\\n' \"$selection\" | sed -nE 's/.*\\[(0x[[:xdigit:]]+)\\]$/\\1/p'); [ -n \"$address\" ] && hyprctl dispatch focuswindow \"address:$address\"" }
+icon = "focus-windows-symbolic"
+
+[[entries]]
+text = "Go to workspace 1"
+actions = { "switch" = "hyprctl dispatch workspace 1" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 2"
+actions = { "switch" = "hyprctl dispatch workspace 2" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 3"
+actions = { "switch" = "hyprctl dispatch workspace 3" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 4"
+actions = { "switch" = "hyprctl dispatch workspace 4" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 5"
+actions = { "switch" = "hyprctl dispatch workspace 5" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 6"
+actions = { "switch" = "hyprctl dispatch workspace 6" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 7"
+actions = { "switch" = "hyprctl dispatch workspace 7" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 8"
+actions = { "switch" = "hyprctl dispatch workspace 8" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Go to workspace 9"
+actions = { "switch" = "hyprctl dispatch workspace 9" }
+icon = "user-desktop-symbolic"
+
+[[entries]]
+text = "Move focused window to workspace 1"
+actions = { "move" = "hyprctl dispatch movetoworkspace 1" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 2"
+actions = { "move" = "hyprctl dispatch movetoworkspace 2" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 3"
+actions = { "move" = "hyprctl dispatch movetoworkspace 3" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 4"
+actions = { "move" = "hyprctl dispatch movetoworkspace 4" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 5"
+actions = { "move" = "hyprctl dispatch movetoworkspace 5" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 6"
+actions = { "move" = "hyprctl dispatch movetoworkspace 6" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 7"
+actions = { "move" = "hyprctl dispatch movetoworkspace 7" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 8"
+actions = { "move" = "hyprctl dispatch movetoworkspace 8" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Move focused window to workspace 9"
+actions = { "move" = "hyprctl dispatch movetoworkspace 9" }
+icon = "preferences-system-windows-actions"
+
+[[entries]]
+text = "Toggle floating"
+actions = { "toggle" = "hyprctl dispatch togglefloating" }
+icon = "window-pop-out-symbolic"
+
+[[entries]]
+text = "Toggle fullscreen"
+actions = { "toggle" = "hyprctl dispatch fullscreen" }
+icon = "view-fullscreen-symbolic"
+
+[[entries]]
+text = "Toggle quiet notifications"
+actions = { "toggle" = "makoctl mode -t do-not-disturb" }
+icon = "notifications-disabled-symbolic"

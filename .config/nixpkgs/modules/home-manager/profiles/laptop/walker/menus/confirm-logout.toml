@@ -1,0 +1,13 @@
+name = "confirm-logout"
+name_pretty = "Confirm log out"
+icon = "system-log-out"
+
+[[entries]]
+text = "Cancel"
+submenu = "system"
+icon = "process-stop-symbolic"
+
+[[entries]]
+text = "Confirm log out"
+actions = { "confirm" = "hyprctl dispatch exit" }
+icon = "system-log-out"

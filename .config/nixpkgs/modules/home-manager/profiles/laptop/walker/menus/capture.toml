@@ -1,0 +1,33 @@
+name = "capture"
+name_pretty = "Capture"
+icon = "camera-photo"
+
+[[entries]]
+text = "Full screenshot"
+actions = { "capture" = "mkdir -p \"$HOME/Pictures/Screenshots\" && grim \"$HOME/Pictures/Screenshots/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+icon = "camera-photo"
+
+[[entries]]
+text = "Region screenshot"
+actions = { "capture" = "geometry=$(slurp) && mkdir -p \"$HOME/Pictures/Screenshots\" && grim -g \"$geometry\" \"$HOME/Pictures/Screenshots/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+icon = "accessories-screenshot-symbolic"
+
+[[entries]]
+text = "Pick screen color"
+actions = { "pick" = "hyprpicker -a" }
+icon = "color-select-symbolic"
+
+[[entries]]
+text = "Start screen recording"
+actions = { "record" = "mkdir -p \"$HOME/Videos/Recordings\" && wf-recorder -f \"$HOME/Videos/Recordings/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
+icon = "media-record-symbolic"
+
+[[entries]]
+text = "Record selected region"
+actions = { "record" = "geometry=$(slurp) && mkdir -p \"$HOME/Videos/Recordings\" && wf-recorder -g \"$geometry\" -f \"$HOME/Videos/Recordings/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
+icon = "media-record-symbolic"
+
+[[entries]]
+text = "Stop screen recording"
+actions = { "stop" = "pkill -INT -x wf-recorder" }
+icon = "media-playback-stop-symbolic"

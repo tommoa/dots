@@ -1,0 +1,13 @@
+name = "confirm-shutdown"
+name_pretty = "Confirm shut down"
+icon = "system-shutdown"
+
+[[entries]]
+text = "Cancel"
+submenu = "system"
+icon = "process-stop-symbolic"
+
+[[entries]]
+text = "Confirm shut down"
+actions = { "confirm" = "systemctl poweroff" }
+icon = "system-shutdown"

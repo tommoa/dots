@@ -14,6 +14,7 @@
   ];
   "modules-center" = [
     "clock"
+    "custom/recording"
   ];
   "modules-right" = [
     "tray"
@@ -53,6 +54,18 @@
       "deactivated" = "";
     };
     "tooltip" = false;
+  };
+  "custom/recording" = {
+    "exec" = pkgs.writeShellScript "waybar-screen-recording" ''
+      if ${pkgs.procps}/bin/pgrep -x wf-recorder >/dev/null; then
+        printf '%s\n' '{"text":" REC","class":"recording","tooltip":"Screen recording in progress"}'
+      else
+        printf '%s\n' '{"text":"","class":"inactive"}'
+      fi
+    '';
+    "return-type" = "json";
+    "interval" = 1;
+    "hide-empty-text" = true;
   };
   "clock" = {
     "format" = "{:%A %d %H:%M}";

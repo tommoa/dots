@@ -93,6 +93,10 @@ window#waybar.chromium {
     margin: 0;
 }
 
+#custom-recording.recording {
+    color: #e06c75;
+}
+
 #temperature.critical {
     color: #e06c75;
 }

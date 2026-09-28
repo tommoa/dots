@@ -1,0 +1,71 @@
+@define-color window_bg_color #282c34;
+@define-color accent_bg_color #e06c75;
+@define-color window_border_color #3b4048;
+@define-color selection_bg_color #3e4451;
+@define-color theme_fg_color #abb2bf;
+@define-color error_bg_color #e06c75;
+@define-color error_fg_color #1e222a;
+
+.box-wrapper {
+  background: alpha(@window_bg_color, 0.96);
+  border: 2px solid @window_border_color;
+  border-radius: 14px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.38);
+}
+
+.input {
+  background: @selection_bg_color;
+  border-radius: 8px;
+  color: @theme_fg_color;
+  caret-color: @theme_fg_color;
+}
+
+.input selection {
+  background: alpha(@window_bg_color, 0.7);
+}
+
+.list,
+.preview-box,
+.elephant-hint,
+.placeholder,
+.keybinds {
+  color: @theme_fg_color;
+}
+
+.list {
+  background: @window_bg_color;
+}
+
+.item-box {
+  background: transparent;
+  border-radius: 8px;
+}
+
+child:selected,
+row:selected {
+  background: @selection_bg_color;
+  border-radius: 8px;
+}
+
+child:selected .item-box,
+row:selected .item-box {
+  background: @selection_bg_color;
+}
+
+.item-subtext {
+  color: alpha(@theme_fg_color, 0.68);
+}
+
+.keybinds {
+  border-top: 1px solid alpha(@theme_fg_color, 0.16);
+}
+
+.keybind-label {
+  border-color: alpha(@theme_fg_color, 0.5);
+}
+
+.preview {
+  border: 1px solid alpha(@accent_bg_color, 0.45);
+  border-radius: 8px;
+  color: @theme_fg_color;
+}

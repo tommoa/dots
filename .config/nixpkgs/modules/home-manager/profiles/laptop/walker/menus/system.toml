@@ -1,0 +1,28 @@
+name = "system"
+name_pretty = "System"
+icon = "system-shutdown"
+
+[[entries]]
+text = "Lock screen"
+actions = { "lock" = "swaylock -f" }
+icon = "system-lock-screen"
+
+[[entries]]
+text = "Suspend"
+actions = { "suspend" = "systemctl suspend" }
+icon = "system-suspend-symbolic"
+
+[[entries]]
+text = "Log out"
+submenu = "confirm-logout"
+icon = "system-log-out"
+
+[[entries]]
+text = "Reboot"
+submenu = "confirm-reboot"
+icon = "system-reboot"
+
+[[entries]]
+text = "Shut down"
+submenu = "confirm-shutdown"
+icon = "system-shutdown"

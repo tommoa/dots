@@ -1,0 +1,19 @@
+name = "clipboard"
+name_pretty = "Clipboard & input"
+icon = "edit-paste"
+
+[[entries]]
+text = "Clipboard history"
+keywords = ["clipboard", "history", "paste"]
+actions = { "paste" = "selection=$(cliphist list | wofi --dmenu --insensitive --prompt 'Clipboard') || exit 0; [[ -n $selection ]] && printf '%s\\n' \"$selection\" | cliphist decode | wl-copy" }
+icon = "edit-paste"
+
+[[entries]]
+text = "Clear clipboard history"
+actions = { "clear" = "cliphist wipe" }
+icon = "edit-clear"
+
+[[entries]]
+text = "Emoji picker"
+actions = { "pick" = "rofimoji --selector wofi --action copy --clipboarder wl-copy" }
+icon = "face-smile-symbolic"

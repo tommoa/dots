@@ -1,0 +1,48 @@
+name = "devices"
+name_pretty = "Devices"
+icon = "preferences-system"
+
+[[entries]]
+text = "Audio settings"
+actions = { "open" = "uwsm app -- pavucontrol" }
+icon = "audio-volume-high-symbolic"
+
+[[entries]]
+text = "Network settings"
+actions = { "open" = "uwsm app -- ghostty --class=TUI.float -e nmtui" }
+icon = "network-wireless"
+
+[[entries]]
+text = "Bluetooth settings"
+actions = { "open" = "uwsm app -- blueman-manager" }
+icon = "bluetooth"
+
+[[entries]]
+text = "Power profile: balanced"
+actions = { "set" = "powerprofilesctl set balanced" }
+icon = "power-profile-balanced-symbolic"
+
+[[entries]]
+text = "Power profile: power saver"
+actions = { "set" = "powerprofilesctl set power-saver" }
+icon = "power-profile-power-saver-symbolic"
+
+[[entries]]
+text = "Increase brightness by 10%"
+actions = { "set" = "brightnessctl set 10%+" }
+icon = "display-brightness-high-symbolic"
+
+[[entries]]
+text = "Increase brightness by 25%"
+actions = { "set" = "brightnessctl set 25%+" }
+icon = "display-brightness-high-symbolic"
+
+[[entries]]
+text = "Decrease brightness by 10%"
+actions = { "set" = "brightnessctl set 10%-" }
+icon = "display-brightness-low-symbolic"
+
+[[entries]]
+text = "Decrease brightness by 25%"
+actions = { "set" = "brightnessctl set 25%-" }
+icon = "display-brightness-low-symbolic"

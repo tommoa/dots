@@ -1,0 +1,45 @@
+name = "default"
+name_pretty = "Actions"
+icon = "applications-system"
+
+[[entries]]
+text = "System"
+keywords = ["lock", "suspend", "logout", "reboot", "shutdown", "power"]
+submenu = "system"
+icon = "system-shutdown"
+
+[[entries]]
+text = "Devices"
+keywords = ["audio", "network", "bluetooth", "power profile", "brightness"]
+submenu = "devices"
+icon = "preferences-system"
+
+[[entries]]
+text = "Capture"
+keywords = ["screenshot", "screen recording", "color picker"]
+submenu = "capture"
+icon = "camera-photo"
+
+[[entries]]
+text = "Desktop"
+keywords = ["window", "workspace", "notifications", "floating", "fullscreen"]
+submenu = "desktop"
+icon = "preferences-desktop"
+
+[[entries]]
+text = "Clipboard & input"
+keywords = ["clipboard history", "emoji", "clear clipboard"]
+submenu = "clipboard"
+icon = "edit-paste"
+
+[[entries]]
+text = "Media"
+keywords = ["play", "pause", "next track", "previous track"]
+submenu = "media"
+icon = "multimedia-player"
+
+[[entries]]
+text = "Open application launcher"
+keywords = ["applications", "apps", "wofi"]
+actions = { "open" = "uwsm app -- wofi --show=drun --allow-images --allow-markup --insensitive" }
+icon = "system-search-symbolic"

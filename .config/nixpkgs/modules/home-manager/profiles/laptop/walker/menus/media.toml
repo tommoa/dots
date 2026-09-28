@@ -1,0 +1,18 @@
+name = "media"
+name_pretty = "Media"
+icon = "multimedia-player"
+
+[[entries]]
+text = "Play / pause"
+actions = { "toggle" = "playerctl play-pause" }
+icon = "media-playback-pause-symbolic"
+
+[[entries]]
+text = "Next track"
+actions = { "next" = "playerctl next" }
+icon = "media-skip-forward-symbolic"
+
+[[entries]]
+text = "Previous track"
+actions = { "previous" = "playerctl previous" }
+icon = "media-skip-backward-symbolic"
