@@ -238,6 +238,7 @@
       profiles = [
         "base"
         "desktop"
+        "waybar"
         "development"
         "development/cli-proxy-api"
         "mail"
@@ -328,6 +329,12 @@
         personalHomeConfig
         // {
           profiles = personalHomeConfig.profiles ++ ["secrets/keyring-unlock"];
+          extraModules = [
+            {
+              # This sensor path is specific to James's hardware.
+              programs.waybar.settings.mainBar.temperature."hwmon-path-abs" = "/sys/devices/pci0000:00/0000:00:18.3/hwmon";
+            }
+          ];
         };
     };
 

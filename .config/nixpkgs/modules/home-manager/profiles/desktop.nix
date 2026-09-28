@@ -130,11 +130,6 @@ in {
   #   portalPackage = null;
   # };
 
-  programs.waybar = {
-    enable = pkgs.stdenv.isLinux;
-  };
-  # xdg.configFile."waybar/config.jsonc".source = ./waybar/config.jsonc;
-  # xdg.configFile."waybar/style.css".source = ./waybar/style.css;
   programs.swaylock = {
     enable = pkgs.stdenv.isLinux;
   };

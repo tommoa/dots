@@ -64,4 +64,6 @@
 !/.config/swaylock/
 !/.config/user-dirs.dirs
 !/.config/waybar
+/.config/waybar/config
+/.config/waybar/style.css
 !/.config/wofi

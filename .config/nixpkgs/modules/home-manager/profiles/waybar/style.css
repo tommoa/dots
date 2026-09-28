@@ -64,15 +64,11 @@ window#waybar.chromium {
 }
 
 #clock,
-#battery,
 #cpu,
 #memory,
 #temperature,
 #backlight,
-#network,
 #pulseaudio,
-#wireplumber,
-#custom-media,
 #tray,
 #mode,
 #idle_inhibitor,
@@ -84,6 +80,17 @@ window#waybar.chromium {
 #mpd {
     padding: 0 0.5em;
     margin: 0 0px;
+}
+
+/* Keep the status icons evenly spaced, including Bluetooth. */
+#wireplumber,
+#bluetooth,
+#network,
+#power-profiles-daemon,
+#battery,
+#custom-recording {
+    padding: 0 4px;
+    margin: 0;
 }
 
 #temperature.critical {
