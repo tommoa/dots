@@ -113,6 +113,9 @@ in {
       # macOS: Ensure that left-option gives "alt" values
       macos-option-as-alt = "left";
 
+      # Always close ghostty when the last thing is closed.
+      confirm-close-surface = false;
+
       keybind = [
         "global:super+enter=new_window"
       ];
