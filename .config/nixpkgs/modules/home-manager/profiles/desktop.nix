@@ -38,7 +38,6 @@ in {
         hyprsunset
         pavucontrol
         playerctl
-        swaybg
         wl-clipboard
       ]
       else []
@@ -122,6 +121,23 @@ in {
     gtk.enable = true;
     package = pkgs.pop-icon-theme;
     name = "Pop";
+  };
+
+  systemd.user.services.swaybg = lib.mkIf pkgs.stdenv.isLinux {
+    # UWSM's compositor-specific target keeps the wallpaper scoped to Hyprland.
+    # The graphical-session target could also start it in unrelated Wayland sessions.
+    Unit = {
+      Description = "Wayland wallpaper background";
+      PartOf = ["wayland-session@hyprland.desktop.target"];
+      After = ["wayland-session@hyprland.desktop.target"];
+      # The selected image lives outside the flake and may be absent on a new host.
+      ConditionPathExists = "%h/img/wallpapers/current";
+    };
+    Service = {
+      ExecStart = "${pkgs.swaybg}/bin/swaybg -i %h/img/wallpapers/current -m fill";
+      Restart = "on-failure";
+    };
+    Install.WantedBy = ["wayland-session@hyprland.desktop.target"];
   };
 
   # wayland.windowManager.hyprland = {

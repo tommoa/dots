@@ -27,7 +27,6 @@ hl.monitor({
 local sleep = "swaylock -f"
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("uwsm app -- swaybg -i ~/.config/sway/background.jpg -m fill")
     hl.exec_cmd("uwsm app -- swayidle -w timeout 300 " .. sleep .. " timeout 600 'hyprctl dispatch dpms off' resume 'hyprctl dispatch dpms on' before-sleep " .. sleep)
     hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Pop-dark'")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface icon-theme 'Pop'")
