@@ -5,18 +5,28 @@ set -euo pipefail
 repository="ssh://gerrit.corp.arista.io:29418/tools/arista-browser-extension"
 gitiles_url="https://gerrit.corp.arista.io/plugins/gitiles/tools/arista-browser-extension"
 requested_rev=""
+check_only=0
 
 usage() {
     cat <<'EOF'
-Usage: update-arista-browser-extension [--rev COMMIT]
+Usage: update-arista-browser-extension [--check] [--rev COMMIT]
 
 Build, test, sign, and register a pinned Arista Browser Extension XPI.
 Without --rev, the current Gerrit main revision is selected.
+
+Options:
+  --check       Compare the selected Gerrit revision with the pin without
+                fetching source, validating its version, or signing
+  --rev COMMIT  Select a specific full Gerrit commit
 EOF
 }
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --check)
+            check_only=1
+            shift
+            ;;
         --rev)
             [ "$#" -ge 2 ] || {
                 printf '%s\n' '--rev requires a commit' >&2
@@ -153,13 +163,21 @@ else
     rev="$(git ls-remote "$repository" refs/heads/main | sed -n '1s/[[:space:]].*//p')"
 fi
 
-case "$rev" in
-    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
-    *)
-        printf 'Could not resolve a full Gerrit commit: %s\n' "$rev" >&2
-        exit 1
-        ;;
-esac
+if [[ ! "$rev" =~ ^[0-9a-f]{40}$ ]]; then
+    printf 'Could not resolve a full Gerrit commit: %s\n' "$rev" >&2
+    exit 1
+fi
+
+if [ "$check_only" -eq 1 ]; then
+    if [ "$rev" = "$current_rev" ]; then
+        printf 'Arista Browser Extension %s is current at %s.\n' "$current_version" "$current_rev"
+    else
+        printf 'The selected Arista Browser Extension revision differs from the pin.\n'
+        printf 'Current: %s (%s)\n' "$current_version" "$current_rev"
+        printf 'Latest:  %s\n' "$rev"
+    fi
+    exit 0
+fi
 
 tmp_dir="$(mktemp -d)"
 metadata_backup="$tmp_dir/metadata.original.json"
@@ -315,7 +333,7 @@ mv "$metadata_file.new" "$metadata_file"
 
 if ! nix build --no-link \
     "path:$flake_dir#arista-browser-extension" \
-    "path:$flake_dir#darwinConfigurations.apollo.system"; then
+    "path:$flake_dir#arista-browser-extension-signed"; then
     printf '%s\n' 'Targeted validation failed; restored the previous metadata.' >&2
     exit 1
 fi

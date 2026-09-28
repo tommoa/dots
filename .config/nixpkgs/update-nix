@@ -12,7 +12,7 @@ NIX_FLAGS="--extra-experimental-features nix-command --extra-experimental-featur
 # package-local resources that are refreshed alongside the flake.
 FLAKE_DIR="${HOME}/.config/nixpkgs"
 DEFAULT_EXCLUDED_INPUTS="obsidian-headless"
-PSEUDO_INPUTS="obsidian-headless"
+PSEUDO_INPUTS="arista-browser-extension obsidian-headless"
 
 # Dash does not implement Bash's $'...' quoting.  printf also gives these
 # values the same escape sequences when the script is run by /bin/sh.
@@ -261,10 +261,27 @@ validate_default_exclusions() {
     done
 }
 
+validate_arista_target() {
+    if ! list_contains "$EXPLICIT_INCLUDES" arista-browser-extension || \
+        list_contains "$EXPLICIT_EXCLUDES" arista-browser-extension; then
+        return
+    fi
+
+    case "$SYSTEM_TYPE:$MODE:$TARGET_CONFIG" in
+        darwin:system:apollo|darwin:home:toma@work)
+            ;;
+        *)
+            print_error "Arista Browser Extension updates require the Darwin work configuration"
+            print_info "Use system 'apollo' or home 'toma@work' on Darwin"
+            exit 1
+            ;;
+    esac
+}
+
 # Selection is deliberately centralized.  For every real or pseudo input the
-# invariant is: explicit exclusion > explicit inclusion > --none > --all >
-# default and platform/server exclusions.  Thus flag order cannot change the
-# result, and explicit includes can opt into a normally filtered input.
+# invariant is: explicit exclusion > explicit inclusion > Arista's explicit-only
+# rule > --none > --all > default and platform/server exclusions. Thus flag
+# order cannot change the result, and explicit includes can opt into filtered inputs.
 resource_selected() {
     local input="$1"
 
@@ -273,6 +290,10 @@ resource_selected() {
     fi
     if list_contains "$EXPLICIT_INCLUDES" "$input"; then
         return 0
+    fi
+    # Signing and publishing require the explicit Arista flag, even with --all.
+    if [ "$input" = arista-browser-extension ]; then
+        return 1
     fi
     if [ "$USE_NONE" = true ]; then
         return 1
@@ -319,6 +340,9 @@ select_inputs() {
 
 pseudo_script() {
     case "$1" in
+        arista-browser-extension)
+            printf '%s\n' "${FLAKE_DIR}/packages/arista-browser-extension/update.sh"
+            ;;
         obsidian-headless)
             printf '%s\n' "${FLAKE_DIR}/packages/obsidian-headless/update.sh"
             ;;
@@ -337,10 +361,20 @@ validate_pseudo_updaters() {
             print_error "No updater configured for pseudo-input: '$pseudo'"
             exit 1
         fi
-        if [ ! -x "$script" ]; then
-            print_error "Pseudo-input updater is missing or not executable: $script"
-            exit 1
-        fi
+        case "$pseudo" in
+            arista-browser-extension)
+                if [ ! -f "$script" ]; then
+                    print_error "Pseudo-input updater source is missing: $script"
+                    exit 1
+                fi
+                ;;
+            *)
+                if [ ! -x "$script" ]; then
+                    print_error "Pseudo-input updater is missing or not executable: $script"
+                    exit 1
+                fi
+                ;;
+        esac
     done
 }
 
@@ -381,10 +415,22 @@ update_pseudo_inputs() {
     for pseudo in $SELECTED_PSEUDO_INPUTS; do
         script=$(pseudo_script "$pseudo")
         print_info "Updating pseudo-input: ${cyan}${pseudo}${reset}"
-        if ! "$script"; then
-            print_error "Failed to update pseudo-input '${pseudo}'"
-            exit 1
-        fi
+        case "$pseudo" in
+            arista-browser-extension)
+                if ! ARISTA_EXTENSION_FLAKE_DIR="$FLAKE_DIR" \
+                    nix run ${NIX_FLAGS} \
+                        "path:$FLAKE_DIR#update-arista-browser-extension"; then
+                    print_error "Failed to update pseudo-input '${pseudo}'"
+                    exit 1
+                fi
+                ;;
+            *)
+                if ! "$script"; then
+                    print_error "Failed to update pseudo-input '${pseudo}'"
+                    exit 1
+                fi
+                ;;
+        esac
     done
 }
 
@@ -432,7 +478,7 @@ available; otherwise home-manager is selected.  The old 'both' mode is not
 supported because integrated system configurations include Home Manager.
 
 INPUT OPTIONS:
-  --all           Refresh all real and pseudo inputs (ignore automatic exclusions)
+  --all           Refresh all automatic inputs (ignore automatic exclusions)
   --none          Refresh only explicitly included inputs
   --<input>       Include <input> (overrides default and smart exclusions)
   --no-<input>    Exclude <input> (takes precedence over inclusion)
@@ -441,6 +487,9 @@ By default, these resources are excluded: ${DEFAULT_EXCLUDED_INPUTS}
 Smart exclusions also remove nix-darwin inputs on Linux, codex-desktop-linux
 on Darwin, and zen-browser plus codex-desktop-linux for server configurations.
 Pseudo-inputs are refreshed by their package-local updater scripts.
+The Arista Browser Extension signs and publishes an unlisted AMO version, so it
+is never selected by --all. Use --arista-browser-extension explicitly for the
+apollo system or toma@work Home Manager configuration on Darwin.
 Flags are order-independent: exclusions win over inclusions, and --none wins
 over --all. Even with --none, flake.lock is reconciled with flake.nix before
 rebuilding; it can change when input declarations have changed.
@@ -461,6 +510,7 @@ Examples:
   $0 --none
   $0 --none --nixpkgs
   $0 --none --obsidian-headless
+  $0 --none --arista-browser-extension
 EOF
 }
 
@@ -539,6 +589,7 @@ main() {
     ALL_INPUTS=$(get_flake_inputs)
     validate_explicit_inputs
     validate_default_exclusions
+    validate_arista_target
     select_inputs
     validate_pseudo_updaters
     show_selected_inputs

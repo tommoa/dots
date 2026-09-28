@@ -1,20 +1,9 @@
 self: super:
 {
-  arista-browser-extension = import ../packages/arista-browser-extension {
-    inherit (super)
-      buildNpmPackage
-      fetchFromGitiles
-      jq
-      lib
-      nodejs_22
-      runCommand
-      zip
-      ;
-  };
+  arista-browser-extension = super.callPackage ../packages/arista-browser-extension {};
 
-  arista-browser-extension-signed = import ../packages/arista-browser-extension/signed.nix {
-    inherit (super) requireFile;
-  };
+  arista-browser-extension-signed =
+    super.callPackage ../packages/arista-browser-extension/signed.nix {};
 
   update-arista-browser-extension = super.writeShellApplication {
     name = "update-arista-browser-extension";

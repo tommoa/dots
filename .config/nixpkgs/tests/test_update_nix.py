@@ -20,8 +20,11 @@ INPUTS = [
     "zen-browser", "codex-desktop-linux", "llm-agents", "fresh-input",
 ]
 PSEUDOS = {
+    "arista-browser-extension": "packages/arista-browser-extension/update.sh",
     "obsidian-headless": "packages/obsidian-headless/update.sh",
 }
+EXPLICIT_ONLY_PSEUDOS = {"arista-browser-extension"}
+AUTOMATIC_PSEUDOS = set(PSEUDOS) - EXPLICIT_ONLY_PSEUDOS
 
 # The fake metadata deliberately uses a non-default root node and a fresh input
 # absent from the on-disk lock. This catches accidental stale-lock discovery.
@@ -44,13 +47,21 @@ if name in ("uname", "whoami", "hostname", "ps"):
     sys.exit(0)
 
 if name == "nix":
-    stage = args[1] if args[0] == "flake" else args[0]
+    if args[0] == "run":
+        stage = "arista-browser-extension"
+    else:
+        stage = args[1] if args[0] == "flake" else args[0]
 elif name == "update.sh":
-    stage = "obsidian-headless"
+    stage = Path(sys.argv[0]).parent.name
 else:
     stage = "activate"
 with open(os.environ["TEST_LOG"], "a") as log:
-    log.write(json.dumps({"stage": stage, "command": name, "args": args}) + "\n")
+    log.write(json.dumps({
+        "stage": stage,
+        "command": name,
+        "args": args,
+        "arista_flake_dir": os.environ.get("ARISTA_EXTENSION_FLAKE_DIR"),
+    }) + "\n")
 if stage == os.environ.get("TEST_FAIL"):
     print("simulated " + stage + " failure", file=sys.stderr)
     sys.exit(42)
@@ -231,10 +242,11 @@ class UpdateNixScenarios:
         self.run_script("--all", "--no-nixpkgs")
         self.assertEqual(self.selected_inputs(), set(INPUTS) - {"nixpkgs"})
         stages = self.stages()
-        for pseudo in PSEUDOS:
+        for pseudo in AUTOMATIC_PSEUDOS:
             self.assertEqual(stages.count(pseudo), 1)
             self.assertLess(stages.index("update"), stages.index(pseudo))
             self.assertLess(stages.index(pseudo), stages.index("activate"))
+        self.assertFalse(set(stages) & EXPLICIT_ONLY_PSEUDOS)
 
     def test_none_reconciles_lock_but_does_not_refresh_inputs(self):
         self.run_script("--none")
@@ -246,10 +258,60 @@ class UpdateNixScenarios:
     def test_pseudo_only_refresh(self):
         for pseudo in PSEUDOS:
             with self.subTest(pseudo=pseudo):
+                if pseudo in EXPLICIT_ONLY_PSEUDOS:
+                    self.env["TEST_SYSTEM"] = "Darwin"
                 self.run_script("--none", "--" + pseudo)
                 self.assertNotIn("update", self.stages())
                 self.assertEqual(set(self.stages()) & set(PSEUDOS), {pseudo})
                 self.assertLess(self.stages().index(pseudo), self.stages().index("activate"))
+                self.env["TEST_SYSTEM"] = "Linux"
+
+    def test_arista_uses_packaged_updater_with_explicit_flake_dir(self):
+        self.env["TEST_SYSTEM"] = "Darwin"
+        self.run_script("--none", "--arista-browser-extension")
+        event = next(e for e in self.events if e["stage"] == "arista-browser-extension")
+        self.assertEqual(event["command"], "nix")
+        self.assertEqual(event["args"][0], "run")
+        self.assertIn(
+            "path:" + str(self.flake) + "#update-arista-browser-extension",
+            event["args"],
+        )
+        self.assertEqual(event["arista_flake_dir"], str(self.flake))
+
+    def test_arista_is_explicit_only_even_with_all(self):
+        self.env["TEST_SYSTEM"] = "Darwin"
+        self.run_script("--all")
+        self.assertNotIn("arista-browser-extension", self.stages())
+
+        self.run_script("--all", "--arista-browser-extension")
+        self.assertEqual(self.stages().count("arista-browser-extension"), 1)
+
+    def test_arista_rejects_non_work_targets_before_updates(self):
+        self.env["TEST_CONFIGS"] = json.dumps([
+            "toma@work", "custom@server", "other-host",
+        ])
+        cases = (
+            (("--arista-browser-extension",), "Linux"),
+            (("home", "custom@server", "--arista-browser-extension"), "Darwin"),
+            (("system", "other-host", "--arista-browser-extension"), "Darwin"),
+        )
+        for args, platform in cases:
+            with self.subTest(args=args, platform=platform):
+                self.env["TEST_SYSTEM"] = platform
+                if args[0] == "system":
+                    self.make_command(self.bin / "darwin-rebuild")
+                self.run_script(*args, success=False)
+                self.assert_no_updates()
+                rebuild = self.bin / "darwin-rebuild"
+                if rebuild.exists():
+                    rebuild.unlink()
+
+    def test_arista_allows_apollo_system_target_on_darwin(self):
+        self.env["TEST_SYSTEM"] = "Darwin"
+        self.make_command(self.bin / "darwin-rebuild")
+        self.env["TEST_CONFIGS"] = json.dumps(["apollo"])
+        self.run_script("system", "apollo", "--none", "--arista-browser-extension")
+        self.assertIn("arista-browser-extension", self.stages())
 
     def test_explicit_pseudo_exclusion_wins_over_all_and_include(self):
         self.run_script("--all", "--no-obsidian-headless", "--obsidian-headless")
@@ -294,6 +356,12 @@ class UpdateNixScenarios:
         self.run_script("--all", success=False)
         self.assert_no_updates()
 
+    def test_missing_arista_updater_source_fails_before_updates(self):
+        self.env["TEST_SYSTEM"] = "Darwin"
+        (self.flake / PSEUDOS["arista-browser-extension"]).unlink()
+        self.run_script("--arista-browser-extension", success=False)
+        self.assert_no_updates()
+
     def test_preflight_failures_do_not_mutate_lock(self):
         for stage in ("metadata", "eval"):
             with self.subTest(stage=stage):
@@ -308,6 +376,12 @@ class UpdateNixScenarios:
                 self.run_script("--all", success=False)
                 self.assertEqual(self.stages()[-1], stage)
                 self.assertNotIn("activate", self.stages())
+
+        self.env["TEST_SYSTEM"] = "Darwin"
+        self.env["TEST_FAIL"] = "arista-browser-extension"
+        self.run_script("--arista-browser-extension", success=False)
+        self.assertEqual(self.stages()[-1], "arista-browser-extension")
+        self.assertNotIn("activate", self.stages())
 
     def test_activation_failure_propagates(self):
         self.env["TEST_FAIL"] = "activate"

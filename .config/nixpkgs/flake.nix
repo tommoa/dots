@@ -367,13 +367,18 @@
                   ;
               }).package;
           }
-          // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") {
-            inherit
-              (pkgs)
-              arista-browser-extension
-              update-arista-browser-extension
-              ;
-          }
+          // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") (
+            {
+              inherit
+                (pkgs)
+                arista-browser-extension
+                update-arista-browser-extension
+                ;
+            }
+            // nixpkgs.lib.optionalAttrs (pkgs.arista-browser-extension-signed != null) {
+              inherit (pkgs) arista-browser-extension-signed;
+            }
+          )
       );
   };
 }

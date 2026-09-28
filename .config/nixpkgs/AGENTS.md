@@ -2,7 +2,7 @@
 
 ## Build/Update Commands
 - **Update configuration**: `./update-nix [system|home] [config-name]` (defaults to system when available, otherwise standalone home-manager; system rebuilds include home-manager)
-- **Test updater**: `python3 -m unittest discover -s tests -p 'test_update_nix.py'` (mocked commands under `/bin/sh` and Dash; no real updates or switches)
+- **Test updaters**: `python3 -m unittest discover -s tests -p 'test_*.py'` (mocked commands; no real updates, signing, or switches)
 - **Validate flake**: `nix flake check` (validates flake syntax and builds)
 - **Format code**: `nix fmt` (uses `nixfmt-rfc-style`)
 - **Build home config**: `nix build .#homeConfigurations."toma@work".activationPackage`
