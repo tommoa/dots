@@ -2,7 +2,15 @@
   pkgs,
   lib,
   ...
-}: {
+}: let
+  wallpaper = "/Users/toma/Pictures/image30.jpg";
+in {
+  home.activation.setWallpaper = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryAfter ["linkGeneration"] ''
+      /usr/bin/osascript -e 'tell application "Finder" to set desktop picture to POSIX file "${wallpaper}"'
+    ''
+  );
+
   home.packages = with pkgs;
     lib.optionals pkgs.stdenv.isLinux [
       # Desktop applications
