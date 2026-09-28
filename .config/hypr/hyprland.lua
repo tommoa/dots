@@ -27,16 +27,6 @@ hl.monitor({
 })
 
 ----------------
--- Startup
-----------------
-
-hl.on("hyprland.start", function()
-    hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Pop-dark'")
-    hl.exec_cmd("gsettings set org.gnome.desktop.interface icon-theme 'Pop'")
-    hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-theme 'Pop'")
-end)
-
-----------------
 -- Settings
 ----------------
 

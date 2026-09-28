@@ -163,8 +163,9 @@ in {
 
   gtk = {
     enable = pkgs.stdenv.isLinux;
+    colorScheme = "dark";
     iconTheme = {
-      name = "Pop-dark";
+      name = "Pop";
       package = pkgs.pop-icon-theme;
     };
     cursorTheme = {
@@ -175,10 +176,7 @@ in {
       name = "Pop-dark";
       package = pkgs.pop-gtk-theme;
     };
-    gtk4.theme = {
-      name = "Pop-dark";
-      package = pkgs.pop-gtk-theme;
-    };
+    gtk4.theme = null;
   };
 
   home.pointerCursor = lib.mkIf pkgs.stdenv.isLinux {
