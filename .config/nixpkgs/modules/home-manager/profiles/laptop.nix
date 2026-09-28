@@ -84,12 +84,14 @@ in {
   systemd.user.services.cliphist = lib.mkIf pkgs.stdenv.isLinux {
     Unit = {
       Description = "Clipboard history watcher";
-      PartOf = ["graphical-session.target"];
+      # UWSM imports WAYLAND_DISPLAY before reaching the Hyprland target.
+      After = ["wayland-session@hyprland.desktop.target"];
+      PartOf = ["wayland-session@hyprland.desktop.target"];
     };
     Service = {
       ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store";
       Restart = "on-failure";
     };
-    Install.WantedBy = ["graphical-session.target"];
+    Install.WantedBy = ["wayland-session@hyprland.desktop.target"];
   };
 }
