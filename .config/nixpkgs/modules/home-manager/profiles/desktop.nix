@@ -125,6 +125,17 @@ in {
   programs.zen-browser = {
     enable = true;
     darwin.packageMode = "wrapped";
+    profiles.default = {
+      search.default = "ddg";
+      settings = {
+        "browser.startup.page" = 3;
+        "browser.newtabpage.activity-stream.section.highlights.rows" = 2;
+        "browser.newtabpage.activity-stream.topSitesRows" = 2;
+        "zen.tabs.vertical" = true;
+        "zen.tabs.vertical.right-side" = true;
+        "zen.view.compact.enable-at-startup" = true;
+      };
+    };
     policies = let
       mkExtensionSettings = builtins.mapAttrs (
         _: pluginId: {
