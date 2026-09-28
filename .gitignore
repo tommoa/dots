@@ -38,7 +38,8 @@
 !/.config/imv/
 !/.config/kitty
 !/.config/mako
-!/.config/mako/config
+# Home Manager manages these files and creates machine-specific store links.
+/.config/mako/config
 !/.config/mpv
 /.config/mpv/*
 !/.config/mpv/mpv.conf

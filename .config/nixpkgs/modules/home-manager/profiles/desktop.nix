@@ -139,6 +139,15 @@ in {
 
   services.mako = {
     enable = pkgs.stdenv.isLinux;
+    settings = {
+      default-timeout = 10000;
+      border-color = "#C792EA";
+      text-color = "#959dcb";
+      background-color = "#292d3e";
+      "mode=do-not-disturb" = {
+        invisible = true;
+      };
+    };
   };
   services.swayosd = {
     enable = pkgs.stdenv.isLinux;
