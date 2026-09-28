@@ -34,7 +34,6 @@
 !/.config/git/
 /.config/git/config
 !/.config/hypr/
-/.config/hypr/hyprsunset.conf
 !/.config/imv/
 !/.config/kitty
 !/.config/mako

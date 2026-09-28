@@ -85,6 +85,7 @@
       username,
       homeDirectory,
       system,
+      timeZone ? "Australia/Sydney",
       profiles ? [
         "base"
         "development"
@@ -92,6 +93,7 @@
       extraModules ? [],
     }:
       home-manager.lib.homeManagerConfiguration {
+        extraSpecialArgs = {inherit timeZone;};
         pkgs = import nixpkgs {
           inherit system;
           config = {
@@ -187,9 +189,10 @@
             ];
           }
           home-manager.nixosModules.home-manager
-          {
+          ({config, ...}: {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
+            home-manager.extraSpecialArgs.timeZone = config.time.timeZone;
             home-manager.sharedModules = [
               agenix-module
             ];
@@ -203,7 +206,7 @@
               home.username = homeConfig.username;
               home.homeDirectory = homeConfig.homeDirectory;
             };
-          }
+          })
         ];
         specialArgs = {
           inherit inputs;
