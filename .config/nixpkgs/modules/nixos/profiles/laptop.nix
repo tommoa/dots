@@ -29,7 +29,9 @@ in {
   # LAVD's --autopower then maps that profile to its own scheduler power mode.
   systemd.services.power-profile-from-ac = {
     description = "Select power profile from AC power state";
-    wantedBy = ["multi-user.target"];
+    # power-profiles-daemon starts after multi-user.target, so this must not
+    # also hold up that target while waiting for the daemon.
+    wantedBy = ["graphical.target"];
     after = ["power-profiles-daemon.service"];
     requires = ["power-profiles-daemon.service"];
     serviceConfig = {
