@@ -10,6 +10,7 @@ let
   # Get with: cat /etc/ssh/ssh_host_ed25519_key.pub
   apollo = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF8+lrFue2t9h3ABGeeQqNv9pIrZssrU81Nn/YErJfpE";
   work = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBHPfVFfiXyMhtsZzuuoZq4Au8VIqODHKMxpE6RWLnJO";
+  peter = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILwOf/6WNYLpglqjui8xc2cBtU3u47f4CNv0++1yvMVQ peter-agenix";
 
   # TODO: Get james host key with: ssh-keyscan -t ed25519 james
   # james = "ssh-ed25519 AAAA...";
@@ -96,4 +97,7 @@ in {
 
   # Keyring unlock password (for auto-login systems)
   "misc/keyring-password.age".publicKeys = all;
+
+  # Peter's host key decrypts at boot; toma remains an editing recipient.
+  "misc/peter-login-hash.age".publicKeys = users ++ [peter];
 }

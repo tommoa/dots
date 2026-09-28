@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  inputs,
+  pkgs,
+  ...
+}: {
   nixpkgs.hostPlatform = "x86_64-linux";
 
   imports = [
@@ -6,6 +10,8 @@
     ../modules/nixos/profiles/base.nix
     ../modules/nixos/profiles/desktop.nix
     ../modules/nixos/profiles/laptop.nix
+    ../modules/nixos/profiles/impermanence.nix
+    inputs.impermanence.nixosModules.impermanence
   ];
 
   networking.hostName = "peter";
