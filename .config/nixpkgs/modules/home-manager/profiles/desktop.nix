@@ -140,6 +140,23 @@ in {
     Install.WantedBy = ["wayland-session@hyprland.desktop.target"];
   };
 
+  services.swayidle = lib.mkIf pkgs.stdenv.isLinux {
+    enable = true;
+    systemdTargets = ["wayland-session@hyprland.desktop.target"];
+    timeouts = [
+      {
+        timeout = 300;
+        command = "${pkgs.swaylock}/bin/swaylock -f";
+      }
+      {
+        timeout = 600;
+        command = "${pkgs.hyprland}/bin/hyprctl dispatch dpms off";
+        resumeCommand = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
+      }
+    ];
+    events."before-sleep" = "${pkgs.swaylock}/bin/swaylock -f";
+  };
+
   # wayland.windowManager.hyprland = {
   #   enable = pkgs.stdenv.isLinux;
   #   package = null;
