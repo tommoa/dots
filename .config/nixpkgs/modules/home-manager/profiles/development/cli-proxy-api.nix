@@ -144,7 +144,7 @@ in {
           # Overwrite config.json only when the declarative base changed or
           # the cache is missing. Otherwise leave the previously-discovered
           # model list intact until the next successful refresh.
-          if ! ${pkgs.coreutils}/bin/cmp -s ${proxyConfigBase} "${proxyRuntimeBase}" \
+          if ! ${pkgs.diffutils}/bin/cmp -s ${proxyConfigBase} "${proxyRuntimeBase}" \
               || [ ! -s "${proxyRuntimeConfig}" ]; then
             ${pkgs.coreutils}/bin/cp ${proxyConfigBase} "${proxyRuntimeConfig}"
             ${pkgs.coreutils}/bin/chmod 600 "${proxyRuntimeConfig}"
