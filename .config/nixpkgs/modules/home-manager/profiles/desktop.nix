@@ -56,6 +56,8 @@
       longitude = roundOneDecimal longitude;
     };
 in {
+  imports = [./zen-browser.nix];
+
   home.activation.setWallpaper = lib.mkIf pkgs.stdenv.isDarwin (
     lib.hm.dag.entryAfter ["linkGeneration"] ''
       /usr/bin/osascript -e 'tell application "Finder" to set desktop picture to POSIX file "${wallpaper}"'
@@ -120,45 +122,6 @@ in {
         "global:super+enter=new_window"
       ];
     };
-  };
-
-  programs.zen-browser = {
-    enable = true;
-    darwin.packageMode = "wrapped";
-    profiles.default = {
-      search.default = "ddg";
-      settings = {
-        "browser.startup.page" = 3;
-        "browser.newtabpage.activity-stream.section.highlights.rows" = 2;
-        "browser.newtabpage.activity-stream.topSitesRows" = 2;
-        "zen.tabs.vertical" = true;
-        "zen.tabs.vertical.right-side" = true;
-        "zen.view.compact.enable-at-startup" = true;
-      };
-    };
-    policies = let
-      mkExtensionSettings = builtins.mapAttrs (
-        _: pluginId: {
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/${pluginId}/latest.xpi";
-          installation_mode = "force_installed";
-        }
-      );
-    in {
-      ExtensionSettings = mkExtensionSettings {
-        "uBlock0@raymondhill.net" = "ublock-origin";
-        "{446900e4-71c2-419f-a6a7-df9c091e268b}" = "bitwarden-password-manager";
-        "@testpilot-containers" = "multi-account-containers";
-        "@contain-facebook" = "facebook-container";
-        "{04188724-64d3-497b-a4fd-7caffe6eab29}" = "rust-search-extension";
-        "enhancerforyoutube@maximerf.addons.mozilla.org" = "enhancer-for-youtube";
-        "{c49b13b1-5dee-4345-925e-0c793377e3fa}" = "youtube-enhancer-vc";
-      };
-    };
-    nativeMessagingHosts =
-      [
-        (lib.mkIf pkgs.stdenv.isLinux pkgs.firefoxpwa)
-      ]
-      ++ lib.optionals pkgs.stdenv.isLinux [pkgs.bitwarden-desktop];
   };
 
   gtk = {
