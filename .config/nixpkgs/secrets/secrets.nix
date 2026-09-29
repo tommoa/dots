@@ -91,6 +91,8 @@ in {
   "misc/gpg-agent-conf.age".publicKeys = all;
   # The Git signing subkey is user-scoped; do not give host keys access to it.
   "misc/git-signing-subkey.age".publicKeys = users;
+  # Email refresh tokens need the existing personal GPG encryption subkey.
+  "misc/mail-encryption-subkey.age".publicKeys = users;
 
   # Keyring unlock password (for auto-login systems)
   "misc/keyring-password.age".publicKeys = all;

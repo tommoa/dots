@@ -11,6 +11,7 @@
     ./mail/accounts/work.nix
     ./mail/accounts/tommoa.nix
     ./mail/accounts/shared.nix
+    ./secrets/mail-encryption.nix
   ];
 
   home.packages = with pkgs; [
