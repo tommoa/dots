@@ -75,6 +75,9 @@ in {
         model = config.my.codex.defaultModel;
         review_model = config.my.codex.reviewModel;
         model_reasoning_effort = "high";
+        # The source-built Nix package does not provide the standalone package
+        # layout required by Codex's managed background daemon.
+        features.daemon_auto_start = false;
         agents = {
           default_subagent_model = "gpt-5.6-luna";
           default_subagent_reasoning_effort = "high";
