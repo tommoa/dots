@@ -35,10 +35,11 @@
 
     zen-browser = {
       url = "github:0xc000022070/zen-browser-flake";
-      # Zen currently requires ffmpeg_9, which is available in unstable but
-      # not in the 26.05 release input used by the rest of this flake.
+      # Zen's Linux package uses ffmpeg_9, which release-26.05 lacks; keep only
+      # Zen on unstable rather than moving the host package set.
       inputs.nixpkgs.follows = "nixpkgs-unstable";
-      inputs.home-manager.follows = "home-manager";
+      # The signed Darwin package must bypass Home Manager's Firefox wrapper;
+      # release-26.05 lacks the package-override check that leaves it unchanged.
     };
 
     agenix = {

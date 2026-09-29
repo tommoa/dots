@@ -26,7 +26,6 @@
 
   programs.zen-browser = {
     enable = true;
-    darwin.packageMode = "wrapped";
     profiles.default = {
       name = "default";
       path = "default";
