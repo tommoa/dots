@@ -32,6 +32,13 @@
     options = ["subvol=nix"];
   };
 
+  # Keep the large, re-downloadable Steam library outside snapshots of /home.
+  fileSystems."/home/tommoa/.local/share/Steam/steamapps" = {
+    device = "/dev/disk/by-uuid/2ae3c985-a150-47fc-8953-817bbf6cf0e0";
+    fsType = "btrfs";
+    options = ["subvol=steamapps"];
+  };
+
   fileSystems."/boot" = {
     device = "/dev/disk/by-uuid/2CA5-B958";
     fsType = "vfat";
