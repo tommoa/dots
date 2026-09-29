@@ -1,15 +1,17 @@
 {
   config,
   pkgs,
+  inputs,
   ...
 }: let
-  btrfsDevice = "/dev/disk/by-uuid/2ae3c985-a150-47fc-8953-817bbf6cf0e0";
-  peterHostKey = "/persist/etc/agenix/identity";
+  btrfsDevice = config.fileSystems."/".device;
 in {
-  # Keep the original Btrfs top level untouched as the recovery root.
+  imports = [inputs.impermanence.nixosModules.impermanence];
+
+  # This profile expects the host's root filesystem to be Btrfs and uses
+  # the same device for the @root and @persist subvolumes.
   fileSystems."/".options = ["subvol=@root"];
   fileSystems."/nix".neededForBoot = true;
-
   fileSystems."/persist" = {
     device = btrfsDevice;
     fsType = "btrfs";
@@ -17,20 +19,15 @@ in {
     neededForBoot = true;
   };
 
-  # Provision this key on @persist before boot: host-key generation happens
-  # too late for initrd agenix. Declaring it here does not enable sshd.
-  # System agenix can then decrypt without reading the user's key from /home.
-  services.openssh.hostKeys = [
+  assertions = [
     {
-      type = "ed25519";
-      path = peterHostKey;
+      assertion = config.fileSystems."/".fsType == "btrfs";
+      message = "The impermanence profile requires a Btrfs root filesystem.";
     }
   ];
-  age.identityPaths = [peterHostKey];
 
   # Recreate / only after systemd has attempted hibernation resume and before
-  # sysroot.mount. The old top-level root remains available for recovery.
-  boot.resumeDevice = "/dev/disk/by-uuid/ed45594d-13b2-49c6-a9ad-e7346069794c";
+  # sysroot.mount, leaving the original top-level root available for recovery.
   boot.initrd.systemd.services.recreate-root = {
     description = "Restore a blank Btrfs root";
     requiredBy = ["sysroot.mount"];
@@ -90,12 +87,6 @@ in {
       fi
     '';
   };
-
-  # System agenix decrypts the login hash before NixOS creates users. Only
-  # the encrypted file enters the store; the decrypted hash lives in /run.
-  age.secrets.peter-login-hash.file = ../../../secrets/misc/peter-login-hash.age;
-  users.mutableUsers = false;
-  users.users.tommoa.hashedPasswordFile = config.age.secrets.peter-login-hash.path;
 
   environment.persistence."/persist" = {
     hideMounts = true;

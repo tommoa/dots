@@ -1,5 +1,5 @@
 {
-  inputs,
+  config,
   pkgs,
   ...
 }: {
@@ -11,8 +11,20 @@
     ../modules/nixos/profiles/desktop.nix
     ../modules/nixos/profiles/laptop.nix
     ../modules/nixos/profiles/impermanence.nix
-    inputs.impermanence.nixosModules.impermanence
   ];
+
+  # Keep this machine's SSH host key on persistent storage for initrd agenix.
+  services.openssh.hostKeys = [
+    {
+      type = "ed25519";
+      path = "/persist/etc/agenix/identity";
+    }
+  ];
+  age.identityPaths = ["/persist/etc/agenix/identity"];
+
+  age.secrets.peter-login-hash.file = ../secrets/misc/peter-login-hash.age;
+  users.mutableUsers = false;
+  users.users.tommoa.hashedPasswordFile = config.age.secrets.peter-login-hash.path;
 
   networking.hostName = "peter";
   time.timeZone = "Australia/Perth";
