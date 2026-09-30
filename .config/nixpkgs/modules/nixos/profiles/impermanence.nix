@@ -105,6 +105,12 @@ in {
       "/var/lib/NetworkManager"
       "/var/lib/nixos"
       "/var/log"
+      # nixos-rebuild runs as root, so keep root's flake trust approvals
+      # across the ephemeral root reset.
+      {
+        directory = "/root/.local/share/nix";
+        mode = "0700";
+      }
     ];
 
     files = [

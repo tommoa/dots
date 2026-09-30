@@ -212,6 +212,22 @@
               home.homeDirectory = homeConfig.homeDirectory;
             };
           })
+          # Let the configured user run update-nix's exact switch command
+          # without a password. The flake is user-writable, so this still
+          # grants root-equivalent access to that user.
+          ({config, ...}: {
+            security.sudo.extraRules = [
+              {
+                users = [homeConfig.username];
+                commands = [
+                  {
+                    command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${homeConfig.homeDirectory}/.config/nixpkgs#${config.networking.hostName}";
+                    options = ["NOPASSWD"];
+                  }
+                ];
+              }
+            ];
+          })
         ];
         specialArgs = {
           inherit inputs;
