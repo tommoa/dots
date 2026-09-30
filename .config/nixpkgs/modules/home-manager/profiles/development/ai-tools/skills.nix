@@ -51,11 +51,21 @@
 
     '';
   };
+  modelDefaults = config.my.modelSelection.defaults.${config.my.modelSelection.profile};
+  modelDefaultsGuidance = ''
+    - **Ordinary subagent:** `${modelDefaults.subagentModel}`, **high** effort.
+    - **New coordination subagent:** `${modelDefaults.coordinatorModel}`, **high** effort.
+  '';
+  coordinatorGuidance = ''
+    For an existing coordinator, preserve Sol and its current effort in the work
+    profile, or Astra or Sol and its current effort in the personal profile.
+    Astra is unavailable for work; do not select or retain it for work coordination.
+  '';
   modelSelectionSkill = {guidance ? ""}:
     pkgs.writeTextDir "SKILL.md" (
       builtins.replaceStrings
-      ["@profile@" "@provider-guidance@\n"]
-      [config.my.modelSelection.profile guidance]
+      ["@profile@" "@model-defaults@\n" "@provider-guidance@\n" "@coordinator-guidance@\n"]
+      [config.my.modelSelection.profile modelDefaultsGuidance guidance coordinatorGuidance]
       (builtins.readFile ../ai-skills/model-selection/SKILL.md)
     );
   codexModelSelectionSkill = modelSelectionSkill {
@@ -107,10 +117,28 @@
     )
     skillSourcesByHarness.pi;
 in {
-  options.my.modelSelection.profile = lib.mkOption {
-    type = lib.types.enum ["personal" "work"];
-    default = "personal";
-    description = "Work or personal policy embedded in the model-selection skill";
+  options.my.modelSelection = {
+    profile = lib.mkOption {
+      type = lib.types.enum ["personal" "work"];
+      default = "personal";
+      description = "Work or personal model defaults for the skill and harness";
+    };
+    # Keep the generated skill and harness defaults aligned.
+    defaults = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
+      readOnly = true;
+      default = {
+        work = {
+          subagentModel = "gpt-6-luna";
+          coordinatorModel = "gpt-5.6-sol";
+        };
+        personal = {
+          subagentModel = "gpt-6-luna";
+          coordinatorModel = "gpt-6.1-sol";
+        };
+      };
+      description = "Model defaults shared by generated skills and harness settings";
+    };
   };
 
   config = {

@@ -11,15 +11,12 @@ This installation uses the **@profile@** profile.
 
 Optimise for the cheapest reliable completion using these defaults:
 
-- **Ordinary subagent:** GPT-5.6 Luna, **high** effort.
-- **New coordination subagent:** GPT-5.6 Sol, **high** effort.
+@model-defaults@
   Coordination means directing other agents and integrating their results;
   a difficult individual task does not by itself qualify.
 
 @provider-guidance@
-For an existing coordinator, preserve Sol and its current effort in the work
-profile, or Astra or Sol and its current effort in the personal profile.
-Astra is unavailable for work; do not select or retain it for work coordination.
+@coordinator-guidance@
 
 Use model IDs and effort supported by the configured harness. Keep delegated
 work on the same approved provider and proprietary data within approved work

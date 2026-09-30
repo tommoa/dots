@@ -4,6 +4,7 @@
   config,
   ...
 }: let
+  modelDefaults = config.my.modelSelection.defaults.${config.my.modelSelection.profile};
   codexSubscriptionAccounts = builtins.readFile ../codex-cli-proxy-accounts.sh;
   codexReset = pkgs.writeShellApplication {
     name = "reset-codex";
@@ -39,13 +40,18 @@ in {
   options.my.codex = {
     defaultModel = lib.mkOption {
       type = lib.types.str;
-      default = "gpt-5.6-sol";
+      default = modelDefaults.coordinatorModel;
       description = "The default model for codex to use";
     };
     reviewModel = lib.mkOption {
       type = lib.types.str;
-      default = "gpt-5.6-sol";
+      default = modelDefaults.coordinatorModel;
       description = "The model to use for the /review command";
+    };
+    subagentModel = lib.mkOption {
+      type = lib.types.str;
+      default = modelDefaults.subagentModel;
+      description = "The default model for Codex subagents";
     };
   };
   config = {
@@ -79,7 +85,7 @@ in {
         # layout required by Codex's managed background daemon.
         features.daemon_auto_start = false;
         agents = {
-          default_subagent_model = "gpt-5.6-luna";
+          default_subagent_model = config.my.codex.subagentModel;
           default_subagent_reasoning_effort = "high";
           max_concurrent_threads_per_session = 32;
         };

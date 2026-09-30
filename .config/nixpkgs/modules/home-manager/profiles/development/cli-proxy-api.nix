@@ -95,6 +95,7 @@
       "luna-reserve"
       config.my.codex.defaultModel
     ]
+    ++ (with config.my.modelSelection.defaults.personal; [subagentModel coordinatorModel])
     ++ config.my.cliProxyApi.models
   );
   codexLogin = pkgs.writeShellApplication {
@@ -119,6 +120,11 @@ in {
   };
 
   config = {
+    # The same local provider serves subscription and corporate models;
+    # the work subagent default must select the corporate upstream explicitly.
+    my.codex.subagentModel = lib.mkIf (config.my.modelSelection.profile == "work" && config.my.aiProxy.enable) (
+      lib.mkDefault "ai-proxy/${config.my.modelSelection.defaults.work.subagentModel}"
+    );
     home.packages =
       [
         proxyPackage
