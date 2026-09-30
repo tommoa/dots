@@ -11,6 +11,7 @@
     ../modules/nixos/profiles/desktop.nix
     ../modules/nixos/profiles/laptop.nix
     ../modules/nixos/profiles/impermanence.nix
+    ../modules/nixos/profiles/kanata.nix
   ];
 
   # Keep this machine's SSH host key on persistent storage for initrd agenix.
@@ -31,6 +32,11 @@
 
   # Test the touchpad's alternate bus to see whether it removes input lag.
   boot.kernelParams = ["psmouse.synaptics_intertouch=1"];
+
+  # Apply the shared Feral-derived layout to this laptop's built-in keyboard.
+  services.kanata.keyboards.laptop.devices = [
+    "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
+  ];
 
   users.users.tommoa = {
     isNormalUser = true;

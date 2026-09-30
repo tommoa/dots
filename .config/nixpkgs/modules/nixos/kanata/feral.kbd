@@ -1,0 +1,86 @@
+;; Feral's ZMK layouts adapted to the built-in laptop keyboard.
+;; The machine's existing keymap remains the source for hardware-specific
+;; functions; this file reproduces its host-side typing layers.
+
+(defalias
+  esc_alt (tap-hold 250 175 esc lalt)
+  gui_del (tap-hold 250 175 del rmet)
+  d_ctrl_d (tap-hold 250 175 d lctl)
+  d_ctrl_s (tap-hold 250 175 s lctl)
+  d_ctrl_g (tap-hold 250 175 g lctl)
+  f_gui_f (tap-hold 250 175 f lmet)
+  f_gui_t (tap-hold 250 175 t lmet)
+  f_gui_e (tap-hold 250 175 e lmet)
+  j_gui_j (tap-hold 250 175 j lmet)
+  j_gui_n (tap-hold 250 175 n lmet)
+  j_gui_y (tap-hold 250 175 y lmet)
+  k_ctrl_k (tap-hold 250 175 k lctl)
+  k_ctrl_e (tap-hold 250 175 e lctl)
+  k_ctrl_n (tap-hold 250 175 n lctl)
+  quote_alt (tap-hold 250 175 ' lalt)
+  enter_rshift (tap-hold 250 175 ret rsft)
+  space_lower (tap-hold 200 200 spc (layer-while-held lower))
+  ralt_raise (tap-hold 200 200 ralt (layer-while-held raise))
+  ctrl_qwerty (tap-hold 200 200 lctl (multi lctl (layer-while-held qwerty_mo)))
+  select_qwerty (layer-switch qwerty)
+  select_colemak (layer-switch colemak)
+  select_gaming (layer-switch gaming)
+  select_q_in_c (layer-switch q_in_c))
+
+(defsrc
+  grv 1 2 3 4 5 6 7 8 9 0 bspc
+  tab q w e r t y u i o p del
+  caps a s d f g h j k l ; '
+  lsft z x c v b n m , . / ret
+  spc ralt lctl)
+
+(deflayer qwerty
+  grv 1 2 3 4 5 6 7 8 9 0 bspc
+  tab q w e r t y u i o p @gui_del
+  @esc_alt a s @d_ctrl_d @f_gui_f g h @j_gui_j @k_ctrl_k l ; @quote_alt
+  lsft z x c v b n m , . / @enter_rshift
+  @space_lower @ralt_raise @ctrl_qwerty)
+
+(deflayer colemak
+  grv 1 2 3 4 5 6 7 8 9 0 bspc
+  tab q w f p g j l u y ; @gui_del
+  @esc_alt a r @d_ctrl_s @f_gui_t d h @j_gui_n @k_ctrl_e i o @quote_alt
+  lsft z x c v b k m , . / @enter_rshift
+  @space_lower @ralt_raise @ctrl_qwerty)
+
+(deflayer gaming
+  grv grv 1 2 3 4 6 7 8 9 0 bspc
+  5 tab q w e r y u i o p C-tab
+  esc lsft a s d f h j k l ; '
+  lsft lctl z x c v n m , . / ret
+  @space_lower @ralt_raise @ctrl_qwerty)
+
+(deflayer q_in_c
+  grv 1 2 3 4 5 6 7 8 9 0 bspc
+  tab q w k s f o i l ; r @gui_del
+  @esc_alt a d @d_ctrl_g @f_gui_e t h @j_gui_y @k_ctrl_n u p @quote_alt
+  lsft z x c v b j m , . / @enter_rshift
+  @space_lower @ralt_raise @ctrl_qwerty)
+
+;; Ctrl held while typing exposes QWERTY over Colemak, Gaming, or Q-in-C,
+;; matching Feral's momentary QWERTY layer for shortcuts and exceptional keys.
+(deflayer qwerty_mo
+  grv 1 2 3 4 5 6 7 8 9 0 bspc
+  tab q w e r t y u i o p @gui_del
+  @esc_alt a s @d_ctrl_d @f_gui_f g h @j_gui_j @k_ctrl_k l ; @quote_alt
+  lsft z x c v b n m , . / @enter_rshift
+  _ _ _)
+
+(deflayer lower
+  S-grv f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11
+  S-grv S-1 S-2 S-3 S-4 S-5 . 7 8 9 XX f12
+  del S-6 S-7 S-8 S-9 S-0 - 4 5 6 XX \
+  _ \ [ ] S-[ S-] = 1 2 3 = next
+  _ _ _)
+
+(deflayer raise
+  @select_q_in_c @select_qwerty @select_colemak @select_gaming XX XX XX XX XX XX XX XX
+  XX XX XX brdwn brup XX XX C-S-tab C-tab XX XX XX
+  XX XX prev pp next XX left down up right XX XX
+  XX XX XX XX XX XX home pgdn pgup end XX next
+  _ _ _)
