@@ -206,6 +206,7 @@ hl.window_rule({ name = "steam-workspace", match = { class = "steam" }, workspac
 hl.window_rule({ name = "cs2-workspace", match = { class = "^(cs2)$" }, workspace = "7 silent", immediate = true })
 hl.window_rule({ name = "gamescope-workspace", match = { class = "^(gamescope)$" }, workspace = "7 silent", immediate = true })
 hl.window_rule({ name = "deadlock-workspace", match = { class = "^(deadlock)$" }, workspace = "7 silent", immediate = true })
+hl.window_rule({ name = "hollow-knight-workspace", match = { class = "^(Hollow Knight Silksong)$" }, workspace = "7 silent", immediate = true })
 hl.window_rule({ name = "aoe-workspace", match = { title = "Age of Empires .*" }, workspace = "7 silent", immediate = true })
 
 -- Picture-in-picture overlays.
