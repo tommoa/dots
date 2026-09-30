@@ -212,10 +212,6 @@
         "{c49b13b1-5dee-4345-925e-0c793377e3fa}" = "youtube-enhancer-vc";
       };
     };
-    nativeMessagingHosts =
-      [
-        (lib.mkIf pkgs.stdenv.isLinux pkgs.firefoxpwa)
-      ]
-      ++ lib.optionals pkgs.stdenv.isLinux [pkgs.bitwarden-desktop];
+    nativeMessagingHosts = lib.optionals pkgs.stdenv.isLinux [pkgs.bitwarden-desktop];
   };
 }
