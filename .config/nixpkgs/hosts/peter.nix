@@ -1,4 +1,5 @@
 {
+  lib,
   config,
   pkgs,
   ...
@@ -49,8 +50,43 @@
     packages = [];
   };
 
-  # Auto login
-  services.displayManager.autoLogin.enable = true;
-  services.displayManager.autoLogin.user = "tommoa";
-  services.displayManager.defaultSession = "hyprland-uwsm";
+  # Use a One Dark ANSI palette on the virtual console so tuigreet's named
+  # colors render with the corresponding One Dark shades.
+  console.colors = [
+    "282c34"
+    "e06c75"
+    "98c379"
+    "e5c07b"
+    "61afef"
+    "c678dd"
+    "56b6c2"
+    "abb2bf"
+    "5c6370"
+    "e06c75"
+    "98c379"
+    "e5c07b"
+    "61afef"
+    "c678dd"
+    "56b6c2"
+    "d7dae0"
+  ];
+
+  # Greetd prompts for the account password, then starts the same UWSM-managed
+  # Hyprland session that was the default in GDM.
+  services.displayManager.gdm.enable = lib.mkForce false;
+  services.greetd = {
+    enable = true;
+    settings.default_session = {
+      command = ''
+        ${pkgs.tuigreet}/bin/tuigreet \
+          --time \
+          --remember \
+          --cmd "uwsm start hyprland.desktop" \
+          --theme "border=lightblue;text=gray;prompt=lightmagenta;time=lightcyan;action=lightred;button=lightblue;container=black;input=gray;greet=lightgreen"
+      '';
+      user = "greeter";
+    };
+  };
+
+  security.pam.services.greetd.enableGnomeKeyring = true;
 }
