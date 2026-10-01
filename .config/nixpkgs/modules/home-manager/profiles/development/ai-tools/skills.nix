@@ -130,7 +130,7 @@ in {
       default = {
         work = {
           subagentModel = "gpt-6-luna";
-          coordinatorModel = "gpt-5.6-sol";
+          coordinatorModel = "gpt-6.1-sol";
         };
         personal = {
           subagentModel = "gpt-6-luna";

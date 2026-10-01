@@ -88,8 +88,9 @@
     else proxyConfigBase;
   proxyModels = lib.unique (
     [
+      "gpt-6.1-sol"
+      "gpt-6.0-luna"
       "gpt-5.6-sol"
-      "gpt-5.6-terra"
       "gpt-5.6-luna"
       "gpt-reserve"
       "luna-reserve"
@@ -121,10 +122,12 @@ in {
 
   config = {
     # The same local provider serves subscription and corporate models;
-    # the work subagent default must select the corporate upstream explicitly.
-    my.codex.subagentModel = lib.mkIf (config.my.modelSelection.profile == "work" && config.my.aiProxy.enable) (
-      lib.mkDefault "ai-proxy/${config.my.modelSelection.defaults.work.subagentModel}"
-    );
+    # work defaults must select the corporate upstream explicitly.
+    my.codex = lib.mkIf (config.my.modelSelection.profile == "work" && config.my.aiProxy.enable) {
+      defaultModel = lib.mkDefault "ai-proxy/${config.my.modelSelection.defaults.work.coordinatorModel}";
+      reviewModel = lib.mkDefault "ai-proxy/${config.my.modelSelection.defaults.work.coordinatorModel}";
+      subagentModel = lib.mkDefault "ai-proxy/${config.my.modelSelection.defaults.work.subagentModel}";
+    };
     home.packages =
       [
         proxyPackage
