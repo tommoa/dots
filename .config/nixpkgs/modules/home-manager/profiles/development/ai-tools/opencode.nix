@@ -57,10 +57,6 @@ in {
       package = config.my.opencode.package;
       tui.theme = "one-dark";
       settings = {
-        lsp.vhdl-ls = {
-          command = ["vhdl_ls"];
-          extensions = [".vhd" ".vhdl"];
-        };
         plugin = lib.mkIf opencodeLiteLLMEnabled [["${opencodeLiteLLMDir}/plugin.ts" opencodeLiteLLMOptions]];
         formatter =
           {

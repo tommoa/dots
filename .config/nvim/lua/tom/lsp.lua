@@ -92,12 +92,6 @@ M.configs['zls'] = {
     capabilities = capabilities,
 }
 
--- VHDL
-M.configs['vhdl_ls'] = {
-    on_attach = on_attach,
-    capabilities = capabilities,
-}
-
 local ai_lsp_path = vim.fs.joinpath(vim.uv.os_homedir(), 'docs', 'ai-lsp', 'src', 'index.ts')
 if vim.uv.fs_stat(ai_lsp_path) then
     -- My own LSP check
