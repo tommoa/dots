@@ -45,7 +45,11 @@ elif name == "nix":
             "storePath": os.environ["TEST_SOURCE"],
         }))
     elif args[:2] == ["hash", "file"]:
-        print(os.environ["TEST_SIGNED_HASH"])
+        retained_dir = Path(os.environ["HOME"]) / ".local/share/arista-browser-extension"
+        if Path(args[-1]).parent == retained_dir:
+            print(os.environ.get("TEST_RETAINED_HASH", os.environ["TEST_SIGNED_HASH"]))
+        else:
+            print(os.environ["TEST_SIGNED_HASH"])
     elif args[0] == "build" and "--print-out-paths" in args:
         if os.environ.get("TEST_UNSIGNED_BUILD_FAIL") == "1":
             sys.exit(41)
@@ -209,6 +213,8 @@ class AristaUpdaterTests(unittest.TestCase):
         )
         artifact.parent.mkdir(parents=True)
         artifact.write_bytes(b"current-xpi")
+        artifact.chmod(0o444)
+        original_stat = artifact.stat()
         self.env["TEST_SIGNED_HASH"] = CURRENT_HASH
 
         output = self.run_updater()
@@ -216,7 +222,17 @@ class AristaUpdaterTests(unittest.TestCase):
         self.assertIn("already current", output)
         commands = [event["command"] for event in self.events]
         self.assertEqual(commands, ["git", "unzip", "nix", "nix-store"])
+        self.assertFalse(any(
+            event["command"] == "nix"
+            and event["args"][0] in ("shell", "build")
+            for event in self.events
+        ))
         self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+        self.assertEqual(artifact.read_bytes(), b"current-xpi")
+        self.assertEqual(artifact.stat().st_ino, original_stat.st_ino)
+        self.assertEqual(artifact.stat().st_mtime_ns, original_stat.st_mtime_ns)
+        self.assertEqual(artifact.stat().st_mode, original_stat.st_mode)
+        self.assertFalse(artifact.with_suffix(".xpi.new").exists())
 
     def test_current_revision_recovers_missing_artifact_from_amo(self):
         self.env["TEST_AMO_RESULT"] = "success"
@@ -234,6 +250,27 @@ class AristaUpdaterTests(unittest.TestCase):
             / "arista-browser-extension-0.0.63.xpi"
         )
         self.assertTrue(artifact.is_file())
+        self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+
+    def test_current_revision_replaces_corrupt_read_only_artifact_from_amo(self):
+        artifact = (
+            self.home
+            / ".local/share/arista-browser-extension"
+            / "arista-browser-extension-0.0.63.xpi"
+        )
+        artifact.parent.mkdir(parents=True)
+        artifact.write_bytes(b"corrupt-xpi")
+        artifact.chmod(0o444)
+        self.env["TEST_RETAINED_HASH"] = "sha256-corrupt-xpi"
+        self.env["TEST_AMO_RESULT"] = "success"
+        self.env["TEST_SIGNED_HASH"] = CURRENT_HASH
+
+        output = self.run_updater()
+
+        self.assertIn("Recovered Arista Browser Extension 0.0.63 from AMO", output)
+        self.assertEqual(artifact.read_bytes(), b"amo-signed-xpi")
+        self.assertEqual(artifact.stat().st_mode & 0o777, 0o444)
+        self.assertNotIn("override", output)
         self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
 
     def test_update_records_hash_and_validates_package_outputs(self):

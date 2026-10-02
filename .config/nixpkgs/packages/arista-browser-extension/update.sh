@@ -117,10 +117,15 @@ retain_signed_artifact() {
     fi
 
     artifact_path="$artifact_dir/arista-browser-extension-$version.xpi"
-    mkdir -p "$artifact_dir"
-    cp "$source_file" "$artifact_path.new"
-    chmod 0444 "$artifact_path.new"
-    mv "$artifact_path.new" "$artifact_path"
+    # Reusing the verified retained XPI only needs store registration. Preserve
+    # the file itself; copying it back would replace a read-only file on macOS.
+    if [ "$source_file" != "$artifact_path" ]; then
+        mkdir -p "$artifact_dir"
+        cp "$source_file" "$artifact_path.new"
+        chmod 0444 "$artifact_path.new"
+        # A recovered XPI may replace a corrupt read-only retained artifact.
+        mv -f "$artifact_path.new" "$artifact_path"
+    fi
     signed_xpi_hash="$actual_hash"
     store_path="$(nix-store --add-fixed sha256 "$artifact_path")"
 }
