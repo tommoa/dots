@@ -25,6 +25,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 
 name = Path(sys.argv[0]).name
@@ -35,7 +36,10 @@ with open(os.environ["TEST_LOG"], "a") as log:
 if name == "git":
     print(os.environ["TEST_REMOTE_REV"] + "\trefs/heads/main")
 elif name == "nix":
-    if args[:2] == ["store", "prefetch-file"]:
+    if args[0] == "shell":
+        command = args[args.index("--command") + 1:]
+        sys.exit(subprocess.run(command, env=os.environ).returncode)
+    elif args[:2] == ["store", "prefetch-file"]:
         print(json.dumps({
             "hash": "sha256-new-source",
             "storePath": os.environ["TEST_SOURCE"],
@@ -43,6 +47,8 @@ elif name == "nix":
     elif args[:2] == ["hash", "file"]:
         print(os.environ["TEST_SIGNED_HASH"])
     elif args[0] == "build" and "--print-out-paths" in args:
+        if os.environ.get("TEST_UNSIGNED_BUILD_FAIL") == "1":
+            sys.exit(41)
         print(os.environ["TEST_UNSIGNED"])
     elif args[0] == "build" and os.environ.get("TEST_FINAL_BUILD_FAIL") == "1":
         sys.exit(42)
@@ -147,11 +153,12 @@ class AristaUpdaterTests(unittest.TestCase):
             }
         )
 
-    def run_updater(self, *args, success=True):
+    def run_updater(self, *args, success=True, script=SCRIPT):
         self.log.write_text("")
         result = subprocess.run(
-            ["/bin/bash", str(SCRIPT), *args],
+            ["/bin/bash", str(script), *args],
             env=self.env,
+            cwd=self.home,
             capture_output=True,
             text=True,
             timeout=15,
@@ -169,6 +176,17 @@ class AristaUpdaterTests(unittest.TestCase):
     def test_check_reports_current_without_writes_or_credentials(self):
         shutil.rmtree(self.home / ".config/amo")
         output = self.run_updater("--check")
+
+        self.assertIn("is current", output)
+        self.assertEqual([event["command"] for event in self.events], ["git"])
+        self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+
+    def test_check_finds_flake_relative_to_script_from_another_directory(self):
+        script = self.package / "update.sh"
+        shutil.copyfile(SCRIPT, script)
+        self.env.pop("ARISTA_EXTENSION_FLAKE_DIR")
+
+        output = self.run_updater("--check", script=script)
 
         self.assertIn("is current", output)
         self.assertEqual([event["command"] for event in self.events], ["git"])
@@ -245,6 +263,53 @@ class AristaUpdaterTests(unittest.TestCase):
         self.assertFalse(
             any("darwinConfigurations" in arg for arg in final_build[0]["args"])
         )
+
+        tools = [
+            event["args"] for event in self.events
+            if event["command"] == "nix" and event["args"][0] == "shell"
+        ]
+        self.assertEqual([args[3] for args in tools], [
+            "nixpkgs#prefetch-npm-deps", "nixpkgs#nodejs_22", "nixpkgs#web-ext",
+        ])
+        self.assertTrue(all(
+            args[1:3] == ["--inputs-from", "path:" + str(self.flake)]
+            for args in tools
+        ))
+        unsigned_build = next(
+            i for i, event in enumerate(self.events)
+            if event["command"] == "nix"
+            and event["args"][0] == "build"
+            and "--print-out-paths" in event["args"]
+        )
+        signing = next(
+            i for i, event in enumerate(self.events)
+            if event["command"] == "web-ext"
+        )
+        self.assertLess(unsigned_build, signing)
+
+    def test_revision_without_newer_version_does_not_load_build_tools(self):
+        self.env["TEST_REMOTE_REV"] = LATEST_REV
+        (self.source / "src/manifest.ts").write_text('  version: "0.0.63",\n')
+
+        output = self.run_updater(success=False)
+
+        self.assertIn("does not advance signed version", output)
+        self.assertFalse(any(
+            event["command"] == "nix"
+            and event["args"][0] in ("shell", "build")
+            for event in self.events
+        ))
+        self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+
+    def test_unsigned_build_failure_restores_metadata_without_signing(self):
+        self.env["TEST_REMOTE_REV"] = LATEST_REV
+        self.env["TEST_UNSIGNED_BUILD_FAIL"] = "1"
+
+        self.run_updater(success=False)
+
+        self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+        self.assertNotIn("web-ext", [event["command"] for event in self.events])
+        self.assertNotIn("node", [event["command"] for event in self.events])
 
     def test_final_validation_failure_restores_metadata(self):
         self.env["TEST_REMOTE_REV"] = LATEST_REV

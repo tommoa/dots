@@ -31,7 +31,7 @@ in {
     ''
     ++ lib.optional (signedXpi == null) ''
       The signed Arista Browser Extension is not registered in metadata yet.
-      Run `nix run .#update-arista-browser-extension` after configuring AMO credentials.
+      Run `bash packages/arista-browser-extension/update.sh` from the flake directory after configuring AMO credentials.
     '';
 
   programs.zen-browser.policies.ExtensionSettings =

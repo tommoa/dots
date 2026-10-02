@@ -418,8 +418,7 @@ update_pseudo_inputs() {
         case "$pseudo" in
             arista-browser-extension)
                 if ! ARISTA_EXTENSION_FLAKE_DIR="$FLAKE_DIR" \
-                    nix run ${NIX_FLAGS} \
-                        "path:$FLAKE_DIR#update-arista-browser-extension"; then
+                    bash "$script"; then
                     print_error "Failed to update pseudo-input '${pseudo}'"
                     exit 1
                 fi

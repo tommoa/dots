@@ -9,10 +9,12 @@ check_only=0
 
 usage() {
     cat <<'EOF'
-Usage: update-arista-browser-extension [--check] [--rev COMMIT]
+Usage: bash packages/arista-browser-extension/update.sh [--check] [--rev COMMIT]
 
 Build, test, sign, and register a pinned Arista Browser Extension XPI.
 Without --rev, the current Gerrit main revision is selected.
+Revision checks use the installed Git and jq; build and signing tools are
+loaded through Nix only when needed.
 
 Options:
   --check       Compare the selected Gerrit revision with the pin without
@@ -47,28 +49,6 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-find_flake_dir() {
-    if [ -n "${ARISTA_EXTENSION_FLAKE_DIR:-}" ]; then
-        printf '%s\n' "$ARISTA_EXTENSION_FLAKE_DIR"
-        return
-    fi
-
-    if [ -f "$PWD/packages/arista-browser-extension/metadata.json" ]; then
-        printf '%s\n' "$PWD"
-        return
-    fi
-
-    repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-    if [ -n "$repo_root" ] && [ -f "$repo_root/.config/nixpkgs/packages/arista-browser-extension/metadata.json" ]; then
-        printf '%s\n' "$repo_root/.config/nixpkgs"
-        return
-    fi
-
-    printf '%s\n' 'Run this command from the dotfiles repository, the Nix flake directory,' >&2
-    printf '%s\n' 'or set ARISTA_EXTENSION_FLAKE_DIR.' >&2
-    exit 1
-}
-
 require_amo_credentials() {
     if [ ! -s "$api_key_file" ] || [ ! -s "$api_secret_file" ]; then
         printf 'AMO credentials are missing from %s.\n' "${api_key_file%/*}" >&2
@@ -80,7 +60,8 @@ fetch_signed_xpi() {
     local version="$1"
     local output_file="$2"
 
-    node - "$addon_id" "$version" "$output_file" "$api_key_file" "$api_secret_file" <<'NODE'
+    nix shell --inputs-from "path:$flake_dir" nixpkgs#nodejs_22 \
+        --command node - "$addon_id" "$version" "$output_file" "$api_key_file" "$api_secret_file" <<'NODE'
 const crypto = require("node:crypto"); const fs = require("node:fs");
 const [addonId, version, outputFile, apiKeyFile, apiSecretFile] = process.argv.slice(2);
 const apiKey = fs.readFileSync(apiKeyFile, "utf8").trim();
@@ -144,7 +125,9 @@ retain_signed_artifact() {
     store_path="$(nix-store --add-fixed sha256 "$artifact_path")"
 }
 
-flake_dir="$(find_flake_dir)"
+# This repository script lives below the flake, so invocation does not depend
+# on the working directory. update-nix can still supply an explicit flake path.
+flake_dir="${ARISTA_EXTENSION_FLAKE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 package_dir="$flake_dir/packages/arista-browser-extension"
 metadata_file="$package_dir/metadata.json"
 addon_id="$(jq -r .addonId "$metadata_file")"
@@ -241,7 +224,10 @@ if [ -n "$current_signed_hash" ]; then
     fi
 fi
 
-npm_deps_hash="$(prefetch-npm-deps "$source_path/package-lock.json")"
+# Resolve tools from this flake's locked nixpkgs only after the revision and
+# manifest version checks, so an unchanged extension needs no tool builds.
+npm_deps_hash="$(nix shell --inputs-from "path:$flake_dir" nixpkgs#prefetch-npm-deps \
+    --command prefetch-npm-deps "$source_path/package-lock.json")"
 # Build through the normal flake output, restoring metadata unless the complete update succeeds.
 cp "$metadata_file" "$metadata_backup"
 jq \
@@ -285,7 +271,8 @@ else
     set +e
     WEB_EXT_API_KEY="$(cat "$api_key_file")" \
     WEB_EXT_API_SECRET="$(cat "$api_secret_file")" \
-        web-ext sign \
+        nix shell --inputs-from "path:$flake_dir" nixpkgs#web-ext \
+            --command web-ext sign \
             --source-dir "$signing_source" \
             --artifacts-dir "$artifacts_dir" \
             --channel unlisted \

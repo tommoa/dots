@@ -10,7 +10,7 @@ else
     hash = aristaMetadata.signedXpiHash;
     message = ''
       The signed Arista Browser Extension ${aristaMetadata.upstreamVersion} is not in the Nix store.
-      Run `nix run .#update-arista-browser-extension` on the work Mac to build,
+      Run `bash packages/arista-browser-extension/update.sh` from the flake directory on the work Mac to build,
       sign, verify, and add it to the store.
     '';
   }
