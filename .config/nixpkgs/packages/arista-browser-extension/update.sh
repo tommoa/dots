@@ -311,6 +311,14 @@ signed_payload="$tmp_dir/signed-payload"
 mkdir -p "$signed_payload"
 unzip -qq "$signed_source" -d "$signed_payload"
 rm -rf "$signed_payload/META-INF"
+# Signing reformats manifest.json. Verify its JSON value before replacing the
+# temporary copy so the remaining payload can still be compared byte for byte.
+if ! jq -e -s 'length == 2 and .[0] == .[1]' \
+    "$signed_payload/manifest.json" "$unpacked/manifest.json" >/dev/null; then
+    printf '%s\n' 'The signed XPI manifest does not match the locally built extension.' >&2
+    exit 1
+fi
+cp "$unpacked/manifest.json" "$signed_payload/manifest.json"
 if ! diff -rq "$signed_payload" "$unpacked" >/dev/null; then
     printf '%s\n' 'The signed XPI payload does not match the locally built extension.' >&2
     exit 1

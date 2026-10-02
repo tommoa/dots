@@ -63,6 +63,8 @@ in
     installPhase = ''
       runHook preInstall
 
+      # Vite's build metadata is not extension content; web-ext excludes hidden files.
+      rm -rf build/.vite
       mkdir -p "$out/unpacked"
       cp -R build/. "$out/unpacked/"
       (cd ${patchedSource}; find . -mindepth 1 -print | LC_ALL=C sort | zip -q -X "$out/source.zip" -@)

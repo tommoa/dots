@@ -81,6 +81,18 @@ elif name == "unzip":
             destination,
             dirs_exist_ok=True,
         )
+        change = os.environ.get("TEST_SIGNED_CHANGE")
+        manifest = destination / "manifest.json"
+        if change == "format_manifest":
+            manifest.write_text(json.dumps(json.loads(manifest.read_text()), indent=2))
+        elif change == "change_manifest":
+            manifest.write_text('{"version":"0.0.65"}')
+        elif change == "change_asset":
+            (destination / "background.js").write_text("different code")
+        elif change == "extra_file":
+            (destination / "extra.js").write_text("extra code")
+        elif change == "missing_file":
+            (destination / "background.js").unlink()
 else:
     raise SystemExit("unexpected fake command: " + name)
 '''
@@ -120,6 +132,7 @@ class AristaUpdaterTests(unittest.TestCase):
         (self.unsigned / "unpacked/manifest.json").write_text(
             '{"version":"0.0.64"}\n'
         )
+        (self.unsigned / "unpacked/background.js").write_text("original code")
         (self.unsigned / "source.zip").write_bytes(b"source")
 
         amo = self.home / ".config/amo"
@@ -356,6 +369,28 @@ class AristaUpdaterTests(unittest.TestCase):
 
         self.assertIn("Targeted validation failed", output)
         self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+
+    def test_reformatted_signed_manifest_is_accepted(self):
+        self.env["TEST_REMOTE_REV"] = LATEST_REV
+        self.env["TEST_AMO_RESULT"] = "success"
+        self.env["TEST_SIGNED_CHANGE"] = "format_manifest"
+
+        output = self.run_updater()
+
+        self.assertIn("Updated Arista Browser Extension to 0.0.64", output)
+        self.assertNotIn("web-ext", [event["command"] for event in self.events])
+
+    def test_signed_content_changes_restore_metadata(self):
+        self.env["TEST_REMOTE_REV"] = LATEST_REV
+        self.env["TEST_AMO_RESULT"] = "success"
+        for change in ("change_manifest", "change_asset", "extra_file", "missing_file"):
+            with self.subTest(change=change):
+                self.env["TEST_SIGNED_CHANGE"] = change
+                output = self.run_updater(success=False)
+
+                self.assertIn("does not match the locally built extension", output)
+                self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+                self.assertNotIn("nix-store", [event["command"] for event in self.events])
 
     def test_transient_amo_failure_does_not_attempt_signing(self):
         self.env["TEST_REMOTE_REV"] = LATEST_REV
