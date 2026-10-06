@@ -4,6 +4,22 @@
   pkgs,
   ...
 }: {
+  # Keep shared directory conventions available to XDG-aware tools on every platform.
+  xdg.userDirs = {
+    enable = true;
+    createDirectories = true;
+    desktop = "${config.home.homeDirectory}/tmp";
+    documents = "${config.home.homeDirectory}/docs";
+    download = "${config.home.homeDirectory}/dl";
+    extraConfig.PUBLIC = config.xdg.userDirs.publicShare;
+    music = "${config.home.homeDirectory}/music";
+    pictures = "${config.home.homeDirectory}/img";
+    projects = config.xdg.userDirs.documents;
+    publicShare = "${config.home.homeDirectory}/public";
+    templates = "${config.home.homeDirectory}/templates";
+    videos = "${config.home.homeDirectory}/videos";
+  };
+
   # Agenix base configuration - just set the identity path
   # Secrets are defined in secrets/*.nix profiles
   age.identityPaths = [

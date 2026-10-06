@@ -4,12 +4,12 @@ icon = "camera-photo"
 
 [[entries]]
 text = "Full screenshot"
-actions = { "capture" = "mkdir -p \"$HOME/Pictures/Screenshots\" && grim \"$HOME/Pictures/Screenshots/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+actions = { "capture" = "directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
 icon = "camera-photo"
 
 [[entries]]
 text = "Region screenshot"
-actions = { "capture" = "geometry=$(slurp) && mkdir -p \"$HOME/Pictures/Screenshots\" && grim -g \"$geometry\" \"$HOME/Pictures/Screenshots/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+actions = { "capture" = "geometry=$(slurp) && directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim -g \"$geometry\" \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
 icon = "accessories-screenshot-symbolic"
 
 [[entries]]
@@ -19,12 +19,12 @@ icon = "color-select-symbolic"
 
 [[entries]]
 text = "Start screen recording"
-actions = { "record" = "mkdir -p \"$HOME/Videos/Recordings\" && wf-recorder -f \"$HOME/Videos/Recordings/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
+actions = { "record" = "directory=\"$(xdg-user-dir VIDEOS)/Recordings\" && mkdir -p \"$directory\" && wf-recorder -f \"$directory/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
 icon = "media-record-symbolic"
 
 [[entries]]
 text = "Record selected region"
-actions = { "record" = "geometry=$(slurp) && mkdir -p \"$HOME/Videos/Recordings\" && wf-recorder -g \"$geometry\" -f \"$HOME/Videos/Recordings/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
+actions = { "record" = "geometry=$(slurp) && directory=\"$(xdg-user-dir VIDEOS)/Recordings\" && mkdir -p \"$directory\" && wf-recorder -g \"$geometry\" -f \"$directory/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
 icon = "media-record-symbolic"
 
 [[entries]]

@@ -31,6 +31,7 @@
     wf-recorder
     wofi
     wl-clipboard
+    xdg-user-dirs
   ];
   elephant = pkgs.elephant.override {
     enabledProviders = ["clipboard" "desktopapplications" "menus" "symbols"];

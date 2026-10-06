@@ -62,7 +62,6 @@
 !/.config/sway/config
 !/.config/sway/machines/
 !/.config/swaylock/
-!/.config/user-dirs.dirs
 !/.config/waybar
 /.config/waybar/config
 /.config/waybar/style.css
