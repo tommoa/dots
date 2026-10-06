@@ -221,7 +221,8 @@
                 users = [homeConfig.username];
                 commands = [
                   {
-                    command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${homeConfig.homeDirectory}/.config/nixpkgs#${config.networking.hostName}";
+                    # sudoers treats an unescaped `#` as the start of a comment.
+                    command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${homeConfig.homeDirectory}/.config/nixpkgs\\#${config.networking.hostName}";
                     options = ["NOPASSWD"];
                   }
                 ];
