@@ -2,14 +2,15 @@ name = "capture"
 name_pretty = "Capture"
 icon = "camera-photo"
 
+# Elephant logs command errors; pipefail also reports capture failures when wl-copy succeeds.
 [[entries]]
 text = "Full screenshot"
-actions = { "capture" = "directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+actions = { "copy" = "bash -o pipefail -c 'grim - | wl-copy --type image/png'", "save" = "directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
 icon = "camera-photo"
 
 [[entries]]
 text = "Region screenshot"
-actions = { "capture" = "geometry=$(slurp) && directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim -g \"$geometry\" \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+actions = { "copy" = "geometry=$(slurp) && bash -o pipefail -c 'grim -g \"$1\" - | wl-copy --type image/png' _ \"$geometry\"", "save" = "geometry=$(slurp) && directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim -g \"$geometry\" \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
 icon = "accessories-screenshot-symbolic"
 
 [[entries]]

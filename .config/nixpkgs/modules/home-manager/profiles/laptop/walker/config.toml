@@ -52,6 +52,13 @@ menus = [
   { action = "parent", label = "Back", bind = "Escape", after = "Nothing" },
 ]
 
+# Elephant registers each custom menu as its own provider. Bind these actions
+# explicitly so the default does not depend on the order of its action map.
+"menus:capture" = [
+  { action = "copy", label = "Copy", default = true, bind = "Return", after = "Close" },
+  { action = "save", label = "Save", bind = "ctrl s", after = "Close" },
+]
+
 desktopapplications = [
   { action = "start", default = true, bind = "Return" },
 ]
