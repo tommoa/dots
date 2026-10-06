@@ -3,7 +3,9 @@
   config,
   pkgs,
   ...
-}: {
+}: let
+  palette = import ../themes/one-dark.nix;
+in {
   nixpkgs.hostPlatform = "x86_64-linux";
 
   imports = [
@@ -50,25 +52,24 @@
     packages = [];
   };
 
-  # Use a One Dark ANSI palette on the virtual console so tuigreet's named
-  # colors render with the corresponding One Dark shades.
-  console.colors = [
-    "282c34"
-    "e06c75"
-    "98c379"
-    "e5c07b"
-    "61afef"
-    "c678dd"
-    "56b6c2"
-    "abb2bf"
-    "5c6370"
-    "e06c75"
-    "98c379"
-    "e5c07b"
-    "61afef"
-    "c678dd"
-    "56b6c2"
-    "d7dae0"
+  # Apply the selected ANSI palette so tuigreet's named colours use its shades.
+  console.colors = with palette; [
+    background
+    red
+    green
+    yellow
+    blue
+    magenta
+    cyan
+    foreground
+    brightBlack
+    red
+    green
+    yellow
+    blue
+    magenta
+    cyan
+    brightWhite
   ];
 
   # Greetd prompts for the account password, then starts the same UWSM-managed

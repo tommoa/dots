@@ -61,8 +61,6 @@
 /.config/sway/*
 !/.config/sway/config
 !/.config/sway/machines/
-!/.config/swaylock/
 !/.config/waybar
 /.config/waybar/config
 /.config/waybar/style.css
-!/.config/wofi

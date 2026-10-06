@@ -1,10 +1,11 @@
-@define-color window_bg_color #282c34;
-@define-color accent_bg_color #e06c75;
-@define-color window_border_color #3b4048;
-@define-color selection_bg_color #3e4451;
-@define-color theme_fg_color #abb2bf;
-@define-color error_bg_color #e06c75;
-@define-color error_fg_color #1e222a;
+@define-color window_bg_color #@background@;
+@define-color accent_bg_color #@red@;
+@define-color theme_fg_color #@foreground@;
+/* Opaque mixes keep border and selection contrast independent of the wallpaper. */
+@define-color window_border_color mix(@window_bg_color, @theme_fg_color, 0.15);
+@define-color selection_bg_color mix(@window_bg_color, @theme_fg_color, 0.18);
+@define-color error_bg_color #@red@;
+@define-color error_fg_color @window_bg_color;
 
 .box-wrapper {
   background: alpha(@window_bg_color, 0.96);

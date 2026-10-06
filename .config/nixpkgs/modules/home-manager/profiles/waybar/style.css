@@ -7,9 +7,9 @@
 }
 
 window#waybar {
-    background-color: rgba(0x29, 0x2D, 0x3E, 0.5);
-    border-bottom: 3px solid rgba(100, 114, 125, 0.5);
-    color: #ffffff;
+    background-color: alpha(#@background@, 0.5);
+    border-bottom: 3px solid alpha(#@muted@, 0.5);
+    color: #@white@;
     transition-property: background-color;
     transition-duration: .5s;
 }
@@ -39,19 +39,19 @@ window#waybar.chromium {
 #workspaces button {
     padding: 0 5px;
     background-color: transparent;
-    color: #ffffff;
+    color: #@white@;
     border-bottom: 3px solid transparent;
 }
 
 #workspaces button:hover {
     background: rgba(0, 0, 0, 0.2);
     box-shadow: inherit;
-    border-bottom: 3px solid #ffffff;
+    border-bottom: 3px solid #@white@;
 }
 
 #workspaces button.active {
-    background-color: #676e95;
-    border-bottom: 3px solid #ffffff;
+    background-color: #@muted@;
+    border-bottom: 3px solid #@white@;
 }
 
 #workspaces button.urgent {
@@ -94,26 +94,26 @@ window#waybar.chromium {
 }
 
 #custom-recording.recording {
-    color: #e06c75;
+    color: #@red@;
 }
 
 #temperature.critical {
-    color: #e06c75;
+    color: #@red@;
 }
 
 #idle_inhibitor.activated {
-    color: #e5c07b;
+    color: #@yellow@;
 }
 
 /* Make the battery blink red if not charging and critical battery */
 @keyframes blink {
     to {
-        color: #ffffff;
+        color: #@white@;
     }
 }
 
 #battery.critical:not(.charging) {
-    color: #e06c75;
+    color: #@red@;
     animation-name: blink;
     animation-duration: 0.5s;
     animation-timing-function: linear;

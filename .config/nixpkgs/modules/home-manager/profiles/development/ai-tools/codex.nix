@@ -4,6 +4,7 @@
   config,
   ...
 }: let
+  palette = import ../../../../../themes/one-dark.nix;
   modelDefaults = config.my.modelSelection.defaults.${config.my.modelSelection.profile};
   codexSubscriptionAccounts = builtins.readFile ../codex-cli-proxy-accounts.sh;
   codexReset = pkgs.writeShellApplication {
@@ -106,19 +107,19 @@ in {
           appearanceTheme = "dark";
           appearanceDarkCodeThemeId = "one";
           appearanceDarkChromeTheme = {
-            accent = "#4d78cc";
+            accent = "#${palette.blue}";
             contrast = 60;
             fonts = {
               code = "monospace";
               ui = "monospace";
             };
-            ink = "#fafafa";
-            surface = "#282c34";
+            ink = "#${palette.white}";
+            surface = "#${palette.background}";
             opaqueWindows = true;
             semanticColors = {
-              diffAdded = "#40c977";
-              diffRemoved = "#fa423e";
-              skill = "#ad7bf9";
+              diffAdded = "#${palette.green}";
+              diffRemoved = "#${palette.red}";
+              skill = "#${palette.magenta}";
             };
           };
         };

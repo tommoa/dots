@@ -4,6 +4,8 @@
   pkgs,
   ...
 }: let
+  statusPalette = import ../../../themes/one-dark.nix;
+  palette = import ../../../themes/palenight.nix;
   settings = import ./waybar/settings.nix {
     inherit lib pkgs;
     batteryEnabled = config.my.waybar.battery.enable;
@@ -19,7 +21,11 @@ in {
   config.programs.waybar = {
     enable = true;
     settings.mainBar = settings;
-    style = ./waybar/style.css;
+    style =
+      builtins.replaceStrings
+      ["@background@" "@muted@" "@red@" "@yellow@" "@white@"]
+      [palette.background palette.muted statusPalette.red statusPalette.yellow palette.white]
+      (builtins.readFile ./waybar/style.css);
     systemd = {
       enable = true;
       targets = ["wayland-session@hyprland.desktop.target"];

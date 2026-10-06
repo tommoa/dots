@@ -1,0 +1,34 @@
+#window {
+    margin: 5px;
+    border: 2px solid #@red@;
+    background-color: alpha(#@background@, 0.7);
+}
+
+#input {
+    margin: 5px;
+    border: 2px solid #@muted@;
+    background-color: #@muted@;
+    color: #@white@;
+}
+
+#inner-box {
+    margin: 5px;
+    border: 2px solid #@background@;
+    background-color: alpha(#@background@, 0.7);
+}
+
+#outer-box {
+    margin: 5px;
+    border: 2px solid #@background@;
+    background-color: alpha(#@background@, 0.7);
+}
+
+#scroll {
+    margin: 5px;
+    background-color: alpha(#@background@, 0.7);
+}
+
+#text {
+    margin: 5px;
+    color: #@white@;
+}

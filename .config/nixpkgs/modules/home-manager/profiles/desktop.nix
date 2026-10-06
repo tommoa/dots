@@ -4,6 +4,7 @@
   timeZone ? "Australia/Sydney",
   ...
 }: let
+  palette = import ../../../themes/palenight.nix;
   wallpaper = "/Users/toma/Pictures/image30.jpg";
   zoneTab = builtins.readFile "${pkgs.tzdata}/share/zoneinfo/zone.tab";
   zoneEntries = builtins.filter (line: line != "" && builtins.substring 0 1 line != "#") (lib.splitString "\n" zoneTab);
@@ -190,18 +191,46 @@ in {
 
   programs.swaylock = {
     enable = pkgs.stdenv.isLinux;
+    settings = {
+      color = palette.background;
+      ring-color = palette.muted;
+      inside-color = palette.cyan;
+      key-hl-color = palette.blue;
+      inside-wrong-color = palette.red;
+      bs-hl-color = palette.magenta;
+      ring-ver-color = palette.green;
+      inside-ver-color = palette.green;
+      inside-clear-color = palette.yellow;
+    };
   };
   programs.wofi = {
     enable = pkgs.stdenv.isLinux;
+    settings = {
+      run-always_parse_args = true;
+      insensitive = true;
+    };
+    style =
+      builtins.replaceStrings
+      ["@background@" "@red@" "@muted@" "@white@"]
+      [palette.background palette.red palette.muted palette.white]
+      (builtins.readFile ./desktop/wofi/style.css);
+  };
+
+  # Home Manager owns these generated files. Replace the former regular
+  # dotfiles on activation so later settings and palette changes update them.
+  xdg.configFile = lib.mkIf pkgs.stdenv.isLinux {
+    "swaylock/config".force = true;
+    "wofi/config".force = true;
+    "wofi/style.css".force = true;
   };
 
   services.mako = {
     enable = pkgs.stdenv.isLinux;
     settings = {
       default-timeout = 10000;
-      border-color = "#C792EA";
-      text-color = "#959dcb";
-      background-color = "#292d3e";
+      border-color = "#${lib.toUpper palette.magenta}";
+      text-color = "#${palette.foreground}";
+      background-color = "#${palette.background}";
       "mode=do-not-disturb" = {
         invisible = true;
       };

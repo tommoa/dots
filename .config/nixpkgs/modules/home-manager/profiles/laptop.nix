@@ -3,6 +3,7 @@
   pkgs,
   ...
 }: let
+  palette = import ../../../themes/one-dark.nix;
   actionTools = with pkgs; [
     # Elephant executes menu actions with `sh -c` using this restricted PATH.
     bash
@@ -57,7 +58,11 @@ in {
 
   xdg.configFile = {
     "walker/config.toml".source = ./laptop/walker/config.toml;
-    "walker/themes/one-dark/style.css".source = ./laptop/walker/themes/one-dark/style.css;
+    "walker/themes/one-dark/style.css".text =
+      builtins.replaceStrings
+      ["@background@" "@foreground@" "@red@"]
+      [palette.background palette.foreground palette.red]
+      (builtins.readFile ./laptop/walker/themes/one-dark/style.css);
   };
 
   systemd.user.services.elephant = lib.mkIf pkgs.stdenv.isLinux {
