@@ -29,7 +29,7 @@
   users.users.tommoa.hashedPasswordFile = config.age.secrets.peter-login-hash.path;
 
   networking.hostName = "peter";
-  time.timeZone = "Australia/Perth";
+  time.timeZone = "Australia/Sydney";
 
   # Test the touchpad's alternate bus to see whether it removes input lag.
   boot.kernelParams = ["psmouse.synaptics_intertouch=1"];
