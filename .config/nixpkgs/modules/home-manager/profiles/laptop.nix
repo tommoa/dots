@@ -20,6 +20,7 @@
     networkmanager
     pavucontrol
     playerctl
+    # The standard client also supports TLP's compatible D-Bus interface.
     power-profiles-daemon
     procps
     rofimoji

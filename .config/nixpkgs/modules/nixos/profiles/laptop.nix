@@ -1,46 +1,41 @@
-{pkgs, ...}: let
-  setPowerProfileFromAc = pkgs.writeShellApplication {
-    name = "set-power-profile-from-ac";
-    runtimeInputs = [pkgs.coreutils pkgs.power-profiles-daemon];
-    text = ''
-      profile=power-saver
+{lib, ...}: {
+  services.tlp = {
+    enable = true;
+    # Expose TLP's profiles to the desktop and LAVD through the same D-Bus API.
+    pd.enable = true;
+    settings = {
+      # Native switching selects performance on AC and balanced on battery,
+      # while preserving profiles manually selected for the current power source.
+      TLP_AUTO_SWITCH = 2;
 
-      for supply in /sys/class/power_supply/*; do
-        [ -r "$supply/type" ] || continue
-        [ -r "$supply/online" ] || continue
-        [ "$(cat "$supply/type")" = Mains ] || continue
-        if [ "$(cat "$supply/online")" = 1 ]; then
-          profile=balanced
-          break
-        fi
-      done
+      # This Ryzen uses acpi-cpufreq; EPP and amd-pstate are unavailable.
+      CPU_SCALING_GOVERNOR_ON_AC = "schedutil";
+      CPU_SCALING_GOVERNOR_ON_BAT = "schedutil";
+      CPU_SCALING_GOVERNOR_ON_SAV = "schedutil";
+      CPU_BOOST_ON_AC = 1;
+      CPU_BOOST_ON_BAT = 1;
+      CPU_BOOST_ON_SAV = 0;
 
-      powerprofilesctl set "$profile"
-    '';
-  };
-in {
-  # Expose standard balanced, performance, and power-saver profiles.
-  services.power-profiles-daemon.enable = true;
+      # TLP 1.9 shares this GPU setting between balanced and power-saver.
+      # Retain automatic clocks so battery use does not force the lowest clock.
+      RADEON_DPM_PERF_LEVEL_ON_AC = "auto";
+      RADEON_DPM_PERF_LEVEL_ON_BAT = "auto";
 
-  # Let LAVD follow this laptop's active power profile.
-  services.scx.extraArgs = ["--autopower"];
-
-  # Choose a profile from the live AC state at boot and on charger changes.
-  # LAVD's --autopower then maps that profile to its own scheduler power mode.
-  systemd.services.power-profile-from-ac = {
-    description = "Select power profile from AC power state";
-    # power-profiles-daemon starts after multi-user.target, so this must not
-    # also hold up that target while waiting for the daemon.
-    wantedBy = ["graphical.target"];
-    after = ["power-profiles-daemon.service"];
-    requires = ["power-profiles-daemon.service"];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${setPowerProfileFromAc}/bin/set-power-profile-from-ac";
+      # Panel savings trade colour accuracy for lower power consumption.
+      AMDGPU_ABM_LEVEL_ON_AC = 0;
+      AMDGPU_ABM_LEVEL_ON_BAT = 1;
+      AMDGPU_ABM_LEVEL_ON_SAV = 3;
     };
   };
 
-  services.udev.extraRules = ''
-    SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", ACTION=="change", RUN+="${pkgs.systemd}/bin/systemctl --no-block start power-profile-from-ac.service"
-  '';
+  # Let LAVD follow the profiles advertised by tlp-pd.
+  services.scx.extraArgs = ["--autopower"];
+
+  # LAVD stops trying to connect after ten failed D-Bus reads. Start it after
+  # tlp-pd is ready; use graphical.target because tlp-pd starts after multi-user.
+  systemd.services.scx = {
+    wantedBy = lib.mkForce ["graphical.target"];
+    wants = ["tlp-pd.service"];
+    after = ["tlp-pd.service"];
+  };
 }
