@@ -22,7 +22,7 @@ icon = "camera-photo"
 
 [[entries]]
 text = "Desktop"
-keywords = ["window", "workspace", "notifications", "floating", "fullscreen"]
+keywords = ["window", "workspace", "notifications", "floating", "fullscreen", "idle inhibitor", "stay awake"]
 submenu = "desktop"
 icon = "preferences-desktop"
 

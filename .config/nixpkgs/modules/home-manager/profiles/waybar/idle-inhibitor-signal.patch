@@ -1,0 +1,69 @@
+diff --git a/include/modules/idle_inhibitor.hpp b/include/modules/idle_inhibitor.hpp
+--- a/include/modules/idle_inhibitor.hpp
++++ b/include/modules/idle_inhibitor.hpp
+@@ -14,5 +14,6 @@ class IdleInhibitor : public ALabel {
+   virtual ~IdleInhibitor();
+   auto update() -> void override;
++  auto refresh(int signal) -> void override;
+   static std::list<waybar::AModule*> modules;
+   static bool status;
+
+diff --git a/src/modules/idle_inhibitor.cpp b/src/modules/idle_inhibitor.cpp
+--- a/src/modules/idle_inhibitor.cpp
++++ b/src/modules/idle_inhibitor.cpp
+@@ -1,5 +1,7 @@
+ #include "modules/idle_inhibitor.hpp"
+
++#include <csignal>
++
+ #include "idle-inhibit-unstable-v1-client-protocol.h"
+ #include "util/command.hpp"
+
+@@ -78,6 +80,27 @@ auto waybar::modules::IdleInhibitor::update() -> void {
+   ALabel::update();
+ }
+
++auto waybar::modules::IdleInhibitor::refresh(int signal) -> void {
++  if (config_["signal"].isInt() && signal == SIGRTMIN + config_["signal"].asInt()) {
++    // Waybar dispatches to every bar, but inhibition state is process-wide.
++    // Only the first instance listening to this signal owns the transition.
++    for (auto* module : waybar::modules::IdleInhibitor::modules) {
++      auto* inhibitor = static_cast<IdleInhibitor*>(module);
++      if (inhibitor->config_["signal"].isInt() &&
++          signal == SIGRTMIN + inhibitor->config_["signal"].asInt()) {
++        if (inhibitor != this) {
++          return;
++        }
++        break;
++      }
++    }
++    toggleStatus();
++    for (auto const& module : waybar::modules::IdleInhibitor::modules) {
++      module->update();
++    }
++  }
++}
++
+ void waybar::modules::IdleInhibitor::toggleStatus() {
+   status = !status;
+
+diff --git a/man/waybar-idle-inhibitor.5.scd b/man/waybar-idle-inhibitor.5.scd
+--- a/man/waybar-idle-inhibitor.5.scd
++++ b/man/waybar-idle-inhibitor.5.scd
+@@ -82,3 +82,9 @@ Option to disable tooltip on hover.
+ 	Option to disable tooltip on hover.
++
++*signal*: ++
++	typeof: integer ++
++Signal offset used to toggle the module externally. With *signal* set to 8, send
++*SIGRTMIN+8* to Waybar to toggle the idle inhibitor.
++
+
+ *tooltip-format-activated*: ++
+@@ -108,5 +114,6 @@ Option to disable tooltip on hover.
+ 		"activated": "",
+ 		"deactivated": ""
+ 	},
++	"signal": 8,
+ 	"timeout": 30.5
+ }

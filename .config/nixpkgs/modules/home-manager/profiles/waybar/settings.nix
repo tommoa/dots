@@ -60,6 +60,7 @@
       "activated" = "";
       "deactivated" = "";
     };
+    "signal" = 8;
     "tooltip" = false;
   };
   "custom/recording" = {

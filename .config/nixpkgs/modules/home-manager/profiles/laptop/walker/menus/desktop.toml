@@ -112,3 +112,9 @@ icon = "view-fullscreen-symbolic"
 text = "Toggle quiet notifications"
 actions = { "toggle" = "makoctl mode -t do-not-disturb" }
 icon = "notifications-disabled-symbolic"
+
+[[entries]]
+text = "Toggle idle inhibition"
+keywords = ["idle", "inhibit", "stay awake", "screen timeout"]
+actions = { "toggle" = "systemctl --user kill --kill-whom=main --signal=SIGRTMIN+8 waybar.service" }
+icon = "preferences-system-power-management"

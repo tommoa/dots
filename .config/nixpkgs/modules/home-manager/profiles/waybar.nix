@@ -6,6 +6,9 @@
 }: let
   statusPalette = import ../../../themes/one-dark.nix;
   palette = import ../../../themes/palenight.nix;
+  waybarWithIdleInhibitorSignal = pkgs.waybar.overrideAttrs (oldAttrs: {
+    patches = (oldAttrs.patches or []) ++ [./waybar/idle-inhibitor-signal.patch];
+  });
   settings = import ./waybar/settings.nix {
     inherit lib pkgs;
     batteryEnabled = config.my.waybar.battery.enable;
@@ -20,6 +23,7 @@ in {
 
   config.programs.waybar = {
     enable = true;
+    package = waybarWithIdleInhibitorSignal;
     settings.mainBar = settings;
     style =
       builtins.replaceStrings
