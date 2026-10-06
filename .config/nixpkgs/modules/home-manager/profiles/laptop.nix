@@ -35,17 +35,24 @@
   elephant = pkgs.elephant.override {
     enabledProviders = ["clipboard" "desktopapplications" "menus" "symbols"];
   };
-  generateWalkerDevicesMenu = pkgs.writeShellApplication {
-    name = "generate-walker-devices-menu";
-    runtimeInputs = with pkgs; [coreutils gnugrep power-profiles-daemon];
-    text =
-      builtins.replaceStrings
-      ["@MENUS_DIR@" "@DEVICES_MENU@" "@PERFORMANCE_MENU_ENTRY@"]
-      [(toString ./laptop/walker/menus) (toString ./laptop/walker/menus/devices.toml) (toString ./laptop/performance-profile-menu-entry.toml)]
-      (builtins.readFile ./laptop/generate-walker-devices-menu.sh);
-  };
+  # Menus are static. Keeping their store path in ExecStart also makes menu
+  # changes restart Elephant when Home Manager switches generations.
+  elephantConfig = pkgs.linkFarm "elephant-config" [
+    {
+      name = "menus";
+      path = ./laptop/walker/menus;
+    }
+  ];
 in {
-  home.packages = [pkgs.walker elephant];
+  services.elephant = {
+    enable = pkgs.stdenv.isLinux;
+    package = elephant;
+  };
+
+  services.walker = {
+    enable = pkgs.stdenv.isLinux;
+    systemd.enable = true;
+  };
 
   xdg.configFile = {
     "walker/config.toml".source = ./laptop/walker/config.toml;
@@ -53,32 +60,15 @@ in {
   };
 
   systemd.user.services.elephant = lib.mkIf pkgs.stdenv.isLinux {
-    Unit = {
-      Description = "Elephant provider service for Walker";
-      PartOf = ["graphical-session.target"];
-    };
+    Unit.PartOf = ["graphical-session.target"];
     Service = {
-      RuntimeDirectory = "elephant";
-      ExecStartPre = "${generateWalkerDevicesMenu}/bin/generate-walker-devices-menu %t/elephant/menus";
-      ExecStart = "${elephant}/bin/elephant --config %t/elephant";
+      ExecStart = lib.mkForce "${lib.getExe elephant} --config ${elephantConfig}";
       Environment = ["PATH=${lib.makeBinPath actionTools}"];
-      Restart = "on-failure";
     };
-    Install.WantedBy = ["graphical-session.target"];
   };
 
   systemd.user.services.walker = lib.mkIf pkgs.stdenv.isLinux {
-    Unit = {
-      Description = "Walker application launcher service";
-      PartOf = ["graphical-session.target"];
-      Requires = ["elephant.service"];
-      After = ["elephant.service"];
-    };
-    Service = {
-      ExecStart = "${pkgs.walker}/bin/walker --gapplication-service";
-      Restart = "on-failure";
-    };
-    Install.WantedBy = ["graphical-session.target"];
+    Unit.PartOf = ["graphical-session.target"];
   };
 
   # Track text clips during the graphical session; image clipboard data is not recorded.

@@ -1,4 +1,0 @@
-[[entries]]
-text = "Power profile: performance"
-actions = { "set" = "powerprofilesctl set performance" }
-icon = "power-profile-performance-symbolic"

@@ -46,3 +46,8 @@ icon = "display-brightness-low-symbolic"
 text = "Decrease brightness by 25%"
 actions = { "set" = "brightnessctl set 25%-" }
 icon = "display-brightness-low-symbolic"
+
+[[entries]]
+text = "Power profile: performance"
+actions = { "set" = "powerprofilesctl set performance" }
+icon = "power-profile-performance-symbolic"
