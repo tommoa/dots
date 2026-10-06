@@ -15,6 +15,15 @@
   boot.kernelModules = ["kvm-amd"];
   boot.extraModulePackages = [];
 
+  # AHCI runtime suspend triggers USB controller failures on this ThinkPad E485,
+  # disconnecting the YubiKey, camera and Bluetooth. Keeping AHCI awake restored
+  # USB, so disable runtime PM for its ports and PCI controller (06:00.0).
+  # https://linrunner.de/tlp/faq/usb.html#usb-devices-not-working-on-battery-power
+  services.tlp.settings = {
+    AHCI_RUNTIME_PM_ON_BAT = "on";
+    RUNTIME_PM_DISABLE = "06:00.0";
+  };
+
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/2ae3c985-a150-47fc-8953-817bbf6cf0e0";
     fsType = "btrfs";
