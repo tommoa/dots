@@ -18,15 +18,6 @@ window#waybar.hidden {
     opacity: 0.2;
 }
 
-/*
-window#waybar.empty {
-    background-color: transparent;
-}
-window#waybar.solo {
-    background-color: #FFFFFF;
-}
-*/
-
 window#waybar.termite {
     background-color: #3F3F3F;
 }
@@ -58,11 +49,6 @@ window#waybar.chromium {
     background-color: #b25358;
 }
 
-#mode {
-    background-color: #64727D;
-    border-bottom: 3px solid #ffffff;
-}
-
 #clock,
 #cpu,
 #memory,
@@ -70,7 +56,6 @@ window#waybar.chromium {
 #backlight,
 #pulseaudio,
 #tray,
-#mode,
 #idle_inhibitor,
 #not-power,
 #group-power,
