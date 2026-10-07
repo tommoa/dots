@@ -1,6 +1,17 @@
 {pkgs, ...}: {
-  # Make sure that GDM is running.
-  services.displayManager.gdm.enable = true;
+  services.greetd = {
+    enable = true;
+    settings.default_session = {
+      command = ''
+        ${pkgs.tuigreet}/bin/tuigreet \
+          --time \
+          --remember \
+          --cmd "uwsm start hyprland.desktop" \
+          --theme "border=lightblue;text=gray;prompt=lightmagenta;time=lightcyan;action=lightred;button=lightblue;container=black;input=gray;greet=lightgreen"
+      '';
+      user = "greeter";
+    };
+  };
 
   # Audio
   services.pulseaudio.enable = false;

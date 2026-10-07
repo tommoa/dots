@@ -1,5 +1,4 @@
 {
-  lib,
   config,
   pkgs,
   ...
@@ -71,23 +70,6 @@ in {
     cyan
     brightWhite
   ];
-
-  # Greetd prompts for the account password, then starts the same UWSM-managed
-  # Hyprland session that was the default in GDM.
-  services.displayManager.gdm.enable = lib.mkForce false;
-  services.greetd = {
-    enable = true;
-    settings.default_session = {
-      command = ''
-        ${pkgs.tuigreet}/bin/tuigreet \
-          --time \
-          --remember \
-          --cmd "uwsm start hyprland.desktop" \
-          --theme "border=lightblue;text=gray;prompt=lightmagenta;time=lightcyan;action=lightred;button=lightblue;container=black;input=gray;greet=lightgreen"
-      '';
-      user = "greeter";
-    };
-  };
 
   security.pam.services.greetd.enableGnomeKeyring = true;
 }

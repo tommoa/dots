@@ -20,14 +20,9 @@
     packages = [];
   };
 
-  # Auto login
-  services.displayManager.autoLogin.enable = true;
-  services.displayManager.autoLogin.user = "tommoa";
-
-  # Workaround for GNOME autologin.
-  # TODO(james): Check on James whether nixpkgs still needs this. Local eval
-  # suggests GDM autologin no longer starts getty/autovt on tty1, but this
-  # should be verified on the actual NixOS host before removing it.
-  systemd.services."getty@tty1".enable = false;
-  systemd.services."autovt@tty1".enable = false;
+  # Keep the existing desktop autologin behaviour.
+  services.greetd.settings.initial_session = {
+    user = "tommoa";
+    command = "uwsm start hyprland.desktop";
+  };
 }
