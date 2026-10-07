@@ -185,7 +185,7 @@
   "custom/quit" = {
     "format" = "󰗼";
     "tooltip" = false;
-    "on-click" = "${pkgs.hyprland}/bin/hyprctl dispatch exit";
+    "on-click" = "${pkgs.uwsm}/bin/uwsm stop";
   };
   "custom/lock" = {
     "format" = "󰍁";
