@@ -29,145 +29,8 @@
     profiles.default = {
       name = "default";
       path = "default";
-      containersForce = true;
-      containers = {
-        # Home Manager cannot preserve Firefox's localized built-in names, so
-        # keep their stable IDs and spell the current English names explicitly.
-        personal = {
-          id = 1;
-          name = "Personal";
-          color = "blue";
-          icon = "fingerprint";
-        };
-        work = {
-          id = 2;
-          name = "Work";
-          color = "orange";
-          icon = "briefcase";
-        };
-        banking = {
-          id = 3;
-          name = "Banking";
-          color = "green";
-          icon = "dollar";
-        };
-        shopping = {
-          id = 4;
-          name = "Shopping";
-          color = "pink";
-          icon = "cart";
-        };
-        facebook = {
-          id = 6;
-          name = "Facebook";
-          # Zen serializes this palette entry as "gray".
-          color = "toolbar";
-          icon = "fence";
-        };
-        dev = {
-          id = 7;
-          name = "dev";
-          color = "blue";
-          icon = "briefcase";
-        };
-      };
-      # Upsert these stable space IDs without deleting spaces created locally.
-      spacesForce = false;
-      spaces = {
-        personal = {
-          id = "be813648-6f57-4cbd-af7e-b5d554d7dc81";
-          name = "Space";
-          position = 1000;
-          theme = {
-            colors = [
-              {
-                red = 176;
-                green = 222;
-                blue = 255;
-                lightness = 50;
-                position = {
-                  x = 138;
-                  y = 138;
-                };
-              }
-            ];
-            opacity = 0.636;
-          };
-        };
-        work = {
-          id = "4ec84f17-feca-4368-bae9-907955981321";
-          name = "Work";
-          position = 2000;
-          icon = "🧳";
-          container = 2;
-          theme = {
-            colors = [
-              {
-                red = 239;
-                green = 136;
-                blue = 118;
-                lightness = 70;
-                position = {
-                  x = 220;
-                  y = 187;
-                };
-                type = "explicit-lightness";
-              }
-            ];
-            opacity = 0.25;
-          };
-        };
-        ai-lsp = {
-          id = "4245314b-e8b2-4510-a4bc-f3a5c7e09c9d";
-          name = "ai-lsp";
-          position = 3000;
-          icon = "✨️";
-          container = 7;
-        };
-        programming = {
-          id = "9d0c74c9-3c38-46c6-bac5-226ec51d2425";
-          name = "Programming";
-          position = 4000;
-          icon = "🎹";
-          container = 7;
-          theme = {
-            colors = [
-              {
-                red = 71;
-                green = 235;
-                blue = 174;
-                lightness = 60;
-                position = {
-                  x = 147;
-                  y = 195;
-                };
-                type = "explicit-lightness";
-              }
-            ];
-            opacity = 0.549;
-          };
-        };
-        keyboards = {
-          id = "d41fe10e-ae97-413b-9e27-e82c5280b021";
-          name = "Keyboards";
-          position = 5000;
-          icon = "⌨️";
-          container = 1;
-          theme.colors = [
-            {
-              red = 230;
-              green = 178;
-              blue = 223;
-              lightness = 80;
-              position = {
-                x = 236;
-                y = 111;
-              };
-              type = "explicit-lightness";
-            }
-          ];
-        };
-      };
+      # Zen and Multi-Account Containers Sync own containers and site assignments.
+      # Keep spaces browser-owned too: their container IDs are profile-local.
       search = {
         force = true;
         default = "ddg";
@@ -180,6 +43,8 @@
         "browser.newtabpage.activity-stream.section.highlights.rows" = 2;
         "browser.newtabpage.activity-stream.topSitesRows" = 2;
         "privacy.donottrackheader.enabled" = true;
+        "privacy.userContext.enabled" = true;
+        "privacy.userContext.ui.enabled" = true;
         "sidebar.position_start" = false;
         "sidebar.visibility" = "hide-on-close";
         "widget.macos.sidebar-blend-mode.behind-window" = false;
