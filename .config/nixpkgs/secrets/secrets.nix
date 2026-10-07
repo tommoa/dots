@@ -12,14 +12,13 @@ let
   work = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBHPfVFfiXyMhtsZzuuoZq4Au8VIqODHKMxpE6RWLnJO";
   peter = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILwOf/6WNYLpglqjui8xc2cBtU3u47f4CNv0++1yvMVQ peter-agenix";
 
-  # TODO: Get james host key with: ssh-keyscan -t ed25519 james
-  # james = "ssh-ed25519 AAAA...";
+  # Dedicated persistent agenix identity; does not enable an SSH server.
+  james = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKMofYrxsoa44IDJ8dfORRGDfa0jZGEEKd7SD87jNPWP james-agenix";
 
   # All users who can edit secrets
   users = [toma];
 
   # All systems that need access to secrets
-  # Add james here once you have the host key
   allSystems = [apollo];
 
   # Combined: users (for editing) + systems (for runtime decryption)
@@ -98,6 +97,6 @@ in {
   # Keyring unlock password (for auto-login systems)
   "misc/keyring-password.age".publicKeys = all;
 
-  # Peter's host key decrypts at boot; toma remains an editing recipient.
-  "misc/peter-login-hash.age".publicKeys = users ++ [peter];
+  # Shared login password for Peter and James; toma remains an editing recipient.
+  "misc/peter-login-hash.age".publicKeys = users ++ [peter james];
 }
