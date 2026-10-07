@@ -5,9 +5,16 @@
     ../modules/nixos/hardware/james.nix
     ../modules/nixos/profiles/base.nix
     ../modules/nixos/profiles/desktop.nix
+    ../modules/nixos/profiles/impermanence.nix
   ];
 
   networking.hostName = "james";
+
+  my.impermanence = {
+    enable = true;
+    resetRoot = true;
+    cleanup.enable = true;
+  };
 
   users.users.tommoa = {
     isNormalUser = true;

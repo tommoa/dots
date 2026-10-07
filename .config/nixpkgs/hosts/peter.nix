@@ -16,14 +16,12 @@ in {
     ../modules/nixos/profiles/kanata.nix
   ];
 
-  # Keep this machine's SSH host key on persistent storage for initrd agenix.
-  services.openssh.hostKeys = [
-    {
-      type = "ed25519";
-      path = "/persist/etc/agenix/identity";
-    }
-  ];
-  age.identityPaths = ["/persist/etc/agenix/identity"];
+  # Enable deletion after the live layout and legacy roots have been inspected.
+  my.impermanence = {
+    enable = true;
+    resetRoot = true;
+    cleanup.enable = false;
+  };
 
   age.secrets.peter-login-hash.file = ../secrets/misc/peter-login-hash.age;
   users.mutableUsers = false;
