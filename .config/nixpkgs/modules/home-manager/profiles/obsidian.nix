@@ -108,6 +108,8 @@ in {
       ExecStart = "${vaultSyncContinuous}";
       Restart = "on-failure";
       RestartSec = "5m";
+      # Bound shutdown when the WebSocket peer never acknowledges close.
+      TimeoutStopSec = "5s";
       StandardOutput = "append:${stateDir}/stdout.log";
       StandardError = "append:${stateDir}/stderr.log";
     };
