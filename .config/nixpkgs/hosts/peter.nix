@@ -22,9 +22,9 @@ in {
     cleanup.enable = true;
   };
 
-  age.secrets.peter-login-hash.file = ../secrets/misc/peter-login-hash.age;
+  age.secrets.login-hash.file = ../secrets/misc/login-hash.age;
   users.mutableUsers = false;
-  users.users.tommoa.hashedPasswordFile = config.age.secrets.peter-login-hash.path;
+  users.users.tommoa.hashedPasswordFile = config.age.secrets.login-hash.path;
 
   networking.hostName = "peter";
   time.timeZone = "Australia/Sydney";

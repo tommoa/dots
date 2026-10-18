@@ -23,7 +23,7 @@
       cleanup.enable = true;
     };
 
-    age.secrets.login-hash.file = ../secrets/misc/peter-login-hash.age;
+    age.secrets.login-hash.file = ../secrets/misc/login-hash.age;
     users.mutableUsers = false;
     users.users.tommoa = {
       isNormalUser = true;

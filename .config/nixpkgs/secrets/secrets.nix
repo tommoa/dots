@@ -98,5 +98,5 @@ in {
   "misc/keyring-password.age".publicKeys = all;
 
   # Shared login password for Peter and James; toma remains an editing recipient.
-  "misc/peter-login-hash.age".publicKeys = users ++ [peter james];
+  "misc/login-hash.age".publicKeys = users ++ [peter james];
 }
