@@ -41,6 +41,7 @@
 !/.config/mpv/mpv.conf
 !/.config/nixpkgs/
 /.config/nixpkgs/result
+/.config/nixpkgs/**/__pycache__/
 **/.opencode
 !/.config/notmuch/
 /.config/notmuch/*

@@ -1,4 +1,4 @@
-"""Test deletion safeguards without root privileges, mounts or Btrfs changes."""
+"""Test deletion safeguards; real mounts stay inside disposable user namespaces."""
 import contextlib
 import copy
 import importlib.util
@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import stat
 import subprocess
 import sys
@@ -43,9 +44,11 @@ def namespace(proc, process, thread, shared=None):
     path = proc / str(process) / 'task' / str(thread) / 'ns/mnt'
     path.parent.mkdir(parents=True, exist_ok=True)
     if shared is None:
-        path.touch()
+        path.write_text(f'namespace-{process}-{thread}\n')
     else:
         path.hardlink_to(shared)
+    (path.parent.parent / 'mountinfo').write_text(path.read_text())
+    (path.parent.parent / 'root').symlink_to('/')
     return path
 
 
@@ -62,15 +65,19 @@ class MountNamespaceTests(unittest.TestCase):
         namespace(self.proc, 200, 200, shared=host)
         recovery = namespace(self.proc, 200, 201)
         self.recovery = recovery
-        self.mounts = {host.stat().st_ino: [mount(256)], recovery.stat().st_ino: [mount(301)]}
+        self.mounts = {host.read_text(): [mount(256)], recovery.read_text(): [mount(301)]}
         self.descriptors = []
 
     def output(self, *args, pass_fds=()):
-        self.assertEqual(args, ('nsenter', '--mount=/proc/self/fd/' + str(pass_fds[0]),
-                                '--', 'findmnt', '--json', '--list', '-o', 'FSTYPE,UUID,OPTIONS'))
+        if args[:3] == (sys.executable, '-c', cleanup.NAMESPACE_MOUNTINFO_READER):
+            self.assertEqual(args[3:], tuple(map(str, pass_fds)))
+            return os.pread(pass_fds[0], 65536, 0).decode()
+        self.assertEqual(args, ('findmnt', '--kernel', '--tab-file', '/proc/self/fd/' + str(pass_fds[0]),
+                                '--json', '--list', '-o', 'FSTYPE,UUID,OPTIONS'))
         descriptor, = pass_fds
         self.descriptors.append(descriptor)
-        return json.dumps({'filesystems': self.mounts[os.fstat(descriptor).st_ino]})
+        table = os.pread(descriptor, 65536, 0).decode()
+        return json.dumps({'filesystems': self.mounts[table]})
 
     def inspect(self):
         with patch.object(cleanup, 'PROC_ROOT', self.proc), \
@@ -88,6 +95,241 @@ class MountNamespaceTests(unittest.TestCase):
         self.mounts = {key: [dict(fstype='tmpfs', uuid=None, options='rw'),
                              mount(301, uuid='another-filesystem')] for key in self.mounts}
         self.assertEqual(self.inspect(), set())
+
+    @unittest.skipUnless(shutil.which('unshare') and shutil.which('mount') and hasattr(os, 'setns'),
+                         'Linux namespace tools and Python setns are required')
+    def test_real_namespace_with_no_proc_or_executables_is_fully_read(self):
+        probe = subprocess.run(['unshare', '--user', '--map-root-user', '--mount', 'true'],
+                               capture_output=True, text=True)
+        if probe.returncode:
+            self.skipTest('Unprivileged user/mount namespaces are unavailable: ' + probe.stderr.strip())
+        root = Path(self.temporary.name) / 'isolated-root'
+        root.mkdir()
+        # The driver keeps the host root. Its child pivots into an empty tmpfs
+        # and detaches the old root, leaving no /proc, /nix or executables.
+        # All mounts occur inside disposable user/mount namespaces.
+        code = '''
+import ctypes, importlib.util, os, signal, subprocess, sys, traceback
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('cleanup', sys.argv[1])
+cleanup = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(cleanup)
+libc = ctypes.CDLL(None, use_errno=True)
+reader, writer = os.pipe()
+child = os.fork()
+if child == 0:
+    os.close(reader)
+    try:
+        os.unshare(os.CLONE_NEWNS)
+        subprocess.run(['mount', '--make-rprivate', '/'], check=True)
+        subprocess.run(['mount', '-t', 'tmpfs', 'tmpfs', sys.argv[2]], check=True)
+        os.chdir(sys.argv[2])
+        os.mkdir('old-root')
+        if libc.pivot_root(b'.', b'old-root') != 0:
+            raise OSError(ctypes.get_errno(), 'pivot_root failed')
+        os.chdir('/')
+        if libc.umount2(b'/old-root', 2) != 0:
+            raise OSError(ctypes.get_errno(), 'detach old root failed')
+        os.rmdir('/old-root')
+        assert not os.path.exists('/proc') and not os.path.exists('/nix')
+        os.write(writer, b'R')
+        signal.pause()
+    except BaseException:
+        traceback.print_exc()
+    finally:
+        os._exit(1)
+os.close(writer)
+try:
+    assert os.read(reader, 1) == b'R', 'isolated child failed'
+    namespace = os.open(f'/proc/{child}/ns/mnt', os.O_RDONLY)
+    proc = os.open('/proc', os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        table = cleanup.namespace_mountinfo(namespace, proc)
+        assert len(table.splitlines()) == 1, table
+        assert ' / / ' in table and ' - tmpfs ' in table, table
+        print('ISOLATED_PROBE_OK')
+    finally:
+        os.close(namespace)
+        os.close(proc)
+finally:
+    os.close(reader)
+    os.kill(child, signal.SIGKILL)
+    os.waitpid(child, 0)
+'''
+        result = subprocess.run(['unshare', '--user', '--map-root-user', '--mount',
+                                 sys.executable, '-c', code, str(SCRIPT), str(root)],
+                                capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('ISOLATED_PROBE_OK', result.stdout)
+
+    @unittest.skipUnless(shutil.which('findmnt'), 'findmnt is required for the kernel-table regression')
+    def test_kernel_thread_namespace_without_executables_is_parsed_on_host(self):
+        proc = Path(self.temporary.name) / 'kernel-proc'
+        task_namespace = namespace(proc, 65, 65)
+        table = '1 0 0:1 / / rw - devtmpfs devtmpfs rw\n'
+        (task_namespace.parent.parent / 'mountinfo').write_text(table)
+        with patch.object(cleanup, 'PROC_ROOT', proc), \
+             patch.object(cleanup, 'namespace_mountinfo', return_value=table):
+            self.assertEqual(cleanup.mounted_subvolumes(UUID), set())
+
+    def test_different_task_root_views_of_same_namespace_are_all_inspected(self):
+        task_namespace = self.proc / '200/task/200/ns/mnt'
+        (task_namespace.parent.parent / 'mountinfo').write_text('different-root-view\n')
+        self.mounts['different-root-view\n'] = [mount(302)]
+        self.assertEqual(self.inspect(), {256, 301, 302})
+
+    def test_unreadable_task_mountinfo_refuses(self):
+        table = self.recovery.parent.parent / 'mountinfo'
+        real_open = os.open
+        def denied(path, *args, **kwargs):
+            if path == table:
+                raise PermissionError('mountinfo inaccessible')
+            return real_open(path, *args, **kwargs)
+        with patch.object(cleanup.os, 'open', side_effect=denied), self.assertRaises(PermissionError):
+            self.inspect()
+
+    def test_empty_chroot_view_refuses_even_when_namespace_inventory_is_available(self):
+        task = self.proc / '200/task/200'
+        (task / 'mountinfo').write_text('')
+        with self.assertRaisesRegex(ValueError, 'Task root has an empty mount inventory'):
+            self.inspect()
+
+    def test_namespace_with_only_empty_chroot_views_refuses(self):
+        task = self.recovery.parent.parent
+        (task / 'mountinfo').write_text('')
+        with self.assertRaisesRegex(ValueError, 'Task root has an empty mount inventory'):
+            self.inspect()
+
+    def test_empty_kernel_thread_view_is_covered_by_namespace_probe(self):
+        task = self.recovery.parent.parent
+        (task / 'root').unlink()
+        (task / 'mountinfo').write_text('')
+        self.assertEqual(self.inspect(), {256, 301})
+
+    def test_unreadable_root_of_empty_task_view_refuses(self):
+        task = self.recovery.parent.parent
+        (task / 'mountinfo').write_text('')
+        real_stat = os.stat
+        def denied(path, *args, **kwargs):
+            if path == task / 'root':
+                raise PermissionError('task root inaccessible')
+            return real_stat(path, *args, **kwargs)
+        with patch.object(cleanup.os, 'stat', side_effect=denied), self.assertRaises(PermissionError):
+            self.inspect()
+
+    @unittest.skipUnless(shutil.which('unshare') and shutil.which('mount') and
+                         shutil.which('findmnt') and hasattr(os, 'setns'),
+                         'Linux namespace tools and Python setns are required')
+    def test_real_detached_chroot_refuses_even_when_namespace_contains_only_tmpfs(self):
+        probe = subprocess.run(['unshare', '--user', '--map-root-user', '--mount', 'true'],
+                               capture_output=True, text=True)
+        if probe.returncode:
+            self.skipTest('Unprivileged user/mount namespaces are unavailable: ' + probe.stderr.strip())
+        root = Path(self.temporary.name) / 'detached-root'
+        root.mkdir()
+        # A grandchild retains its chroot on the original filesystem while the
+        # child pivots into tmpfs and detaches that filesystem. The real task
+        # table is empty, though the namespace probe successfully sees tmpfs.
+        code = '''
+import ctypes, importlib.util, os, signal, subprocess, sys, traceback
+from pathlib import Path
+from unittest.mock import patch
+spec = importlib.util.spec_from_file_location('cleanup', sys.argv[1])
+cleanup = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(cleanup)
+root = Path(sys.argv[2])
+original_device = root.stat().st_dev
+libc = ctypes.CDLL(None, use_errno=True)
+reader, writer = os.pipe()
+child = os.fork()
+if child == 0:
+    os.close(reader)
+    held = None
+    try:
+        os.unshare(os.CLONE_NEWNS)
+        subprocess.run(['mount', '--make-rprivate', '/'], check=True)
+        ready_reader, ready_writer = os.pipe()
+        held = os.fork()
+        if held == 0:
+            os.close(ready_reader)
+            try:
+                os.chroot(root)
+                os.chdir('/')
+                os.write(ready_writer, b'R')
+                signal.pause()
+            finally:
+                os._exit(0)
+        os.close(ready_writer)
+        assert os.read(ready_reader, 1) == b'R', 'chroot child failed'
+        os.close(ready_reader)
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+        subprocess.run(['mount', '-t', 'tmpfs', 'tmpfs', str(root)], check=True)
+        os.chdir(root)
+        os.mkdir('old-root')
+        if libc.pivot_root(b'.', b'old-root') != 0:
+            raise OSError(ctypes.get_errno(), 'pivot_root failed')
+        os.chdir('/')
+        if libc.umount2(b'/old-root', 2) != 0:
+            raise OSError(ctypes.get_errno(), 'detach old root failed')
+        os.write(writer, (str(held) + '\\n').encode())
+        signal.pause()
+    except SystemExit:
+        pass
+    except BaseException:
+        traceback.print_exc()
+    finally:
+        if held:
+            os.kill(held, signal.SIGKILL)
+            os.waitpid(held, 0)
+        os._exit(0)
+os.close(writer)
+try:
+    with os.fdopen(reader) as stream:
+        held = int(stream.readline())
+    assert Path(f'/proc/{held}/mountinfo').read_text() == ''
+    assert os.stat(f'/proc/{held}/root').st_dev == original_device
+    namespace = os.open(f'/proc/{child}/ns/mnt', os.O_RDONLY)
+    proc = os.open('/proc', os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        table = cleanup.namespace_mountinfo(namespace, proc)
+        assert len(table.splitlines()) == 1 and ' - tmpfs ' in table, table
+    finally:
+        os.close(namespace)
+        os.close(proc)
+    # Enumerate only the real chroot task. The fake proc directory cannot
+    # resolve self/mountinfo after setns, so reuse the real probe above.
+    view = root.parent / 'detached-proc'
+    (view / str(held)).mkdir(parents=True)
+    (view / str(held) / 'task').symlink_to(f'/proc/{held}/task')
+    with patch.object(cleanup, 'PROC_ROOT', view), \\
+         patch.object(cleanup, 'namespace_mountinfo', return_value=table):
+        try:
+            cleanup.mounted_subvolumes('unused-filesystem-uuid')
+        except ValueError as error:
+            assert 'Task root has an empty mount inventory' in str(error), error
+        else:
+            raise AssertionError('Detached live chroot was not refused')
+    print('DETACHED_CHROOT_REFUSED')
+finally:
+    os.kill(child, signal.SIGTERM)
+    os.waitpid(child, 0)
+'''
+        result = subprocess.run(['unshare', '--user', '--map-root-user', '--mount',
+                                 sys.executable, '-c', code, str(SCRIPT), str(root)],
+                                capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('DETACHED_CHROOT_REFUSED', result.stdout)
+
+    def test_empty_full_namespace_inventory_refuses(self):
+        original_output = self.output
+        def empty(*args, **kwargs):
+            if args[:3] == (sys.executable, '-c', cleanup.NAMESPACE_MOUNTINFO_READER):
+                return ''
+            return original_output(*args, **kwargs)
+        with patch.object(cleanup, 'PROC_ROOT', self.proc), \
+             patch.object(cleanup, 'output', side_effect=empty), \
+             self.assertRaisesRegex(ValueError, 'Empty namespace mount inventory'):
+            cleanup.mounted_subvolumes(UUID)
 
     def test_unidentified_btrfs_or_missing_subvolume_id_refuses(self):
         for entry in [mount(301, uuid=None), dict(fstype='btrfs', uuid=UUID, options='rw')]:
@@ -114,6 +356,7 @@ class MountNamespaceTests(unittest.TestCase):
         original_output = self.output
         def output(*args, **kwargs):
             self.recovery.unlink(missing_ok=True)
+            (self.recovery.parent.parent / 'mountinfo').unlink(missing_ok=True)
             return original_output(*args, **kwargs)
         with patch.object(cleanup, 'PROC_ROOT', self.proc), \
              patch.object(cleanup, 'output', side_effect=output):
@@ -288,17 +531,19 @@ class CommandTests(unittest.TestCase):
         self.proc = Path(self.temporary.name) / 'proc'
         host = namespace(self.proc, 100, 100)
         recovery = namespace(self.proc, 200, 200)
-        self.host_namespace = host.stat().st_ino
-        self.recovery_namespace = recovery.stat().st_ino
+        self.host_namespace = host.read_text()
+        self.recovery_namespace = recovery.read_text()
         self.foreign_mounted = set()
         self.namespace_checks = 0
         self.namespace_failure = False
 
     def output(self, *args, pass_fds=()):
-        if args[0] == 'nsenter':
+        if args[:3] == (sys.executable, '-c', cleanup.NAMESPACE_MOUNTINFO_READER):
+            return os.pread(pass_fds[0], 65536, 0).decode()
+        if args[:3] == ('findmnt', '--kernel', '--tab-file'):
             if self.namespace_failure:
                 raise subprocess.CalledProcessError(1, args)
-            identity = os.fstat(pass_fds[0]).st_ino
+            identity = os.pread(pass_fds[0], 65536, 0).decode()
             if identity == self.recovery_namespace:
                 self.namespace_checks += 1
                 if self.mount_after_planning and self.namespace_checks == 2:

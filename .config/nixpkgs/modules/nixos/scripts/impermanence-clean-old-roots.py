@@ -8,10 +8,30 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 
 PROC_ROOT = Path('/proc')
+
+# Python and this code are loaded before setns. Entering a mount namespace
+# resets the helper's root to the namespace root, rather than a task's chroot.
+# An inherited host proc handle works even when that root has no /proc or /nix.
+NAMESPACE_MOUNTINFO_READER = '''
+import os, sys
+os.setns(int(sys.argv[1]), os.CLONE_NEWNS)
+descriptor = os.open('self/mountinfo', os.O_RDONLY, dir_fd=int(sys.argv[2]))
+with os.fdopen(descriptor) as stream:
+    sys.stdout.write(stream.read())
+'''
+
+
+def namespace_mountinfo(descriptor, proc_descriptor):
+    table = output(sys.executable, '-c', NAMESPACE_MOUNTINFO_READER,
+                   str(descriptor), str(proc_descriptor),
+                   pass_fds=(descriptor, proc_descriptor))
+    require(table.strip(), 'Empty namespace mount inventory')
+    return table
 
 
 def output(*args, pass_fds=()):
@@ -124,9 +144,12 @@ def plan_deletions(records, entry_names, blank_uuid, protected, mounted, old_dir
 
 
 def mounted_subvolumes(expected_uuid):
-    """Inspect every distinct mount namespace used by a live task, failing closed."""
+    """Inspect pinned namespaces and task views without relying on sandbox executables."""
     with contextlib.ExitStack() as stack:
+        proc_descriptor = os.open(PROC_ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+        stack.callback(os.close, proc_descriptor)
         namespaces = {}
+        tables = set()
         for process in PROC_ROOT.iterdir():
             if not process.name.isdecimal():
                 continue
@@ -140,27 +163,72 @@ def mounted_subvolumes(expected_uuid):
                     descriptor = os.open(task / 'ns/mnt', os.O_RDONLY | os.O_CLOEXEC)
                 except (FileNotFoundError, ProcessLookupError):
                     continue
-                # Keep the namespace alive even if its representative exits or
-                # switches namespaces. Threads can have distinct mount namespaces.
                 try:
                     identity = os.fstat(descriptor)
+                    table_descriptor = os.open(task / 'mountinfo', os.O_RDONLY | os.O_CLOEXEC)
+                except (FileNotFoundError, ProcessLookupError):
+                    os.close(descriptor)
+                    continue
                 except OSError:
                     os.close(descriptor)
                     raise
+                # The kernel pins the namespace and task root when mountinfo is
+                # opened. Capture it now, so task exit or setns cannot invalidate
+                # the later probe. Tasks sharing a namespace can have different
+                # chroot views; deduplicate tables, never just namespace IDs.
+                try:
+                    with os.fdopen(table_descriptor) as stream:
+                        table = stream.read()
+                    if not table.strip():
+                        # An empty table can hide a live root on a detached
+                        # mount. Namespace inventory cannot recover that mount;
+                        # only exited tasks and kernel threads without a root
+                        # can safely contribute no task view.
+                        try:
+                            os.stat(task / 'root')
+                        except (FileNotFoundError, ProcessLookupError):
+                            pass
+                        else:
+                            raise ValueError('Task root has an empty mount inventory: ' + str(task))
+                    try:
+                        current_namespace = os.stat(task / 'ns/mnt')
+                    except (FileNotFoundError, ProcessLookupError):
+                        # The captured table and namespace handle survive exit.
+                        pass
+                    else:
+                        require((current_namespace.st_dev, current_namespace.st_ino)
+                                == (identity.st_dev, identity.st_ino),
+                                'Task changed mount namespace during inspection: ' + str(task))
+                except BaseException:
+                    os.close(descriptor)
+                    raise
+                # Retain a namespace handle until the entire inventory is checked.
                 key = (identity.st_dev, identity.st_ino)
                 if key in namespaces:
                     os.close(descriptor)
                 else:
                     stack.callback(os.close, descriptor)
                     namespaces[key] = descriptor
+                # Preserve distinct chroot views as well as namespace views.
+                # Empty views with live roots have already been refused above.
+                if table.strip():
+                    tables.add(table)
         require(namespaces, 'No process mount namespaces could be inspected')
-        ids = set()
         for descriptor in namespaces.values():
-            mounts = json.loads(output('nsenter', '--mount=/proc/self/fd/' + str(descriptor),
-                                       '--', 'findmnt', '--json', '--list',
-                                       '-o', 'FSTYPE,UUID,OPTIONS', pass_fds=(descriptor,)))
-            # Do not filter findmnt by type: a namespace without Btrfs mounts
-            # must still produce a successful inventory.
+            tables.add(namespace_mountinfo(descriptor, proc_descriptor))
+        ids = set()
+        for table in tables:
+            # Kernel-thread and sandbox namespaces need not contain findmnt or
+            # its Nix closure. Parse their captured mountinfo in the host instead,
+            # where filesystem UUIDs can be resolved against the host devices.
+            with tempfile.TemporaryFile(mode='w+') as snapshot:
+                snapshot.write(table)
+                snapshot.flush()
+                snapshot.seek(0)
+                descriptor = snapshot.fileno()
+                mounts = json.loads(output('findmnt', '--kernel', '--tab-file',
+                                           '/proc/self/fd/' + str(descriptor), '--json', '--list',
+                                           '-o', 'FSTYPE,UUID,OPTIONS', pass_fds=(descriptor,)))
             require(isinstance(mounts.get('filesystems'), list), 'Missing namespace mount inventory')
             for mount in mounts['filesystems']:
                 if mount['fstype'] != 'btrfs':

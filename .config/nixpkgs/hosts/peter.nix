@@ -16,11 +16,10 @@ in {
     ../modules/nixos/profiles/kanata.nix
   ];
 
-  # Enable deletion after the live layout and legacy roots have been inspected.
   my.impermanence = {
     enable = true;
     resetRoot = true;
-    cleanup.enable = false;
+    cleanup.enable = true;
   };
 
   age.secrets.peter-login-hash.file = ../secrets/misc/peter-login-hash.age;
