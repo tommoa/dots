@@ -1,258 +1,198 @@
-# Impermanence on James and Peter
+# Onboarding a NixOS system with impermanence
 
-The shared `modules/nixos/profiles/impermanence.nix` owns the Btrfs subvolume
-layout, root reset, system-state persistence, agenix identity path, logrotate
-state and old-root cleanup. Each hardware file supplies its root filesystem
-UUID, EFI filesystem, swap and hardware settings.
+The shared `modules/nixos/profiles/impermanence.nix` provides the storage layout,
+root reset, persistent system state, agenix identity path and root cleanup.
+This procedure covers a fresh installation on an already partitioned disk with
+Btrfs for the system and a separate EFI filesystem. Run the filesystem and
+installation commands as root from a NixOS installer.
+
+## Configure the host
+
+Create `hosts/<host>.nix` and `modules/nixos/hardware/<host>.nix`, using the
+current host definitions as structural examples. The hardware module supplies
+the Btrfs root device as `/dev/disk/by-uuid/<UUID>`, `fsType = "btrfs"`, the EFI
+mount, swap/resume configuration and hardware settings. The shared profile
+supplies the root mount options and the persistent subvolume mounts below;
+remove duplicate declarations for those mounts from generated hardware config.
+
+Import the hardware module, the NixOS base profile and the impermanence profile
+in the host definition. Enable a systemd initrd and start with cleanup disabled:
+
+```nix
+boot.initrd.systemd.enable = true;
+my.impermanence = {
+  enable = true;
+  resetRoot = true;
+  cleanup.enable = false;
+};
+```
+
+Define the hostname, user and declarative login credentials. Register the host
+in `flake.nix` through `mkNixosConfig`, selecting a suitable Home Manager
+configuration. That helper supplies `inputs`, `username`, agenix and Home
+Manager. Its username and home directory must match the host's user definition.
+Add new configuration and encrypted-secret files to Git so the flake includes
+them.
+
+## Prepare storage
+
+The following subvolumes must share the Btrfs root filesystem:
 
 | Mount | Subvolume | Behavior |
 | --- | --- | --- |
-| `/` | `@root` | Recreated from read-only `@root-blank` at normal boot |
-| `/home` | `home` | Persistent; mounted during normal system startup |
-| `/nix` | `nix` | Persistent; mounted in the initrd |
-| `/persist` | `@persist` | Persistent; mounted in the initrd |
-| `/home/<user>/.local/share/Steam/steamapps` | `steamapps` | Persistent; outside home snapshots |
+| `/` | `@root` | Recreated from the blank template at normal boot |
+| `/home` | `home` | Persistent user data |
+| `/nix` | `nix` | Persistent store; mounted in the initrd |
+| `/persist` | `@persist` | Persistent system state; mounted in the initrd |
+| `/home/<user>/.local/share/Steam/steamapps` | `steamapps` | Persistent games |
 
-James additionally mounts its external ext4 Steam SSD at
-`/home/tommoa/steamapps`. Peter keeps its existing swap resume device. Root reset
-runs after the hibernation-resume attempt, before mounting `/sysroot`, and at
-most once per boot. Successful resume restores the running session.
+`@root-blank` is an empty, read-only subvolume. Create `@root` as its writable
+snapshot so even the first installed root has the ancestry required by cleanup.
+`@old-roots` is an ordinary directory, not a subvolume; root reset places
+retained roots there.
 
-Persistent system state includes NetworkManager connections/state, Bluetooth,
-CUPS, AccountsService, NixOS state, logs, root's Nix trust settings, machine ID,
-random seed, Btrfs scrub history, logrotate state, radio settings, timer history
-and clock synchronization. Logrotate uses `/var/lib/logrotate/status`; its
-directory is persisted because logrotate replaces the state atomically.
+Replace the device and host placeholders. Use these creation commands only on
+a fresh filesystem with none of the named subvolumes or directories present:
 
-Each host retains its own existing identity at `/persist/etc/agenix/identity`.
-The shared profile sets `age.identityPaths` explicitly; an SSH host-key
-declaration is unnecessary while the SSH server is disabled. No keys or
-encrypted secret recipients need changing for this consolidation.
+```sh
+set -eu
+host=newhost
+username=tommoa
+btrfs_device=/dev/disk/by-uuid/BTRFS_UUID
+boot_device=/dev/disk/by-uuid/EFI_UUID
+top=/run/impermanence-setup
 
-An older setup needed `/home` early because system-secret decryption used the
-`toma` SSH key there. The explicit identity under `/persist` removes that
-dependency. Home Manager still uses the user's SSH key, but its service waits
-for the home mount with `RequiresMountsFor`.
+mkdir -p "$top"
+mount -t btrfs -o subvolid=5 "$btrfs_device" "$top"
+btrfs subvolume create "$top/@root-blank"
+btrfs property set -t subvol "$top/@root-blank" ro true
+btrfs subvolume snapshot "$top/@root-blank" "$top/@root"
+for name in home nix @persist steamapps; do
+  btrfs subvolume create "$top/$name"
+done
+mkdir "$top/@old-roots"
+umount "$top"
+rmdir "$top"
 
-## Old-root cleanup
+mkdir -p /mnt
+mount -t btrfs -o subvol=@root "$btrfs_device" /mnt
+mkdir -p /mnt/home /mnt/nix /mnt/persist /mnt/boot
+mount -t btrfs -o subvol=home "$btrfs_device" /mnt/home
+mount -t btrfs -o subvol=nix "$btrfs_device" /mnt/nix
+mount -t btrfs -o subvol=@persist "$btrfs_device" /mnt/persist
+mount "$boot_device" /mnt/boot
+mkdir -p "/mnt/home/$username/.local/share/Steam/steamapps"
+mount -t btrfs -o subvol=steamapps "$btrfs_device" \
+  "/mnt/home/$username/.local/share/Steam/steamapps"
+```
 
-`my.impermanence.cleanup.enable` defaults to false. James explicitly enables
-it. Peter leaves it disabled until the local rollout below is verified.
-`resetRoot = false` also disables the automatic cleanup service and timer.
+Keep the blank template empty. Populate the prepared dotfiles checkout with
+`/mnt/home/<user>` as its Git worktree root, keeping `.git` in that persistent
+home. Preserve the Steam mount and existing provisioned files when transferring
+the checkout. The flake is in `.config/nixpkgs` inside the worktree; use paths
+relative to that flake directory for the configuration and secret files above.
+This also gives `update-nix` its expected `~/.config/nixpkgs` path after boot.
+Ensure the user's home, Steam subvolume and parent directories belong to the
+configured UID/GID.
+Any additional application state that must survive reboot belongs in a
+persistent filesystem or in `environment.persistence."/persist"` declarations.
+The shared profile already declares the common system-state paths, including
+logs, network/Bluetooth state, machine identity, maintenance history and
+`/var/lib/logrotate/status`.
 
-The installed `impermanence-clean-old-roots` command uses the same generated
-layout as the filesystem declarations. It defaults to inspection:
+## Provision secret identities
+
+System-secret decryption uses a dedicated, unencrypted private identity at
+`/persist/etc/agenix/identity`. Generate it directly in the mounted persistent
+filesystem, with root ownership and private permissions:
+
+```sh
+install -d -m 0700 /mnt/persist/etc/agenix
+ssh-keygen -t ed25519 -N '' -C "$host-agenix" \
+  -f /mnt/persist/etc/agenix/identity
+chmod 0600 /mnt/persist/etc/agenix/identity
+```
+
+On a machine with an authorized editing identity, add the new public key to
+`secrets/secrets.nix` as a recipient for the system secrets this host uses, then
+run `agenix -r` from the `secrets` directory. Include the updated encrypted files
+in the installation checkout. The private host identity stays on the target
+system; it is not a repository file.
+
+Home Manager decrypts user secrets with `/home/<user>/.ssh/id_ed25519`.
+Provision that authorized user identity separately in the persistent home,
+with user ownership, mode `0700` on `.ssh` and `0600` on the private key. The
+host identity does not replace the user identity.
+
+## Install and verify
+
+Build and install the configured host from its persistent checkout:
+
+```sh
+checkout_root="/mnt/home/$username"
+flake_dir="$checkout_root/.config/nixpkgs"
+test -f "$flake_dir/flake.nix"
+nix --extra-experimental-features 'nix-command flakes' build \
+  --no-link --no-write-lock-file \
+  "$flake_dir#nixosConfigurations.$host.config.system.build.toplevel"
+nixos-install --root /mnt --flake "$flake_dir#$host" --no-root-password
+```
+
+Boot normally. Check that each mount matches the table, that system and user
+secrets decrypt, and that login and the configured applications work:
+
+```sh
+systemctl --failed
+sudo journalctl -b -u recreate-root.service --no-pager
+sudo btrfs device stats --check /
+findmnt --mountpoint /
+findmnt --mountpoint /home
+findmnt --mountpoint /nix
+findmnt --mountpoint /persist
+```
+
+Also inspect the Steam mount and persistent state directories. Verify after
+another normal reboot that root contents reset, persistent state survives and
+root recreation runs once per boot. If hibernation is configured, test resume;
+root reset runs after the initrd's resume attempt.
+
+Inspect retained roots with the installed cleanup command:
 
 ```sh
 sudo impermanence-clean-old-roots --report /persist/old-root-inspection.json
 ```
 
-Deletion requires `--apply`. The service performs it five minutes after timer
-activation and daily afterward. It requires a healthy boot, zero Btrfs device
-error counters, the expected mount identities, a read-only blank template and
-old roots descended from that template. It rejects unexpected entries,
-symlinks, invalid ancestry and mounted/protected subvolumes. Mount checks scan
-each distinct mount namespace used by live processes and threads, including
-private service namespaces, before planning and before each deletion. Cleanup
-stops if a namespace cannot be inspected or a mounted Btrfs filesystem cannot
-be identified. Run the command on the host, with its full `/proc` visible.
-Nested subvolumes are deleted before their parents. Reports requested with
-`--report` record partial progress and whether cleanup completed. Updates are
-synced and atomically replaced so an interrupted write preserves the previous
-valid JSON record. That record can lag the last deletion; inspect again
-before retrying so the new plan reflects the remaining subvolumes.
+Inspection checks mount identities, the read-only template, snapshot ancestry,
+mounted/protected subvolumes, failed units and Btrfs error counters. Resolve any
+rejection before proceeding. Once the checks and functional tests pass, set
+`my.impermanence.cleanup.enable = true` in the host definition and switch using
+the checkout path on the installed system:
 
 ```sh
-systemctl --failed
+host=newhost
+username=tommoa
+checkout_root="/home/$username"
+flake_dir="$checkout_root/.config/nixpkgs"
+sudo nixos-rebuild switch --no-reexec --flake "$flake_dir#$host"
+```
+
+Cleanup runs five minutes after timer activation and daily afterward. After
+its first run, verify that the timer is active and the service completed:
+
+```sh
 systemctl status impermanence-clean-old-roots.timer
-journalctl -u impermanence-clean-old-roots.service
-sudo btrfs device stats --check /
+sudo journalctl -b -u impermanence-clean-old-roots.service --no-pager
 ```
 
-The old `james-clean-old-roots` units are retired when switching James. Verify
-that the old timer is inactive and only the new timer is scheduled. Legacy
-roots on Peter may fail ancestry checks; inspect those as a separate migration
-task. Routine cleanup deliberately has no original-root bypass.
-
-## First rollout on Peter
-
-Perform these steps locally on Peter; it has no SSH server. Transfer the changes
-to the laptop and build its system before changing any state:
-
-```sh
-cd /home/tommoa/.config/nixpkgs
-nix build --no-link .#nixosConfigurations.peter.config.system.build.toplevel
-```
-
-Keep `cleanup.enable = false`. Verify recovery access and a current backup of
-important persistent data. Before switching, inspect the current layout and
-maintenance state:
-
-```sh
-findmnt -rn -o TARGET,UUID,FSROOT,FSTYPE
-systemctl --failed
-sudo btrfs device stats --check /
-sudo btrfs subvolume list -u -q /
-systemctl cat logrotate.service
-# Run the logrotate executable shown in that unit with --version.
-```
-
-Check that the filesystem UUID is
-`2ae3c985-a150-47fc-8953-817bbf6cf0e0`, the persistent mounts use the subvolumes
-above, and `@root-blank` is read-only. To inspect the blank template, mount the
-filesystem top level read-only, use `btrfs property get -t subvol` on its
-`@root-blank`, then unmount it. Check the identity's ownership and permissions
-without printing its contents.
-
-The old logrotate unit has no explicit state argument. Its executable's
-`--version` output prints the default state path (`/var/lib/logrotate.status`
-in the pinned package). It may not be on the interactive shell's PATH, so use
-the absolute executable path from the unit. If the live unit supplies an
-override, use that override instead. Record this path for the seeding step.
-
-### Seed maintenance state before activation
-
-Run the following in an interactive root Bash shell (`sudo bash`). Set
-`old_logrotate_state` to the verified live state path. The procedure refuses
-nonempty persistence destinations that are not already the same directory;
-reconcile those manually before continuing. It leaves the ephemeral source
-directories intact and makes a persistent backup before copying.
-
-```bash
-set -euo pipefail
-old_logrotate_state=/var/lib/logrotate.status  # Confirm against the live unit/version.
-state_dirs=(
-  /var/lib/btrfs
-  /var/lib/logrotate
-  /var/lib/systemd/rfkill
-  /var/lib/systemd/timers
-  /var/lib/systemd/timesync
-)
-test "$(findmnt -nro UUID --mountpoint /persist)" = 2ae3c985-a150-47fc-8953-817bbf6cf0e0
-for source_dir in "${state_dirs[@]}"; do
-  destination="/persist$source_dir"
-  if [[ -L "$source_dir" || -L "$destination" ]]; then
-    echo "Inspect unexpected symlink: $source_dir or $destination" >&2
-    exit 1
-  fi
-  if [[ -e "$destination" ]]; then
-    test -d "$destination"
-    if [[ ! "$source_dir" -ef "$destination" ]] &&
-       [[ -n "$(find "$destination" -mindepth 1 -print -quit)" ]]; then
-      echo "Reconcile existing persistent state before continuing: $destination" >&2
-      exit 1
-    fi
-  fi
-done
-backup="/persist/impermanence-seeding-$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -m 0700 "$backup"
-
-# Stop triggers before inspecting writers, including services they just started.
-mapfile -t active_timers < <(systemctl list-units --type=timer --state=active,activating,deactivating --no-legend --plain | awk '{print $1}')
-printf '%s\n' "${active_timers[@]}" > "$backup/active-timers"
-if (( ${#active_timers[@]} )); then systemctl stop "${active_timers[@]}"; fi
-rfkill_socket_active=false
-if systemctl is-active --quiet systemd-rfkill.socket; then
-  rfkill_socket_active=true
-  systemctl stop systemd-rfkill.socket
-fi
-printf '%s\n' "$rfkill_socket_active" > "$backup/rfkill-socket-active"
-mapfile -t active_writers < <(systemctl list-units --type=service --state=active,activating,deactivating --no-legend --plain |
-  awk '$1 ~ /^(btrfs-scrub[^ ]*|systemd-timesyncd|systemd-rfkill)\.service$/ {print $1}')
-printf '%s\n' "${active_writers[@]}" > "$backup/active-writers"
-if (( ${#active_writers[@]} )); then systemctl stop "${active_writers[@]}"; fi
-
-# Logrotate is activating while its oneshot runs. Let it finish rather than
-# interrupting a rotation; do not restart the completed oneshot after migration.
-while :; do
-  logrotate_state=$(systemctl show --property=ActiveState --value logrotate.service)
-  case "$logrotate_state" in
-    inactive) break ;;
-    active|activating|deactivating) sleep 1 ;;
-    *)
-      echo "Inspect logrotate before seeding state: $logrotate_state" >&2
-      exit 1
-      ;;
-  esac
-done
-
-for source_dir in "${state_dirs[@]}"; do
-  destination="/persist$source_dir"
-  if [[ -d "$source_dir" ]]; then
-    cp -a --parents -- "$source_dir" "$backup"
-    if [[ ! "$source_dir" -ef "$destination" ]]; then
-      mkdir -p -- "$destination"
-      cp -a -- "$source_dir/." "$destination/"
-    fi
-  fi
-done
-if [[ -f "$old_logrotate_state" ]]; then
-  cp -a --parents -- "$old_logrotate_state" "$backup"
-  mkdir -p /persist/var/lib/logrotate
-  if [[ -e /persist/var/lib/logrotate/status ]]; then
-    cmp -- "$old_logrotate_state" /persist/var/lib/logrotate/status
-  else
-    cp -a -- "$old_logrotate_state" /persist/var/lib/logrotate/status
-  fi
-fi
-```
-
-The copy waits for any in-flight logrotate operation to finish and refuses to
-continue if the service has failed. Avoid manually starting state writers until
-seeding is complete.
-
-If any step fails, keep the backup, inspect the error, and restart the recorded
-writers and timers before leaving the machine. Do not rerun the whole copy over
-a nonempty destination. If the source logrotate state was already copied as
-`/var/lib/logrotate/status`, compare it to the persisted copy and skip the final
-copy after verifying they match. The final copy above already handles an
-identical existing state file.
-
-### Switch and verify
-
-In the same root shell, switch and verify all five persistence bind mounts
-before restarting writers. If switching fails, inspect the mounts and restore
-the recorded services; do not reboot with an unverified migration.
-
-```bash
-nixos-rebuild switch --flake /home/tommoa/.config/nixpkgs#peter
-for source_dir in "${state_dirs[@]}"; do
-  findmnt --mountpoint "$source_dir"
-  test "$source_dir" -ef "/persist$source_dir"
-done
-if (( ${#active_writers[@]} )); then systemctl start "${active_writers[@]}"; fi
-if "$rfkill_socket_active"; then systemctl start systemd-rfkill.socket; fi
-if (( ${#active_timers[@]} )); then systemctl start "${active_timers[@]}"; fi
-systemctl --failed
-impermanence-clean-old-roots --report /persist/old-root-inspection.json
-```
-
-Keep the backup and a known-working boot generation. Reboot normally and verify
-the reset service ran once, mounts and selected maintenance state survived,
-login and secret decryption work, Wi-Fi/Bluetooth and Steam work, and logrotate
-uses `/var/lib/logrotate/status`. Then test hibernation/resume separately.
-
-If cleanup inspection fails only on legacy ancestry, leave cleanup disabled
-while those roots are reviewed. After all checks pass, set
-`my.impermanence.cleanup.enable = true` in `hosts/peter.nix`, rebuild and switch,
-then stop the timer while reviewing and performing the first controlled run:
-
-```sh
-sudo systemctl stop impermanence-clean-old-roots.timer
-sudo impermanence-clean-old-roots --report /persist/old-root-inspection.json
-# After reviewing the targets:
-sudo impermanence-clean-old-roots --apply --report /persist/old-root-cleanup.json
-sudo systemctl start impermanence-clean-old-roots.timer
-```
-
-Finally verify its automatic run after a normal boot. Leave the timer stopped
-and the configuration disabled if inspection rejects any target.
+The cleanup tool is also available manually; deletion requires `--apply`.
+Keep a known-working NixOS generation and separate backups of persistent data.
+Root snapshots are temporary boot state, not application-data backups.
 
 ## Recovery
 
-Disable cleanup to preserve old roots; disable root reset as well when an
-existing root needs inspection. Before mounting a recovery root, stop the
-cleanup timer and hold the cleanup lock for the entire recovery session:
+Disable cleanup to retain old roots, and disable root reset when inspecting an
+existing root across boots. Before mounting a retained root, stop the timer and
+hold the cleanup lock for the entire recovery session:
 
 ```sh
 sudo systemctl stop impermanence-clean-old-roots.timer
@@ -260,15 +200,20 @@ sudo flock --shared /run/impermanence-old-root-cleanup.lock bash
 # Mount, inspect and unmount recovery roots inside this shell, then exit.
 ```
 
-Cleanup invocations refuse to run while the shared lock is held. Mount checks
-are observations, so the lock also prevents a cooperating recovery session
-from mounting a root between the final check and deletion. Keep the shell open
-until every recovery mount is removed; restart the timer only afterward, if
-cleanup should resume. Leave cleanup disabled when retaining roots beyond the
-session.
+The shared lock waits for any running cleanup to finish and prevents new cleanup
+invocations from proceeding. Mount checks are observations; holding the lock
+prevents a cooperating recovery session from mounting a root between the final
+check and deletion. Keep the shell open until every recovery mount is removed.
+Restart the timer only after leaving the shell, if cleanup should resume:
 
-A previous NixOS generation restores
-configuration, not deleted roots or persistent application data. Recover that
-data from the backup. Keep `home`, `nix`, `@persist`, `steamapps` and the blank
-template intact. James's existing RAM maintenance entry remains available;
-its historical migration helpers should not be rerun for this consolidation.
+```sh
+sudo systemctl start impermanence-clean-old-roots.timer
+```
+
+Run cleanup on the host with its full `/proc` visible. It refuses an empty task
+mount inventory when that task still has a filesystem root, because a detached
+mount can retain a live chroot without appearing in any namespace inventory.
+Resolve the chroot or sandbox before retrying; do not bypass the refusal.
+A previous NixOS generation restores configuration, not deleted roots or
+persistent application data. Keep the persistent subvolumes and blank template
+intact and recover application data from separate backups.

@@ -37,7 +37,6 @@
       packages = [];
     };
 
-    # Keep the existing desktop autologin behaviour.
     services.greetd.settings.initial_session = {
       user = "tommoa";
       command = "uwsm start hyprland.desktop";

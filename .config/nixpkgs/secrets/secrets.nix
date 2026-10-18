@@ -6,8 +6,8 @@ let
   # User keys - for editing secrets locally
   toma = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIS8KG2iv8MsZZ/hCA3P4qbBHign34LAjbBt4zdIG73D";
 
-  # Host keys - for decryption on target machines
-  # Get with: cat /etc/ssh/ssh_host_ed25519_key.pub
+  # Host identities for decryption on target machines.
+  # NixOS public identities are at /persist/etc/agenix/identity.pub.
   apollo = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF8+lrFue2t9h3ABGeeQqNv9pIrZssrU81Nn/YErJfpE";
   work = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBHPfVFfiXyMhtsZzuuoZq4Au8VIqODHKMxpE6RWLnJO";
   peter = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILwOf/6WNYLpglqjui8xc2cBtU3u47f4CNv0++1yvMVQ peter-agenix";
@@ -73,9 +73,8 @@ in {
   "search-engines/tavily-api-key.age".publicKeys = all;
 
   # SSH deploy keys
-  # NOTE: id_ed25519 is NOT managed by agenix - it's the identity used to decrypt
-  # other secrets, so it must be available before agenix runs. It remains in
-  # ~/.secrets and is symlinked by setup.sh.
+  # Provision the user decryption identity separately at age.identityPaths;
+  # it must be available before agenix runs.
   "ssh/github-deploy.age".publicKeys = all;
   "ssh/github-deploy-pub.age".publicKeys = all;
   "ssh/srht-deploy.age".publicKeys = all ++ workSecrets;
