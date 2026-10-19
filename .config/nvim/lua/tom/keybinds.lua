@@ -42,7 +42,10 @@ mapper("n", "gV", "`[v`]")
 mapper("t", "<Esc>", "<c-\\><c-n>")
 
 -- LSP keybinds
+local lsp_keymap_group = vim.api.nvim_create_augroup('tom.lsp.keymaps', { clear = true })
 vim.api.nvim_create_autocmd('LspAttach', {
+  group = lsp_keymap_group,
+  desc = 'Set buffer-local LSP keymaps',
   callback = function(e)
     local opts = { buffer = e.buf, remap = false }
     local diagnostic_picker = {
@@ -73,12 +76,9 @@ vim.api.nvim_create_autocmd('LspAttach', {
     vim.keymap.set('n', 'gi', function() Snacks.picker.lsp_implementations() end, opts)
     vim.keymap.set('n', '<leader>ls', function() Snacks.picker.lsp_symbols() end, opts)
     vim.keymap.set('n', '<leader>lS', function() Snacks.picker.lsp_workspace_symbols() end, opts)
-    vim.keymap.set("n", "<leader>o", vim.lsp.buf.format, opts)
-    -- Run formatting synchronously before writing a file
-    vim.api.nvim_create_autocmd('BufWritePre', {
-        buffer = e.buf,
-        callback = vim.lsp.buf.format,
-    })
+    vim.keymap.set('n', '<leader>o', function()
+      require('tom.lsp').format(e.buf)
+    end, opts)
   end
 })
 

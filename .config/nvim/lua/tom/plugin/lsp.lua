@@ -15,14 +15,6 @@ return {
     dependencies = {
       'neovim/nvim-lspconfig',
     },
-    config = function()
-      vim.g.rustaceanvim = {
-        server = {
-          on_attach = require('tom.lsp').on_attach,
-          capabilities = require('tom.lsp').capabilities,
-        },
-      }
-    end,
     ft = { 'rust' },
   },
 }
