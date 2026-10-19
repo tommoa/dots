@@ -3,10 +3,20 @@
   config,
   lib,
   ...
-}: {
+}: let
+  mailRuntime = pkgs.callPackage ./mail/runtime.nix {
+    mbsync = config.programs.mbsync.package;
+    gnupg = config.programs.gpg.package;
+  };
+  notifyAccounts = lib.filterAttrs (_: account: account.enable && account.imapnotify.enable) config.accounts.email.accounts;
+  logDir = "${config.home.homeDirectory}/.local/state/imapnotify";
+  # Match Home Manager's imapnotify service names when extending its agents.
+  safeName = lib.replaceStrings ["@" ":" "\\" "[" "]"] ["-" "-" "-" "" ""];
+in {
   # Import account and program configurations
   imports = [
     ./mail/aerc.nix
+    ./mail/notmuch.nix
     ./mail/accounts/personal.nix
     ./mail/accounts/work.nix
     ./mail/accounts/tommoa.nix
@@ -14,13 +24,28 @@
     ./secrets/mail-encryption.nix
   ];
 
+  # Account modules use these commands as argv lists, so runtime secret paths
+  # never pass through Home Manager's string-to-argv splitting.
+  _module.args.mailRuntime = mailRuntime;
+
   home.packages = with pkgs; [
+    mailRuntime
     notmuch # Email indexing and tagging
     w3m-images # HTML email viewing in aerc
   ];
 
   # Configure base maildir path
   accounts.email.maildirBasePath = ".mail";
+
+  # Sent is a notmuch query folder, not a writable Maildir destination.
+  # Leaving the standard sent folder unset prevents Home Manager from
+  # generating aerc's incompatible `copy-to = Sent` setting.
+  accounts.email.accounts = {
+    personal.folders.sent = null;
+    shared.folders.sent = null;
+    tommoa.folders.sent = null;
+    work.folders.sent = null;
+  };
 
   # Enable mbsync with home-manager
   programs.mbsync = {
@@ -30,13 +55,51 @@
     };
   };
 
+  # Git send-email uses the SMTP transport from this mail profile.
+  programs.git.settings.sendemail = {
+    smtpServer = lib.getExe config.programs.msmtp.package;
+    annotate = true;
+  };
+
   # Enable msmtp with home-manager
   programs.msmtp = {
     enable = true;
   };
 
+  programs.gpg.enable = true;
+
   # Enable imapnotify service for automatic mail sync
   services.imapnotify.enable = true;
+
+  home.file.".config/notmuch/runtime-hooks".source = "${mailRuntime}/libexec/notmuch-hooks";
+
+  # launchd does not inherit shell startup configuration. The packaged commands
+  # carry their dependencies; capture startup failures in private, readable logs.
+  launchd.agents = lib.mkIf pkgs.stdenv.isDarwin (lib.mapAttrs' (name: _: let
+    serviceName = "imapnotify-${safeName name}";
+  in
+    lib.nameValuePair serviceName {
+      config = {
+        StandardOutPath = "${logDir}/${safeName name}.stdout.log";
+        StandardErrorPath = "${logDir}/${safeName name}.stderr.log";
+      };
+    })
+  notifyAccounts);
+
+  systemd.user.services = lib.mkIf pkgs.stdenv.isLinux (lib.mapAttrs' (name: _:
+    lib.nameValuePair "imapnotify-${safeName name}" {
+      Unit = {
+        After = ["agenix.service"];
+        Requires = ["agenix.service"];
+      };
+    })
+  notifyAccounts);
+
+  home.activation.mailLogDirectory = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryBetween ["setupLaunchAgents"] ["linkGeneration" "importMailEncryptionKey"] ''
+      run ${pkgs.coreutils}/bin/install -d -m 0700 ${lib.escapeShellArg logDir}
+    ''
+  );
 
   # w3m configuration for HTML email rendering
   home.file.".w3m/config".text = ''

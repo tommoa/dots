@@ -7,6 +7,11 @@
   primaryFingerprint = "0A03EA4C015A0E1923E407B5BC44284F6BFB03DF";
   encryptedKey = "${config.my.secretsPath}/misc/mail-encryption-subkey.age";
   identity = builtins.head config.age.identityPaths;
+  agenixAgent = config.launchd.agents.activate-agenix.config;
+  agenixLogDirectories = lib.unique (map builtins.dirOf (lib.filter (path: path != null) [
+    agenixAgent.StandardOutPath
+    agenixAgent.StandardErrorPath
+  ]));
   importKey = pkgs.writeShellScript "import-mail-encryption-key" ''
     set -euo pipefail
     ${lib.getExe config.age.package} --decrypt -i ${lib.escapeShellArg identity} ${lib.escapeShellArg encryptedKey} \
@@ -17,9 +22,27 @@
       | ${lib.getExe config.programs.gpg.package} --homedir ${lib.escapeShellArg config.programs.gpg.homedir} --batch --quiet --import-ownertrust
   '';
 in {
+  # launchd opens log files before starting agenix; their parents must already
+  # exist. Derive them from the agent so overrides keep the same startup order.
+  home.activation.agenixLogDirectories = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryBetween ["setupLaunchAgents"] ["writeBoundary"] (
+      lib.concatMapStringsSep "\n" (directory: ''
+        run ${pkgs.coreutils}/bin/install -d -m 0700 ${lib.escapeShellArg directory}
+      '')
+      agenixLogDirectories
+    )
+  );
+
   # oauth2-gmail encrypts each machine's refresh token to this key and later
   # decrypts it locally. Keep the private encryption subkey off the Nix store.
-  home.activation.importMailEncryptionKey = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    run ${importKey}
-  '';
+  home.activation.importMailEncryptionKey =
+    lib.hm.dag.entryBetween [
+      (
+        if pkgs.stdenv.isDarwin
+        then "setupLaunchAgents"
+        else "reloadSystemd"
+      )
+    ] ["createGpgHomedir"] ''
+      run ${importKey}
+    '';
 }

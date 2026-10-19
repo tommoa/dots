@@ -1,4 +1,8 @@
-{config, ...}: {
+{
+  config,
+  mailRuntime,
+  ...
+}: {
   # Personal account configuration using home-manager
   # OAuth2 credentials are handled by oauth2-gmail script
 
@@ -17,7 +21,7 @@
     realName = "Tom Almeida";
 
     # OAuth2 authentication via custom script
-    passwordCommand = "${config.home.homeDirectory}/bin/oauth2-gmail personal";
+    passwordCommand = ["${mailRuntime}/bin/oauth2-gmail" "personal"];
 
     # IMAP configuration
     imap = {
@@ -84,11 +88,12 @@
         "INBOX"
         "[Gmail]/Sent Mail"
       ];
-      onNotify = "account=personal ${config.home.homeDirectory}/bin/update-mail";
+      onNotify = "account=personal ${mailRuntime}/bin/update-mail";
       extraConfig = {
         tls = true;
         tlsOptions = {
-          rejectUnauthorized = false;
+          # goimapnotify skips verification if this option is omitted.
+          rejectUnauthorized = true;
         };
         xoauth2 = true;
       };
@@ -97,7 +102,4 @@
 
   # Aerc query map (notmuch query syntax, shared across accounts)
   home.file.".config/aerc/notmuch-map".source = ../config/aerc-notmuch-map;
-
-  # Notmuch config
-  home.file.".config/notmuch/personal".source = ../config/notmuch-personal;
 }

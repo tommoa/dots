@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+{...}: {
   programs.zsh = {
     enable = true;
     # Disable slow promptinit - we set our own prompt in home-manager
@@ -7,14 +7,9 @@
     enableGlobalCompInit = false;
   };
 
-  # Basic programs
+  # System GPG agent and its SSH agent integration.
   programs.gnupg.agent = {
     enable = true;
     enableSSHSupport = true;
   };
-
-  environment.systemPackages = with pkgs; [
-    neovim
-    tree-sitter
-  ];
 }

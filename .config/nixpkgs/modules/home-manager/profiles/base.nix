@@ -41,23 +41,10 @@
       pretty.fixes = "Fixes: %h (\"%s\")";
       push.gpgSign = "if-asked";
       pull.rebase = true;
-      sendemail = {
-        smtpServer = lib.getExe config.programs.msmtp.package;
-        annotate = true;
-      };
     };
   };
 
   programs.gpg.enable = true;
-
-  # Force kitty graphics protocol without negotiation (tmux intercepts detection).
-  # Used by aerc's Vaxis TUI library for rendering image/* attachments.
-  home.sessionVariables = {
-    VAXIS_GRAPHICS = "kitty";
-
-    # Use experimental features in opencode.
-    OPENCODE_EXPERIMENTAL = 1;
-  };
 
   home.packages = with pkgs; [
     # Nix package manager - ensures standalone home-manager configs

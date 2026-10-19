@@ -1,4 +1,39 @@
-{pkgs, ...}: {
+{
+  pkgs,
+  mailRuntime,
+  ...
+}: let
+  # Applied to both the message list and viewer contexts below.
+  tagBindings = {
+    "a" = ":modify -inbox -deleted +archive<Enter>";
+    ".a" = ":modify -inbox -deleted +archive<Enter>";
+    "d" = ":modify -inbox -archive +deleted<Enter>";
+    ".d" = ":modify -inbox -archive +deleted<Enter>";
+    "u" = ":modify -deleted -archive +inbox<Enter>";
+    ".u" = ":modify -deleted -archive +inbox<Enter>";
+    ".f" = ":flag -t -x Flagged<Enter>";
+    ".s" = ":flag -t -x Seen<Enter>";
+    ".." = ":modify-labels<space>";
+  };
+
+  replyBindings = {
+    "rr" = ":reply -a<Enter>";
+    "rq" = ":reply -aq<Enter>";
+    "Rr" = ":reply<Enter>";
+    "Rq" = ":reply -q<Enter>";
+  };
+
+  workTagBindings = {
+    ".r" = ":modify -review +review-archive<Enter>";
+    ".R" = ":modify +review -review-archive<Enter>";
+    ".p" = ":modify -package +package-archive<Enter>";
+    ".P" = ":modify +package -package-archive<Enter>";
+    ".c" = ":modify -ci +ci-archive<Enter>";
+    ".C" = ":modify +ci -ci-archive<Enter>";
+  };
+in {
+  home.sessionVariables.VAXIS_GRAPHICS = "kitty";
+
   # Enable aerc with complete configuration
   programs.aerc = {
     enable = true;
@@ -76,7 +111,7 @@
         "\\[t" = ":prev-tab<Enter>";
         "\\]t" = ":next-tab<Enter>";
         "<C-t>" = ":term<Enter>";
-        "<C-r>" = ":exec update-mail<Enter>";
+        "<C-r>" = ":exec ${mailRuntime}/bin/update-mail<Enter>";
         "?" = ":help keys<Enter>";
         "<C-c>" = ":prompt 'Quit?' quit<Enter>";
         "<C-q>" = ":prompt 'Quit?' quit<Enter>";
@@ -84,114 +119,94 @@
       };
 
       # Message list bindings
-      messages = {
-        "q" = ":quit<Enter>";
+      messages =
+        {
+          "q" = ":quit<Enter>";
 
-        # Navigation
-        "n" = ":next<Enter>";
-        "<Down>" = ":next<Enter>";
-        "<C-d>" = ":next 50%<Enter>";
-        "<C-f>" = ":next 100%<Enter>";
-        "<PgDn>" = ":next 100%<Enter>";
+          # Navigation
+          "n" = ":next<Enter>";
+          "<Down>" = ":next<Enter>";
+          "<C-d>" = ":next 50%<Enter>";
+          "<C-f>" = ":next 100%<Enter>";
+          "<PgDn>" = ":next 100%<Enter>";
 
-        "e" = ":prev<Enter>";
-        "<Up>" = ":prev<Enter>";
-        "<C-g>" = ":prev 50%<Enter>";
-        "<C-b>" = ":prev 100%<Enter>";
-        "<PgUp>" = ":prev 100%<Enter>";
-        "g" = ":select 0<Enter>";
-        "G" = ":select -1<Enter>";
+          "e" = ":prev<Enter>";
+          "<Up>" = ":prev<Enter>";
+          "<C-g>" = ":prev 50%<Enter>";
+          "<C-b>" = ":prev 100%<Enter>";
+          "<PgUp>" = ":prev 100%<Enter>";
+          "g" = ":select 0<Enter>";
+          "G" = ":select -1<Enter>";
 
-        # Folder navigation
-        "N" = ":next-folder<Enter>";
-        "<C-Down>" = ":next-folder<Enter>";
-        "E" = ":prev-folder<Enter>";
-        "<C-Up>" = ":prev-folder<Enter>";
-        "H" = ":collapse-folder<Enter>";
-        "<C-Left>" = ":collapse-folder<Enter>";
-        "I" = ":expand-folder<Enter>";
-        "<C-Right>" = ":expand-folder<Enter>";
+          # Folder navigation
+          "N" = ":next-folder<Enter>";
+          "<C-Down>" = ":next-folder<Enter>";
+          "E" = ":prev-folder<Enter>";
+          "<C-Up>" = ":prev-folder<Enter>";
+          "H" = ":collapse-folder<Enter>";
+          "<C-Left>" = ":collapse-folder<Enter>";
+          "I" = ":expand-folder<Enter>";
+          "<C-Right>" = ":expand-folder<Enter>";
 
-        # Marking
-        "v" = ":mark -t<Enter>";
-        "<Space>" = ":mark -t<Enter>:next<Enter>";
-        "V" = ":mark -v<Enter>";
+          # Marking
+          "v" = ":mark -t<Enter>";
+          "<Space>" = ":mark -t<Enter>:next<Enter>";
+          "V" = ":mark -v<Enter>";
 
-        # Threading
-        "T" = ":toggle-threads<Enter>";
-        "zc" = ":fold<Enter>";
-        "zo" = ":unfold<Enter>";
-        "za" = ":fold -t<Enter>";
-        "zM" = ":fold -a<Enter>";
-        "zR" = ":unfold -a<Enter>";
-        "<tab>" = ":fold -t<Enter>";
+          # Threading
+          "T" = ":toggle-threads<Enter>";
+          "zc" = ":fold<Enter>";
+          "zo" = ":unfold<Enter>";
+          "za" = ":fold -t<Enter>";
+          "zM" = ":fold -a<Enter>";
+          "zR" = ":unfold -a<Enter>";
+          "<tab>" = ":fold -t<Enter>";
 
-        # Alignment
-        "zz" = ":align center<Enter>";
-        "zt" = ":align top<Enter>";
-        "zb" = ":align bottom<Enter>";
+          # Alignment
+          "zz" = ":align center<Enter>";
+          "zt" = ":align top<Enter>";
+          "zb" = ":align bottom<Enter>";
 
-        # Actions
-        "<Enter>" = ":view<Enter>";
+          # Actions
+          "<Enter>" = ":view<Enter>";
 
-        # Tagging: single-key and dot-prefixed versions
-        # Archive
-        "a" = ":modify -inbox -deleted +archive<Enter>";
-        ".a" = ":modify -inbox -deleted +archive<Enter>";
-        # Delete
-        "d" = ":modify -inbox -archive +deleted<Enter>";
-        ".d" = ":modify -inbox -archive +deleted<Enter>";
-        # Restore to inbox
-        "u" = ":modify -deleted -archive +inbox<Enter>";
-        ".u" = ":modify -deleted -archive +inbox<Enter>";
-        # Toggle flags
-        ".f" = ":flag -t -x Flagged<Enter>";
-        ".s" = ":flag -t -x Seen<Enter>";
-        # Manual label editing
-        ".." = ":modify-labels<space>";
+          # Thread variants
+          "A" = ":mark -T<Enter>:modify -inbox -deleted +archive<Enter>";
+          "D" = ":mark -T<Enter>:modify -inbox -archive +deleted<Enter>";
+          "U" = ":mark -T<Enter>:modify -deleted -archive +inbox<Enter>";
 
-        # Thread variants
-        "A" = ":mark -T<Enter>:modify -inbox -deleted +archive<Enter>";
-        "D" = ":mark -T<Enter>:modify -inbox -archive +deleted<Enter>";
-        "U" = ":mark -T<Enter>:modify -deleted -archive +inbox<Enter>";
+          # Compose
+          "C" = ":compose<Enter>";
+          "m" = ":compose<Enter>";
+          "b" = ":bounce<space>";
+          "F" = ":forward<Enter>";
 
-        # Compose
-        "C" = ":compose<Enter>";
-        "m" = ":compose<Enter>";
-        "b" = ":bounce<space>";
-        "F" = ":forward<Enter>";
+          # Other commands
+          "c" = ":cf<space>";
+          "$" = ":term<space>";
+          "!" = ":term<space>";
+          "|" = ":pipe<space>";
 
-        # Reply
-        "rr" = ":reply -a<Enter>";
-        "rq" = ":reply -aq<Enter>";
-        "Rr" = ":reply<Enter>";
-        "Rq" = ":reply -q<Enter>";
+          # Search
+          "/" = ":search<space>";
+          "\\" = ":filter<space>";
+          "k" = ":next-result<Enter>";
+          "K" = ":prev-result<Enter>";
+          "<Esc>" = ":clear<Enter>";
 
-        # Other commands
-        "c" = ":cf<space>";
-        "$" = ":term<space>";
-        "!" = ":term<space>";
-        "|" = ":pipe<space>";
+          # Split view
+          "s" = ":split<Enter>";
+          "S" = ":vsplit<Enter>";
 
-        # Search
-        "/" = ":search<space>";
-        "\\" = ":filter<space>";
-        "k" = ":next-result<Enter>";
-        "K" = ":prev-result<Enter>";
-        "<Esc>" = ":clear<Enter>";
-
-        # Split view
-        "s" = ":split<Enter>";
-        "S" = ":vsplit<Enter>";
-
-        # Patch management
-        "pl" = ":patch list<Enter>";
-        "pa" = ":patch apply <Tab>";
-        "pd" = ":patch drop <Tab>";
-        "pb" = ":patch rebase<Enter>";
-        "pt" = ":patch term<Enter>";
-        "ps" = ":patch switch <Tab>";
-      };
+          # Patch management
+          "pl" = ":patch list<Enter>";
+          "pa" = ":patch apply <Tab>";
+          "pd" = ":patch drop <Tab>";
+          "pb" = ":patch rebase<Enter>";
+          "pt" = ":patch term<Enter>";
+          "ps" = ":patch switch <Tab>";
+        }
+        // tagBindings // replyBindings;
 
       # Drafts folder bindings
       "messages:folder=Drafts" = {
@@ -199,49 +214,30 @@
       };
 
       # Message viewer bindings
-      view = {
-        "/" = ":toggle-key-passthrough<Enter>/";
-        "q" = ":close<Enter>";
-        "O" = ":open<Enter>";
-        "o" = ":open<Enter>";
-        "S" = ":save<space>";
-        "|" = ":pipe<space>";
+      view =
+        {
+          "/" = ":toggle-key-passthrough<Enter>/";
+          "q" = ":close<Enter>";
+          "O" = ":open<Enter>";
+          "o" = ":open<Enter>";
+          "S" = ":save<space>";
+          "|" = ":pipe<space>";
 
-        # Tagging: single-key and dot-prefixed versions
-        # Archive
-        "a" = ":modify -inbox -deleted +archive<Enter>";
-        ".a" = ":modify -inbox -deleted +archive<Enter>";
-        # Delete
-        "d" = ":modify -inbox -archive +deleted<Enter>";
-        ".d" = ":modify -inbox -archive +deleted<Enter>";
-        # Restore to inbox
-        "u" = ":modify -deleted -archive +inbox<Enter>";
-        ".u" = ":modify -deleted -archive +inbox<Enter>";
-        # Toggle flags
-        ".f" = ":flag -t -x Flagged<Enter>";
-        ".s" = ":flag -t -x Seen<Enter>";
-        # Manual label editing
-        ".." = ":modify-labels<space>";
+          "<C-y>" = ":copy-link <space>";
+          "<C-o>" = ":open-link <space>";
 
-        "<C-y>" = ":copy-link <space>";
-        "<C-o>" = ":open-link <space>";
-
-        "F" = ":forward<Enter>";
-        "rr" = ":reply -a<Enter>";
-        "rq" = ":reply -aq<Enter>";
-        "Rr" = ":reply<Enter>";
-        "Rq" = ":reply -q<Enter>";
-
-        "H" = ":toggle-headers<Enter>";
-        "<C-e>" = ":prev-part<Enter>";
-        "<C-Up>" = ":prev-part<Enter>";
-        "<C-n>" = ":next-part<Enter>";
-        "<C-Down>" = ":next-part<Enter>";
-        "N" = ":next<Enter>";
-        "<C-Right>" = ":next<Enter>";
-        "E" = ":prev<Enter>";
-        "<C-Left>" = ":prev<Enter>";
-      };
+          "F" = ":forward<Enter>";
+          "H" = ":toggle-headers<Enter>";
+          "<C-e>" = ":prev-part<Enter>";
+          "<C-Up>" = ":prev-part<Enter>";
+          "<C-n>" = ":next-part<Enter>";
+          "<C-Down>" = ":next-part<Enter>";
+          "N" = ":next<Enter>";
+          "<C-Right>" = ":next<Enter>";
+          "E" = ":prev<Enter>";
+          "<C-Left>" = ":prev<Enter>";
+        }
+        // tagBindings // replyBindings;
 
       # Passthrough mode bindings
       "view::passthrough" = {
@@ -310,24 +306,10 @@
       };
 
       # Work account-specific bindings (messages)
-      "messages:account=work" = {
-        ".r" = ":modify -review +review-archive<Enter>";
-        ".R" = ":modify +review -review-archive<Enter>";
-        ".p" = ":modify -package +package-archive<Enter>";
-        ".P" = ":modify +package -package-archive<Enter>";
-        ".c" = ":modify -ci +ci-archive<Enter>";
-        ".C" = ":modify +ci -ci-archive<Enter>";
-      };
+      "messages:account=work" = workTagBindings;
 
       # Work account-specific bindings (view)
-      "view:account=work" = {
-        ".r" = ":modify -review +review-archive<Enter>";
-        ".R" = ":modify +review -review-archive<Enter>";
-        ".p" = ":modify -package +package-archive<Enter>";
-        ".P" = ":modify +package -package-archive<Enter>";
-        ".c" = ":modify -ci +ci-archive<Enter>";
-        ".C" = ":modify +ci -ci-archive<Enter>";
-      };
+      "view:account=work" = workTagBindings;
     };
   };
 }

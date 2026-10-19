@@ -1,4 +1,8 @@
-{config, ...}: {
+{
+  config,
+  mailRuntime,
+  ...
+}: {
   # Shared account configuration using home-manager
   # OAuth2 credentials are handled by oauth2-gmail script
 
@@ -17,7 +21,7 @@
     realName = "Emily and Tom Almeida";
 
     # OAuth2 authentication via custom script
-    passwordCommand = "${config.home.homeDirectory}/bin/oauth2-gmail shared";
+    passwordCommand = ["${mailRuntime}/bin/oauth2-gmail" "shared"];
 
     # IMAP configuration
     imap = {
@@ -86,11 +90,12 @@
         "[Gmail]/Sent Mail"
         "RSVP"
       ];
-      onNotify = "account=shared ${config.home.homeDirectory}/bin/update-mail";
+      onNotify = "account=shared ${mailRuntime}/bin/update-mail";
       extraConfig = {
         tls = true;
         tlsOptions = {
-          rejectUnauthorized = false;
+          # goimapnotify skips verification if this option is omitted.
+          rejectUnauthorized = true;
         };
         xoauth2 = true;
       };
@@ -99,7 +104,4 @@
 
   # Aerc query map for shared account (includes RSVP folder)
   home.file.".config/aerc/shared-map".source = ../config/aerc-shared-map;
-
-  # Notmuch config
-  home.file.".config/notmuch/shared".source = ../config/notmuch-shared;
 }

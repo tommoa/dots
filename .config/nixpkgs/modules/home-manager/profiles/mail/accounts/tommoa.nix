@@ -1,4 +1,8 @@
-{config, ...}: {
+{
+  config,
+  mailRuntime,
+  ...
+}: {
   # tommoa (iCloud) account configuration using home-manager
   # Password is read from agenix secret via passwordCommand
 
@@ -13,7 +17,7 @@
     realName = "Tom Almeida";
 
     # Password from agenix secret
-    passwordCommand = "cat ${config.age.secrets.tommoa-password.path}";
+    passwordCommand = ["${mailRuntime}/bin/mail-secret" "tommoa-password"];
 
     # IMAP configuration for iCloud
     imap = {
@@ -73,16 +77,14 @@
         "INBOX"
         "Sent Messages"
       ];
-      onNotify = "account=tommoa ${config.home.homeDirectory}/bin/update-mail";
+      onNotify = "account=tommoa ${mailRuntime}/bin/update-mail";
       extraConfig = {
         tls = true;
         tlsOptions = {
-          rejectUnauthorized = false;
+          # goimapnotify skips verification if this option is omitted.
+          rejectUnauthorized = true;
         };
       };
     };
   };
-
-  # Notmuch config
-  home.file.".config/notmuch/tommoa".source = ../config/notmuch-tommoa;
 }

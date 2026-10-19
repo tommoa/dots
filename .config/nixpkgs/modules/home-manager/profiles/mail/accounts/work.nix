@@ -1,4 +1,8 @@
-{config, ...}: {
+{
+  config,
+  mailRuntime,
+  ...
+}: {
   # Work account configuration using home-manager
   # OAuth2 credentials are handled by oauth2-gmail script
 
@@ -16,7 +20,7 @@
     realName = "Tom Almeida";
 
     # OAuth2 authentication via custom script
-    passwordCommand = "${config.home.homeDirectory}/bin/oauth2-gmail work";
+    passwordCommand = ["${mailRuntime}/bin/oauth2-gmail" "work"];
 
     # IMAP configuration
     imap = {
@@ -88,11 +92,12 @@
         "Reviews"
         "Packages"
       ];
-      onNotify = "account=work ${config.home.homeDirectory}/bin/update-mail";
+      onNotify = "account=work ${mailRuntime}/bin/update-mail";
       extraConfig = {
         tls = true;
         tlsOptions = {
-          rejectUnauthorized = false;
+          # goimapnotify skips verification if this option is omitted.
+          rejectUnauthorized = true;
         };
         xoauth2 = true;
       };
@@ -101,7 +106,4 @@
 
   # Aerc query map
   home.file.".config/aerc/work-map".source = ../config/aerc-work-map;
-
-  # Notmuch config
-  home.file.".config/notmuch/work".source = ../config/notmuch-work;
 }
