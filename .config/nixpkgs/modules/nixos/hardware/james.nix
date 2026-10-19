@@ -4,7 +4,6 @@
 {
   config,
   lib,
-  pkgs,
   modulesPath,
   ...
 }: {
@@ -12,7 +11,6 @@
     (modulesPath + "/installer/scan/not-detected.nix")
   ];
 
-  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_zen;
   boot.initrd.availableKernelModules = [
     "xhci_pci"
     "ahci"

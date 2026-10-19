@@ -14,6 +14,9 @@
     nixpkgs.hostPlatform = "x86_64-linux";
     networking.hostName = "james";
 
+    # Zen improved gaming usermode switching in CS2 on this machine.
+    boot.kernelPackages = pkgs.linuxPackages_zen;
+
     my.impermanence = {
       enable = true;
       resetRoot = true;

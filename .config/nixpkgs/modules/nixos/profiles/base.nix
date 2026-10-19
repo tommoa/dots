@@ -14,8 +14,8 @@
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.systemd-boot.configurationLimit = 10;
 
-  # Use latest kernel
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # Use the latest kernel unless a host selects a different one.
+  boot.kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 
   # Improved scheduler for games.
   services.scx = {
