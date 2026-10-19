@@ -26,7 +26,6 @@
 /.config/*
 !/.config/profile
 !/.config/*.profile
-!/.config/alacritty
 !/.config/bat
 !/.config/fontconfig/
 !/.config/fontconfig/fonts.conf
@@ -35,7 +34,6 @@
 /.config/git/config
 !/.config/hypr/
 !/.config/imv/
-!/.config/kitty
 !/.config/mako
 # Home Manager manages these files and creates machine-specific store links.
 /.config/mako/config
