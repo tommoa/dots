@@ -66,6 +66,8 @@
     exec ${ob} sync --path "${vaultPath}" --continuous
   '';
 in {
+  home.sessionVariables.OBSIDIAN_VAULT_PATH = vaultPath;
+
   home.packages =
     [
       pkgs.imagemagick

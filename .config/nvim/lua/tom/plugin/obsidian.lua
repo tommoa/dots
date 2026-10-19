@@ -1,4 +1,10 @@
 local get_workspace_path = function()
+  local configured_path = vim.env.OBSIDIAN_VAULT_PATH
+  if configured_path ~= nil and configured_path ~= "" then
+    return configured_path
+  end
+
+  -- Keep the dotfiles usable without the Home Manager Obsidian profile.
   local os_name = vim.uv.os_uname().sysname
   if os_name == "Darwin" then -- macOS
     return vim.fs.joinpath(vim.uv.os_homedir(), "Documents", "Personal")

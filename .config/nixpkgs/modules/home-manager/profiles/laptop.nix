@@ -4,36 +4,47 @@
   ...
 }: let
   palette = import ../../../themes/one-dark.nix;
-  actionTools = with pkgs; [
-    # Elephant executes menu actions with `sh -c` using this restricted PATH.
-    bash
-    blueman
-    brightnessctl
-    cliphist
-    coreutils
-    ghostty
-    gnused
-    grim
-    hyprland
-    hyprpicker
-    jq
-    mako
-    networkmanager
-    pavucontrol
-    playerctl
-    # The standard client also supports TLP's compatible D-Bus interface.
-    power-profiles-daemon
-    procps
-    rofimoji
-    slurp
-    swaylock
-    systemd
-    uwsm
-    wf-recorder
-    wofi
-    wl-clipboard
-    xdg-user-dirs
-  ];
+  screenshot = pkgs.writeShellApplication {
+    name = "walker-screenshot";
+    runtimeInputs = with pkgs; [coreutils grim slurp wl-clipboard xdg-user-dirs];
+    text = builtins.readFile ./laptop/walker/scripts/screenshot.sh;
+  };
+  screenRecording = pkgs.writeShellApplication {
+    name = "walker-record";
+    runtimeInputs = with pkgs; [coreutils slurp wf-recorder xdg-user-dirs];
+    text = builtins.readFile ./laptop/walker/scripts/record.sh;
+  };
+  windowPicker = pkgs.writeShellApplication {
+    name = "walker-focus-window";
+    runtimeInputs = with pkgs; [gnused hyprland jq wofi];
+    text = builtins.readFile ./laptop/walker/scripts/focus-window.sh;
+  };
+  actionTools =
+    [screenshot screenRecording windowPicker]
+    ++ (with pkgs; [
+      # Elephant executes menu actions with `sh -c` using this restricted PATH.
+      bash
+      blueman
+      brightnessctl
+      cliphist
+      coreutils
+      ghostty
+      hyprland
+      hyprpicker
+      mako
+      networkmanager
+      pavucontrol
+      playerctl
+      # The standard client also supports TLP's compatible D-Bus interface.
+      power-profiles-daemon
+      procps
+      rofimoji
+      swaylock
+      systemd
+      uwsm
+      wofi
+      wl-clipboard
+    ]);
   elephant = pkgs.elephant.override {
     enabledProviders = ["clipboard" "desktopapplications" "menus" "symbols"];
   };

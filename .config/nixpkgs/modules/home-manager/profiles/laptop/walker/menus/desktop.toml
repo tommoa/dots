@@ -5,7 +5,7 @@ icon = "preferences-desktop"
 [[entries]]
 text = "Focus window"
 keywords = ["window", "switch", "focus"]
-actions = { "focus" = "clients=$(hyprctl -j clients | jq -r '.[] | ((.title // .class // \"Untitled\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \")) as $title | ((.class // \"\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \")) as $class | \"\\($title) — \\($class) [\\(.address)]\"'); selection=$(printf '%s\\n' \"$clients\" | wofi --dmenu --insensitive --prompt 'Focus window') || exit 0; address=$(printf '%s\\n' \"$selection\" | sed -nE 's/.*\\[(0x[[:xdigit:]]+)\\]$/\\1/p'); [ -n \"$address\" ] && hyprctl dispatch focuswindow \"address:$address\"" }
+actions = { "focus" = "walker-focus-window" }
 icon = "focus-windows-symbolic"
 
 [[entries]]

@@ -8,6 +8,8 @@
   fonts.packages = with pkgs; [
     dejavu_fonts # Normal fonts.
     fira-code # Monospace.
+    # Fontconfig's preferred monospace family.
+    inconsolata
     # font-awesome # Symbols.
     nerd-fonts.symbols-only # Symbols.
   ];

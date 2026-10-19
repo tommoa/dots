@@ -2,15 +2,14 @@ name = "capture"
 name_pretty = "Capture"
 icon = "camera-photo"
 
-# Elephant logs command errors; pipefail also reports capture failures when wl-copy succeeds.
 [[entries]]
 text = "Full screenshot"
-actions = { "copy" = "bash -o pipefail -c 'grim - | wl-copy --type image/png'", "save" = "directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+actions = { "copy" = "walker-screenshot full copy", "save" = "walker-screenshot full save" }
 icon = "camera-photo"
 
 [[entries]]
 text = "Region screenshot"
-actions = { "copy" = "geometry=$(slurp) && bash -o pipefail -c 'grim -g \"$1\" - | wl-copy --type image/png' _ \"$geometry\"", "save" = "geometry=$(slurp) && directory=\"$(xdg-user-dir PICTURES)/Screenshots\" && mkdir -p \"$directory\" && grim -g \"$geometry\" \"$directory/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png\"" }
+actions = { "copy" = "walker-screenshot region copy", "save" = "walker-screenshot region save" }
 icon = "accessories-screenshot-symbolic"
 
 [[entries]]
@@ -20,12 +19,12 @@ icon = "color-select-symbolic"
 
 [[entries]]
 text = "Start screen recording"
-actions = { "record" = "directory=\"$(xdg-user-dir VIDEOS)/Recordings\" && mkdir -p \"$directory\" && wf-recorder -f \"$directory/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
+actions = { "record" = "walker-record full &" }
 icon = "media-record-symbolic"
 
 [[entries]]
 text = "Record selected region"
-actions = { "record" = "geometry=$(slurp) && directory=\"$(xdg-user-dir VIDEOS)/Recordings\" && mkdir -p \"$directory\" && wf-recorder -g \"$geometry\" -f \"$directory/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4\" >/dev/null 2>&1 &" }
+actions = { "record" = "walker-record region &" }
 icon = "media-record-symbolic"
 
 [[entries]]
