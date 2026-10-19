@@ -62,12 +62,10 @@
     Astra is unavailable for work; do not select or retain it for work coordination.
   '';
   modelSelectionSkill = {guidance ? ""}:
-    pkgs.writeTextDir "SKILL.md" (
-      builtins.replaceStrings
-      ["@profile@" "@model-defaults@\n" "@provider-guidance@\n" "@coordinator-guidance@\n"]
-      [config.my.modelSelection.profile modelDefaultsGuidance guidance coordinatorGuidance]
-      (builtins.readFile ../ai-skills/model-selection/SKILL.md)
-    );
+    builtins.replaceStrings
+    ["@profile@" "@model-defaults@\n" "@provider-guidance@\n" "@coordinator-guidance@\n"]
+    [config.my.modelSelection.profile modelDefaultsGuidance guidance coordinatorGuidance]
+    (builtins.readFile ../ai-skills/model-selection/SKILL.md);
   codexModelSelectionSkill = modelSelectionSkill {
     guidance = lib.optionalString codexAIProxyAvailable providerGuidance.codexAIProxy;
   };
@@ -98,16 +96,27 @@
   skillSourcesByHarness = {
     codex = withModelSelection codexModelSelectionSkill;
     opencode = withModelSelection opencodeModelSelectionSkill;
-    pi = withModelSelection piModelSelectionSkill;
   };
+  explicitCodexSkills = ["arena-loop" "simplification-loop"];
   codexSkills = lib.mapAttrs (name: source:
     mkCodexSkill {
       inherit name source;
       # Multi-round loops are intentional, comparatively expensive
       # workflows; keep them available only through `$skill`.
-      allowImplicitInvocation = !builtins.elem name ["arena-loop" "simplification-loop"];
+      allowImplicitInvocation = !builtins.elem name explicitCodexSkills;
     })
   skillSourcesByHarness.codex;
+  codexSkillsDir =
+    if config.home.preferXdgDirectories
+    then lib.removePrefix "${config.home.homeDirectory}/" "${config.xdg.configHome}/codex/skills"
+    else ".codex/skills";
+  # The skill option inspects directory paths during evaluation. home.file can
+  # link these complete build outputs without realizing them while evaluating.
+  codexSkillFiles = lib.listToAttrs (map (name:
+    lib.nameValuePair "${codexSkillsDir}/${name}" {
+      source = codexSkills.${name};
+    })
+  explicitCodexSkills);
   piSkillFiles =
     lib.mapAttrs' (
       name: source:
@@ -115,7 +124,7 @@
           inherit source;
         }
     )
-    skillSourcesByHarness.pi;
+    (sharedSkillSources // {model-selection = pkgs.writeTextDir "SKILL.md" piModelSelectionSkill;});
 in {
   options.my.modelSelection = {
     profile = lib.mkOption {
@@ -144,6 +153,7 @@ in {
   config = {
     home.file = lib.mkMerge [
       (lib.mkIf config.my.pi.enable ({".pi/agent/AGENTS.md".source = ../context.md;} // piSkillFiles))
+      (lib.mkIf config.programs.codex.enable codexSkillFiles)
       {
         ".codex/AGENTS.md" = {
           force = true;
@@ -152,7 +162,7 @@ in {
       }
     ];
     programs.opencode.skills = skillSourcesByHarness.opencode;
-    programs.codex.skills = codexSkills;
+    programs.codex.skills = builtins.removeAttrs codexSkills explicitCodexSkills;
     xdg.configFile."opencode/AGENTS.md".source = ../context.md;
   };
 }

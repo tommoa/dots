@@ -1,61 +1,13 @@
 {
   pkgs,
   lib,
+  config,
   timeZone ? "Australia/Sydney",
   ...
 }: let
   palette = import ../../../themes/palenight.nix;
   wallpaper = "/Users/toma/Pictures/image30.jpg";
-  zoneTab = builtins.readFile "${pkgs.tzdata}/share/zoneinfo/zone.tab";
-  zoneEntries = builtins.filter (line: line != "" && builtins.substring 0 1 line != "#") (lib.splitString "\n" zoneTab);
-  zoneEntry = lib.findFirst (line: builtins.elemAt (lib.splitString "\t" line) 2 == timeZone) null zoneEntries;
-
-  digitsToInt = digits:
-    lib.foldl' (value: digit: value * 10 + builtins.fromJSON digit) 0 (lib.stringToCharacters digits);
-
-  decimalCoordinate = coordinate: let
-    sign =
-      if builtins.substring 0 1 coordinate == "-"
-      then -1
-      else 1;
-    length = builtins.stringLength coordinate;
-    degreeDigits =
-      if length == 5 || length == 7
-      then 2
-      else 3;
-    degrees = digitsToInt (builtins.substring 1 degreeDigits coordinate);
-    minutes = digitsToInt (builtins.substring (1 + degreeDigits) 2 coordinate);
-    seconds =
-      if length == degreeDigits + 5
-      then digitsToInt (builtins.substring (3 + degreeDigits) 2 coordinate)
-      else 0;
-  in
-    sign * (degrees + minutes / 60.0 + seconds / 3600.0);
-
-  roundOneDecimal = value: let
-    magnitude =
-      if value < 0
-      then -value
-      else value;
-    rounded = builtins.floor (magnitude * 10.0 + 0.5) / 10.0;
-  in
-    if value < 0
-    then -rounded
-    else rounded;
-
-  zoneCoordinates =
-    if zoneEntry == null
-    then throw "No representative coordinates found in tzdata for timezone ${timeZone}"
-    else let
-      fields = lib.splitString "\t" zoneEntry;
-      encodedCoordinates = builtins.elemAt fields 1;
-      coordinates = builtins.match "([+-][0-9]+)([+-][0-9]+)" encodedCoordinates;
-      latitude = decimalCoordinate (builtins.elemAt coordinates 0);
-      longitude = decimalCoordinate (builtins.elemAt coordinates 1);
-    in {
-      latitude = roundOneDecimal latitude;
-      longitude = roundOneDecimal longitude;
-    };
+  timezoneWlsunset = pkgs.callPackage ../../../packages/wlsunset-timezone {inherit timeZone;};
 in {
   imports = [./zen-browser.nix];
 
@@ -92,6 +44,7 @@ in {
         pavucontrol
         playerctl
         wl-clipboard
+        wlsunset
       ]
       else []
     );
@@ -239,29 +192,19 @@ in {
   services.swayosd = {
     enable = pkgs.stdenv.isLinux;
   };
-  services.wlsunset = {
-    # Automatic timezone mode has no build-time location; keep the former
-    # 06:00–19:00 schedule until a fixed timezone provides coordinates.
-    enable = pkgs.stdenv.isLinux;
-    latitude =
-      if timeZone == null
-      then null
-      else zoneCoordinates.latitude;
-    longitude =
-      if timeZone == null
-      then null
-      else zoneCoordinates.longitude;
-    sunrise =
-      if timeZone == null
-      then "06:00"
-      else null;
-    sunset =
-      if timeZone == null
-      then "19:00"
-      else null;
-    temperature = {
-      day = 6500;
-      night = 4500;
+  # The launcher resolves coordinates during its build. Home Manager's wlsunset
+  # module requires coordinates during evaluation, so retain its session binding
+  # here while using the configured timezone as the only location input.
+  systemd.user.services.wlsunset = lib.mkIf pkgs.stdenv.isLinux {
+    Unit = {
+      Description = "Day/night gamma adjustments for Wayland compositors.";
+      After = [config.wayland.systemd.target];
+      PartOf = [config.wayland.systemd.target];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+    };
+    Service.ExecStart = "${timezoneWlsunset}/bin/wlsunset -t 4500 -T 6500 -g 1.0";
+    Install = {
+      WantedBy = [config.wayland.systemd.target];
     };
   };
 }
