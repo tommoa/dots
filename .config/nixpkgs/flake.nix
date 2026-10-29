@@ -263,6 +263,7 @@
         "base"
         "desktop"
         "waybar"
+        "walker"
         "development"
         "development/cli-proxy-api"
         "mail"
@@ -367,11 +368,11 @@
       homeConfig =
         personalHomeConfig
         // {
-          profiles = personalHomeConfig.profiles ++ ["laptop"];
           extraModules = [
             {
               # Select the AMD CPU sensor on Peter's hardware.
               programs.waybar.settings.mainBar.temperature."hwmon-path-abs" = "/sys/devices/pci0000:00/0000:00:18.3/hwmon";
+              my.walker.devices.brightness.enable = true;
               my.waybar = {
                 battery.enable = true;
                 powerProfiles.enable = true;

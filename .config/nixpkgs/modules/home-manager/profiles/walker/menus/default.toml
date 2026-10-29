@@ -10,7 +10,7 @@ icon = "system-shutdown"
 
 [[entries]]
 text = "Devices"
-keywords = ["audio", "network", "bluetooth", "power profile", "brightness"]
+keywords = ["devices", "settings", "hardware", "audio", "network", "bluetooth", "power profile", "brightness"]
 submenu = "devices"
 icon = "preferences-system"
 
