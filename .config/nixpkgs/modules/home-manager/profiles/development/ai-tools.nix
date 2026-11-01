@@ -5,6 +5,7 @@
     ./ai-tools/opencode.nix
     ./ai-tools/pi.nix
     ./ai-tools/skills.nix
+    ./ai-tools/t3code.nix
   ];
 
   config = {

@@ -30,6 +30,7 @@ in {
     ++ [
       # Desktop applications
       obsidian
+      t3code-desktop
 
       # Messaging
       caprine

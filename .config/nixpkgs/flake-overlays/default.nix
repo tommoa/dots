@@ -22,4 +22,6 @@ in {
   codex = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.codex;
   opencode = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode;
   pi-coding-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.pi;
+  t3code = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.t3code;
+  t3code-desktop = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.t3code-desktop;
 }
