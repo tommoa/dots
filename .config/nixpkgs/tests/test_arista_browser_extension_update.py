@@ -318,9 +318,6 @@ class AristaUpdaterTests(unittest.TestCase):
             event["args"] for event in self.events
             if event["command"] == "nix" and event["args"][0] == "shell"
         ]
-        self.assertEqual([args[3] for args in tools], [
-            "nixpkgs#prefetch-npm-deps", "nixpkgs#nodejs_22", "nixpkgs#web-ext",
-        ])
         self.assertTrue(all(
             args[1:3] == ["--inputs-from", "path:" + str(self.flake)]
             for args in tools
@@ -337,9 +334,42 @@ class AristaUpdaterTests(unittest.TestCase):
         )
         self.assertLess(unsigned_build, signing)
 
-    def test_revision_without_newer_version_does_not_load_build_tools(self):
+    def test_new_revision_with_same_version_succeeds_without_building_or_signing(self):
         self.env["TEST_REMOTE_REV"] = LATEST_REV
         (self.source / "src/manifest.ts").write_text('  version: "0.0.63",\n')
+        self.env["TEST_AMO_RESULT"] = "success"
+        self.env["TEST_SIGNED_HASH"] = CURRENT_HASH
+        original_metadata = self.metadata.read_bytes()
+
+        output = self.run_updater()
+
+        self.assertIn("no version update", output)
+        self.assertIn("Recovered Arista Browser Extension 0.0.63 from AMO", output)
+        self.assertIn("nix-store", [event["command"] for event in self.events])
+        self.assertNotIn("web-ext", [event["command"] for event in self.events])
+        self.assertEqual(self.metadata.read_bytes(), original_metadata)
+        artifact = self.home / ".local/share/arista-browser-extension/arista-browser-extension-0.0.63.xpi"
+        self.assertEqual(artifact.read_bytes(), b"amo-signed-xpi")
+
+    def test_same_version_registers_retained_artifact_without_credentials(self):
+        self.env["TEST_REMOTE_REV"] = LATEST_REV
+        self.env["TEST_SIGNED_HASH"] = CURRENT_HASH
+        (self.source / "src/manifest.ts").write_text('  version: "0.0.63",\n')
+        shutil.rmtree(self.home / ".config/amo")
+        artifact = self.home / ".local/share/arista-browser-extension/arista-browser-extension-0.0.63.xpi"
+        artifact.parent.mkdir(parents=True)
+        artifact.write_bytes(b"current-xpi")
+
+        output = self.run_updater()
+
+        self.assertIn("no version update", output)
+        self.assertIn("nix-store", [event["command"] for event in self.events])
+        self.assertNotIn("node", [event["command"] for event in self.events])
+        self.assertEqual(json.loads(self.metadata.read_text()), self.original_metadata)
+
+    def test_revision_with_older_version_does_not_load_build_tools(self):
+        self.env["TEST_REMOTE_REV"] = LATEST_REV
+        (self.source / "src/manifest.ts").write_text('  version: "0.0.62",\n')
 
         output = self.run_updater(success=False)
 

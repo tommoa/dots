@@ -181,12 +181,12 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
-if [ "$rev" = "$current_rev" ] && [ -n "$current_version" ] && [ -n "$current_signed_hash" ]; then
+restore_current_artifact() {
     if [ -e "$current_artifact" ] \
         && retain_signed_artifact "$current_artifact" "$current_version" "$current_signed_hash"; then
         printf 'Arista Browser Extension %s is already current.\n' "$current_version"
         printf 'Nix store: %s\n' "$store_path"
-        exit 0
+        return 0
     fi
 
     printf 'The retained XPI is unavailable; checking AMO for version %s.\n' "$current_version" >&2
@@ -205,6 +205,10 @@ if [ "$rev" = "$current_rev" ] && [ -n "$current_version" ] && [ -n "$current_si
     printf 'Recovered Arista Browser Extension %s from AMO.\n' "$current_version"
     printf 'Signed XPI: %s\n' "$artifact_path"
     printf 'Nix store: %s\n' "$store_path"
+}
+
+if [ "$rev" = "$current_rev" ] && [ -n "$current_version" ] && [ -n "$current_signed_hash" ]; then
+    restore_current_artifact
     exit 0
 fi
 
@@ -220,8 +224,15 @@ if [ -z "$upstream_version" ]; then
 fi
 
 if [ -n "$current_signed_hash" ]; then
+    if [ "$current_version" = "$upstream_version" ]; then
+        printf 'Arista Browser Extension %s is already current; the selected revision has no version update.\n' "$current_version"
+        printf '%s\n' 'Keeping the existing signed revision and metadata.'
+        restore_current_artifact
+        exit 0
+    fi
+
     newest_version="$(printf '%s\n%s\n' "$current_version" "$upstream_version" | sort -V | tail -n 1)"
-    if [ "$newest_version" != "$upstream_version" ] || [ "$current_version" = "$upstream_version" ]; then
+    if [ "$newest_version" != "$upstream_version" ]; then
         printf 'Upstream version %s does not advance signed version %s.\n' \
             "$upstream_version" "$current_version" >&2
         printf '%s\n' 'Select a revision with a newer manifest version before submitting to AMO.' >&2
