@@ -29,6 +29,7 @@
     profiles.default = {
       name = "default";
       path = "default";
+      isDefault = true;
       # Zen and Multi-Account Containers Sync own containers and site assignments.
       # Keep spaces browser-owned too: their container IDs are profile-local.
       search = {
