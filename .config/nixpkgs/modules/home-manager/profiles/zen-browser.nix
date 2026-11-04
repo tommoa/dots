@@ -58,6 +58,7 @@
         "zen.view.compact.should-enable-at-startup" = true;
         "zen.widget.macos.window-vibrancy" = false;
         "zen.workspaces.continue-where-left-off" = true;
+        "zen.workspaces.hide-default-container-indicator" = false;
       };
     };
     policies = let
