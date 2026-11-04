@@ -1,9 +1,9 @@
 {
   "addonId": "arista-browser-extension@toma.local",
   "displayName": "Arista Browser Extension (Toma)",
-  "npmDepsHash": "sha256-IhP50NwzeRCu4i19wJJ0uEk7RnYpOVJZ1JLh6xTdxMU=",
-  "rev": "2bcd36c7f5e4215d206d5134a74a5e2a4e6384ff",
-  "signedXpiHash": "sha256-8rzKSqgFSJ7Gis5E0izGpHo+WoNzQ5IWwjGTlwKyEtw=",
-  "sourceHash": "sha256-6R8w1z3LCO46tWMrgvoxEdISKGd/yAfvXHLhu2o75sI=",
-  "upstreamVersion": "0.0.66"
+  "npmDepsHash": "sha256-9UQDAGhqIj44+pCsZpjLEf/pfkyu2kjUJl4vm1DTAFw=",
+  "rev": "335ee737a265fbdd09e197d21c1f7d5e52b1d608",
+  "signedXpiHash": "sha256-dk7ygQY7fQ7OWRkgaVtdt/RoH5zDdfhAYD/dIUDLO10=",
+  "sourceHash": "sha256-Yh+/vbVwjM7K2dLlOBvduQHS/SjMjqpaL7/zK1fQGMc=",
+  "upstreamVersion": "0.0.73"
 }
