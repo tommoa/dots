@@ -266,21 +266,16 @@ class UpdateNixScenarios:
                 self.assertNotIn("update", self.stages())
                 self.assertEqual(set(self.stages()) & set(PSEUDOS), {pseudo})
                 self.assertLess(self.stages().index(pseudo), self.stages().index("activate"))
+                if pseudo == "arista-browser-extension":
+                    event = next(e for e in self.events if e["stage"] == pseudo)
+                    self.assertEqual(event["command"], "bash")
+                    self.assertEqual(event["args"], [str(self.flake / PSEUDOS[pseudo])])
+                    self.assertEqual(event["arista_flake_dir"], str(self.flake))
+                    self.assertFalse(any(
+                        e["command"] == "nix" and e["args"][0] == "run"
+                        for e in self.events
+                    ))
                 self.env["TEST_SYSTEM"] = "Linux"
-
-    def test_arista_runs_script_directly_with_explicit_flake_dir(self):
-        self.env["TEST_SYSTEM"] = "Darwin"
-        self.run_script("--none", "--arista-browser-extension")
-        event = next(e for e in self.events if e["stage"] == "arista-browser-extension")
-        self.assertEqual(event["command"], "bash")
-        self.assertEqual(
-            event["args"], [str(self.flake / PSEUDOS["arista-browser-extension"])],
-        )
-        self.assertFalse(any(
-            e["command"] == "nix" and e["args"][0] == "run"
-            for e in self.events
-        ))
-        self.assertEqual(event["arista_flake_dir"], str(self.flake))
 
     def test_arista_is_explicit_only_even_with_all(self):
         self.env["TEST_SYSTEM"] = "Darwin"
