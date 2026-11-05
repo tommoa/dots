@@ -101,6 +101,39 @@ export function modelInfo(entry: LiteLLMModelEntry): LiteLLMModelInfo {
 	return entry.model_info ?? entry;
 }
 
+export type ReasoningEffort =
+	| "none"
+	| "minimal"
+	| "low"
+	| "medium"
+	| "high"
+	| "xhigh"
+	| "max"
+	| "ultra";
+
+// LiteLLM's baseline is low/medium/high. Extra levels are opt-in, and any
+// baseline level can be explicitly disabled. Share this policy with the proxy
+// config generator so the picker never invents controls the gateway excludes.
+export function reasoningEfforts(info: LiteLLMModelInfo): ReasoningEffort[] {
+	if (info.supports_reasoning !== true) return [];
+	const baseline = new Set(["low", "medium", "high"]);
+	return (
+		[
+			"none",
+			"minimal",
+			"low",
+			"medium",
+			"high",
+			"xhigh",
+			"max",
+			"ultra",
+		] as const
+	).filter((effort) => {
+		const supported = info[`supports_${effort}_reasoning_effort`];
+		return supported === true || (supported !== false && baseline.has(effort));
+	});
+}
+
 export function stripProviderPrefix(id?: string | null) {
 	if (!id) return;
 	const slashIndex = id.indexOf("/");

@@ -4,12 +4,12 @@ import {
 	classifyLiteLLMRoute,
 	entryID,
 	modelInfo,
+	reasoningEfforts,
 	type LiteLLMModelEntry,
 	type LiteLLMModelInfo,
 	type LiteLLMRoute,
+	type ReasoningEffort,
 } from "./litellm/routing";
-
-type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
 interface AIProxyOptions {
 	baseUrl: string;
@@ -39,8 +39,6 @@ interface CLIProxyModel {
 
 type CLIProxyConfig = Record<string, unknown>;
 
-const reasoningEffortOrder: ReasoningEffort[] = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
-
 function readJSON<T>(path: string): T {
 	return JSON.parse(readFileSync(path, "utf8")) as T;
 }
@@ -64,33 +62,6 @@ function inputModalities(info: LiteLLMModelInfo) {
 	if (info.supports_pdf_input) modalities.push("pdf");
 	if (info.supports_audio_input) modalities.push("audio");
 	return modalities;
-}
-
-/**
- * LiteLLM's baseline for a reasoning-capable model is {low, medium, high};
- * additional tiers (none, minimal, xhigh, max, ultra) are opt-in via their
- * per-level `supports_*_reasoning_effort` flags, and any baseline tier can be
- * explicitly removed by setting its flag to false. CLIProxyAPI would otherwise
- * invent low/medium/high when `thinking` is omitted, so every model gets an
- * explicit list here.
- */
-function reasoningEfforts(info: LiteLLMModelInfo): ReasoningEffort[] {
-	if (info.supports_reasoning !== true) return [];
-	const efforts = new Set<ReasoningEffort>(["low", "medium", "high"]);
-	for (const [effort, supported] of [
-		["none", info.supports_none_reasoning_effort],
-		["minimal", info.supports_minimal_reasoning_effort],
-		["low", info.supports_low_reasoning_effort],
-		["medium", info.supports_medium_reasoning_effort],
-		["high", info.supports_high_reasoning_effort],
-		["xhigh", info.supports_xhigh_reasoning_effort],
-		["max", info.supports_max_reasoning_effort],
-		["ultra", info.supports_ultra_reasoning_effort],
-	] as const) {
-		if (supported === true) efforts.add(effort);
-		if (supported === false) efforts.delete(effort);
-	}
-	return reasoningEffortOrder.filter((effort) => efforts.has(effort));
 }
 
 function isEmbedding(entry: LiteLLMModelEntry, id: string) {
