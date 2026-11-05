@@ -5,6 +5,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getModels } from "@earendil-works/pi-ai";
 import {
 	classifyLiteLLMRoute,
+	reasoningEfforts,
 	entryID as getEntryId,
 	modelInfo as getModelInfo,
 	type LiteLLMModelEntry,
@@ -234,56 +235,34 @@ function getModelCompat(api: string, builtInModel: ProviderModel | undefined, se
 	return settings.providerCompat;
 }
 
-function toFallbackModel(entry: LiteLLMModelEntry, settings: LiteLLMSettings) {
-	const id = getEntryId(entry);
-	if (!id) return null;
-
-	const modelInfo = getModelInfo(entry);
-	const api = getModelApi(entry, undefined, settings);
-
-	return {
-		id,
-		name: entry.name ?? entry.model_name ?? id,
-		api,
-		reasoning: modelInfo.supports_reasoning === true,
-		input: getModelInput(entry, undefined, settings),
-		contextWindow: getContextWindow(entry, undefined, settings),
-		maxTokens: getMaxTokens(entry, undefined, settings),
-		cost: getModelCost(entry, undefined),
-		compat: getModelCompat(api, undefined, settings),
-	};
-}
-
 function toProviderModel(entry: LiteLLMModelEntry, settings: LiteLLMSettings) {
 	const id = getEntryId(entry);
-	const modelInfo = getModelInfo(entry);
+	const info = getModelInfo(entry);
 	// Pi always exposes agent tools; explicitly tool-disabled models cannot be used.
 	if (
 		!id ||
 		isEmbeddingModel(id, entry) ||
-		modelInfo.supports_function_calling === false
+		info.supports_function_calling === false
 	)
 		return null;
-
 	const family = getModelFamily(id, entry);
-	const builtInModel = family ? (builtInModels[family].get(id) as ProviderModel | undefined) : undefined;
-
-	if (builtInModel) {
-		const api = getModelApi(entry, builtInModel, settings);
-		return {
-			id: builtInModel.id,
-			name: entry.name ?? builtInModel.name,
-			api,
-			reasoning: modelInfo.supports_reasoning ?? builtInModel.reasoning,
-			input: getModelInput(entry, builtInModel, settings),
-			cost: getModelCost(entry, builtInModel),
-			contextWindow: getContextWindow(entry, builtInModel, settings),
-			maxTokens: getMaxTokens(entry, builtInModel, settings),
-			compat: getModelCompat(api, builtInModel, settings),
-		};
-	}
-
-	return toFallbackModel(entry, settings);
+	const source = family ? builtInModels[family].get(id) : undefined;
+	const api = getModelApi(entry, source, settings);
+	const levels =
+		typeof info.supports_reasoning === "boolean"
+			? reasoningEfforts(info)
+			: undefined;
+	return {
+		id,
+		name: entry.name ?? source?.name ?? entry.model_name ?? id,
+		api,
+		...reasoningOptions(levels, source),
+		input: getModelInput(entry, source, settings),
+		cost: getModelCost(entry, source),
+		contextWindow: getContextWindow(entry, source, settings),
+		maxTokens: getMaxTokens(entry, source, settings),
+		compat: getModelCompat(api, source, settings),
+	};
 }
 
 function getModelUrls(baseUrl: string, explicitModelsUrl: string | undefined): string[] {
@@ -374,4 +353,32 @@ export default async function registerLiteLLMProvider(pi: ExtensionAPI) {
 		headers,
 		models,
 	});
+}
+
+function reasoningOptions(
+	levels: readonly string[] | undefined,
+	source: ProviderModel | undefined,
+) {
+	// Unknown declarations inherit native metadata; an explicit empty list disables controls.
+	if (levels === undefined) {
+		return {
+			reasoning: source?.reasoning ?? false,
+			thinkingLevelMap: source?.thinkingLevelMap,
+		};
+	}
+	return {
+		reasoning: levels.length > 0,
+		thinkingLevelMap: Object.fromEntries(
+			["off", "minimal", "low", "medium", "high", "xhigh", "max"].map(
+				(level) => {
+					const effort = level === "off" ? "none" : level;
+					if (levels.includes(effort)) return [level, effort];
+					// Pi has no ultra control. Use its max slot only when max is absent.
+					if (level === "max" && levels.includes("ultra"))
+						return [level, "ultra"];
+					return [level, null];
+				},
+			),
+		),
+	};
 }
