@@ -94,6 +94,7 @@ in {
         # for codex-auto-review.
         # model_reasoning_summary = "auto";
         approval_policy = "on-request";
+        sandbox_mode = "workspace-write";
         approvals_reviewer = "auto_review";
         analytics.enabled = false;
         feedback.enabled = false;
