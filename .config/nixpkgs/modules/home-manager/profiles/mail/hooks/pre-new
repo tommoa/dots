@@ -58,8 +58,9 @@ tag_to_folder() {
     while IFS= read -r message && [ -n "${message}" ];
     do
         files="$(notmuch search --output=files --exclude=false ${message})"
-        # Match the configured folder as a literal path segment.
-        existing="$(printf '%s\n' "${files}" | grep -F -i -- "/${folder}/")"
+        # Check the folder beneath this account's root. A copy in Other/Work
+        # doesn't count as a copy in Work.
+        existing="$(printf '%s\n' "${files}" | grep -F -- "${dir}/${folder}/")"
         if [ -z "${existing}" ];
         then
             file=$(printf '%s\n' "${files}" | head -n1)
@@ -92,11 +93,10 @@ folder_prune() {
     fi
     while IFS= read -r file && [ -n "${file}" ];
     do
+        # A message can have files in several folders. Only remove the copy
+        # in this one: Inbox mustn't match InboxArchive, and [] is literal.
         case "${file}" in
-            */"${folder}"/*) # Match the folder as a literal path segment
-                             # to avoid, e.g., an `Inbox` prune touching
-                             # `InboxArchive/`. The folder itself needs to
-                             # be quoted for special characters (e.g. `[]`).
+            "${dir}/${folder}/"*)
                 printf "Deleting %s -- doesn't have %s\n" "${file}" "${tag}"
                 if ! rm -f "${file}"; then
                     printf "Failed to delete %s; retaining the source\n" "${file}" >&2
