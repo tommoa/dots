@@ -256,11 +256,17 @@ function toFallbackModel(entry: LiteLLMModelEntry, settings: LiteLLMSettings) {
 
 function toProviderModel(entry: LiteLLMModelEntry, settings: LiteLLMSettings) {
 	const id = getEntryId(entry);
-	if (!id || isEmbeddingModel(id, entry)) return null;
+	const modelInfo = getModelInfo(entry);
+	// Pi always exposes agent tools; explicitly tool-disabled models cannot be used.
+	if (
+		!id ||
+		isEmbeddingModel(id, entry) ||
+		modelInfo.supports_function_calling === false
+	)
+		return null;
 
 	const family = getModelFamily(id, entry);
 	const builtInModel = family ? (builtInModels[family].get(id) as ProviderModel | undefined) : undefined;
-	const modelInfo = getModelInfo(entry);
 
 	if (builtInModel) {
 		const api = getModelApi(entry, builtInModel, settings);
