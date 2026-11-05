@@ -7,8 +7,8 @@
 #  - database.path names the account's Maildir root
 #  - the mbsync channel that needs to be run is called {name}
 #  - if gmail is being used, `notmuch config set user.type gmail` has been run
-#  - user.archive, user.sent and user.trash name the physical folders;
-#    defaults are resolved in notmuch.nix
+#  - user.inbox, archive, sent and trash name the physical folders
+#    (including their case); defaults are resolved in notmuch.nix
 #  - hook_dir is set to ~/.config/notmuch/runtime-hooks in the notmuch config
 
 # NOTMUCH_CONFIG is set by notmuch when running hooks
@@ -20,6 +20,14 @@ fi
 conf_file="${NOTMUCH_CONFIG}"
 mbdir="${conf_file##*/}"
 dir=$(notmuch config get database.path) || exit "$?"
+
+# The folder that will be used for incoming mail. This needs to match the
+# directory on disk, including its case.
+inbox=$(notmuch config get user.inbox) || exit "$?"
+if [ -z "${inbox}" ]; then
+    printf 'Error: user.inbox must name the physical inbox folder\n' >&2
+    exit 1
+fi
 
 # Are we using gmail or not?
 gmail=$(notmuch config get user.type 2>/dev/null)
@@ -103,8 +111,7 @@ eof
 copy_failed=0
 
 tag_to_folder deleted "${trash}" || copy_failed=1
-tag_to_folder inbox INBOX || copy_failed=1
-tag_to_folder inbox Inbox || copy_failed=1
+tag_to_folder inbox "${inbox}" || copy_failed=1
 tag_to_folder sent "${sent}" || copy_failed=1
 
 while IFS= read -r tag && [ -n "${tag}" ];
@@ -126,8 +133,7 @@ tag_to_folder archive "${archive}" || copy_failed=1
 # mbsync push below still propagates the copies that did succeed.
 if [ "${copy_failed}" -eq 0 ]; then
     folder_prune deleted "${trash}"
-    folder_prune inbox INBOX
-    folder_prune inbox Inbox
+    folder_prune inbox "${inbox}"
     while IFS= read -r tag && [ -n "${tag}" ];
     do
         folder_prune "${tag}" "$(notmuch config get user."${tag}")"

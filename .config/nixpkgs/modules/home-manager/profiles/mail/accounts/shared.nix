@@ -42,6 +42,8 @@
 
     maildir.path = "shared";
 
+    folders.inbox = "Inbox";
+
     mbsync = {
       enable = true;
       create = "both";

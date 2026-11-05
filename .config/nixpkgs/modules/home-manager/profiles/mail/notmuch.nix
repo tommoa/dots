@@ -93,6 +93,7 @@
       {
         name = account.realName;
         primary_email = account.address;
+        inbox = account.folders.inbox;
         archive =
           if isGmail
           then "[Gmail]/All Mail"

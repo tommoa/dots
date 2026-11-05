@@ -10,6 +10,15 @@ conf_file="${NOTMUCH_CONFIG}"
 mbdir="${conf_file##*/}"
 dir=$(notmuch config get database.path) || exit "$?"
 
+# The folder that will be used for incoming mail. This needs to match the
+# directory on disk, including its case.
+inbox=$(notmuch config get user.inbox) || exit "$?"
+if [ -z "${inbox}" ]; then
+    printf 'Error: user.inbox must name the physical inbox folder\n' >&2
+    exit 1
+fi
+inbox_query="folder:\"${inbox}\""
+
 notify_send() {
     osascript -e 'on run argv
     display notification item 1 of argv
@@ -87,9 +96,9 @@ done <<eof
 $(notmuch search --output=files tag:inbox | grep 'T$' || true)
 eof
 # If its already been archived, mark it as such
-notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not folder:'"/(INBOX|Inbox|.*@.*)/"' and not tag:archive
+notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not "${inbox_query}" and not tag:archive
 # If its not in an inbox, don't mark it as "inbox"
-notmuch tag -inbox -- tag:inbox and not folder:'"/(INBOX|Inbox|.*@.*)/"'
+notmuch tag -inbox -- tag:inbox and not "${inbox_query}"
 
 while IFS= read -r tag && [ -n "${tag}" ];
 do

@@ -38,6 +38,8 @@
 
     maildir.path = "tommoa";
 
+    folders.inbox = "Inbox";
+
     mbsync = {
       enable = true;
       create = "both";

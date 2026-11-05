@@ -41,6 +41,8 @@
 
     maildir.path = "work";
 
+    folders.inbox = "INBOX";
+
     mbsync = {
       enable = true;
       create = "both";

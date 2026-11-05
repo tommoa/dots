@@ -42,6 +42,8 @@
 
     maildir.path = "personal";
 
+    folders.inbox = "INBOX";
+
     mbsync = {
       enable = true;
       create = "both";
