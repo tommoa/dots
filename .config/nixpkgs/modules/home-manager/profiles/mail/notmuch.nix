@@ -21,7 +21,6 @@
       aliases = [];
       settings = {
         type = "gmail";
-        trash = "[Gmail]/Bin";
         folder_tags = ["rsvp"];
         rsvp = "RSVP";
       };

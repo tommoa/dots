@@ -52,7 +52,7 @@
         "[Gmail]/Drafts"
         "[Gmail]/Sent Mail"
         "[Gmail]/All Mail"
-        "[Gmail]/Bin"
+        "[Gmail]/Trash"
         "INBOX"
         "RSVP"
       ];
