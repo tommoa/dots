@@ -97,6 +97,10 @@ $(notmuch search --output=files tag:inbox | grep 'T$' || true)
 eof
 # If its already been archived, mark it as such
 notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not "${inbox_query}" and not tag:archive
+# If mail comes back into the inbox on the server, put it back here too.
+# A local archive removed its inbox copy before mbsync ran, so a copy here
+# now means it's back in the inbox. Don't restore deleted mail.
+notmuch tag +inbox -archive -- "${inbox_query}" and not tag:deleted and "(not tag:inbox or tag:archive)"
 # If its not in an inbox, don't mark it as "inbox"
 notmuch tag -inbox -- tag:inbox and not "${inbox_query}"
 
