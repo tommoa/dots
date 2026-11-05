@@ -48,16 +48,16 @@ tag_to_folder() {
     # Usage: tag_to_folder "tag" "folder"
     tag="$1"
     folder="$2"
-    # An unconfigured optional tag is a no-op, not a copy failure: without a
-    # folder the grep guard collapses to `//` and cp would land in the
-    # maildir root. Return 0 so copy_failed still reflects real IO errors.
+    # Some accounts don't have a folder for every tag. Without a folder,
+    # insert would put the message in the account root instead.
     if [ -z "${folder}" ]; then
         printf 'Skipping tag_to_folder for tag "%s": no folder configured\n' "${tag}" >&2
         return 0
     fi
+    messages=$(notmuch search --output=messages --exclude=false tag:${tag} and not folder:"\"${folder}\"") || return 1
     while IFS= read -r message && [ -n "${message}" ];
     do
-        files="$(notmuch search --output=files --exclude=false ${message})"
+        files="$(notmuch search --output=files --exclude=false ${message})" || return 1
         # Check the folder beneath this account's root. A copy in Other/Work
         # doesn't count as a copy in Work.
         existing="$(printf '%s\n' "${files}" | grep -F -- "${dir}/${folder}/")"
@@ -65,19 +65,16 @@ tag_to_folder() {
         then
             file=$(printf '%s\n' "${files}" | head -n1)
             printf "Copying %s to %s\n" "${file}" "${folder}"
-            name="${file##*/}"
-            # Get the IMAP flags
-            flags="${name##*:}"
-            directory=${file%%/${name}}
-            # If its in the "new" directory, we need to set the flags ourselves
-            if [ "${directory##*/}" = "new" ]; then flags="2,"; fi
-            if ! cp -f "${file}" "${dir}/${folder}/cur/$(uuidgen):${flags%%T}"; then
+            # Index the copy as we make it. If something fails later, the next
+            # run needs to find it without making another copy. insert keeps
+            # the message's tags and writes its flags without carrying over T.
+            if ! notmuch insert --no-hooks --folder="${folder}" < "${file}"; then
                 printf "Failed to copy %s to %s; retaining the source\n" "${file}" "${folder}" >&2
                 return 1
             fi
         fi
     done <<eof
-$(notmuch search --output=messages --exclude=false tag:${tag} and not folder:"\"${folder}\"")
+${messages}
 eof
 }
 
@@ -85,12 +82,15 @@ folder_prune() {
     # Usage: folder_prune "tag" "folder"
     tag="$1"
     folder="$2"
-    # Without a configured folder the case pattern below (*""*) matches every
-    # path, which would silently delete unrelated mail. Skip instead.
+    query="folder:\"${folder}\" and not tag:${tag}"
+    # If this account doesn't use the tag, there's no folder to prune.
     if [ -z "${folder}" ]; then
         printf 'Skipping folder_prune for tag "%s": no folder configured\n' "${tag}" >&2
         return 0
     fi
+    prune_files=$(notmuch search --output=files --exclude=false "${query}") || return 1
+    [ -n "${prune_files}" ] || return 0
+    prune_failed=0
     while IFS= read -r file && [ -n "${file}" ];
     do
         # A message can have files in several folders. Only remove the copy
@@ -100,15 +100,26 @@ folder_prune() {
                 printf "Deleting %s -- doesn't have %s\n" "${file}" "${tag}"
                 if ! rm -f "${file}"; then
                     printf "Failed to delete %s; retaining the source\n" "${file}" >&2
+                    prune_failed=1
                 fi
             ;;
         esac
     done <<eof
-$(notmuch search --output=files --exclude=false folder:"\"${folder}\"" and not tag:${tag})
+${prune_files}
 eof
+    # We've removed the files, but Notmuch still has their old names. Clear
+    # those references before syncing, so a failed sync doesn't leave retries
+    # trying to copy missing files. Reindex only these messages; a full scan
+    # would pick up new arrivals before post-new has sorted out their tags.
+    if ! notmuch reindex -- "${query}"; then
+        printf 'Failed to reindex pruned messages in %s; stopping before synchronization\n' "${folder}" >&2
+        exit 1
+    fi
+    return "${prune_failed}"
 }
 
 copy_failed=0
+prune_failed_any=0
 
 tag_to_folder deleted "${trash}" || copy_failed=1
 tag_to_folder inbox "${inbox}" || copy_failed=1
@@ -122,27 +133,30 @@ ${tags}
 eof
 
 # If it doesn't have a tag, then mark it as archived
-notmuch tag +archive -- not tag:archive and not tag:inbox and not tag:deleted and not tag:sent $(printf "${tags}" | sed 's/^/and not tag:/')
+notmuch tag +archive -- not tag:archive and not tag:inbox and not tag:deleted and not tag:sent $(printf "${tags}" | sed 's/^/and not tag:/') || copy_failed=1
 
 tag_to_folder archive "${archive}" || copy_failed=1
 
-# Pruning is destructive, so gate it on a fully successful copy phase. Copies
-# are idempotent (tag_to_folder skips folders that already contain the
-# message), so the next run reconciles anything that was skipped here. Return
-# 0 either way so notmuch still runs post-new (T-flag maildir moves) and the
-# mbsync push below still propagates the copies that did succeed.
+# If a copy failed, keep the old files until we can try again. We can still
+# sync the copies that worked, but mustn't run post-new: an inbox file we
+# failed to remove could look like a remote move back to the inbox.
 if [ "${copy_failed}" -eq 0 ]; then
-    folder_prune deleted "${trash}"
-    folder_prune inbox "${inbox}"
+    folder_prune deleted "${trash}" || prune_failed_any=1
+    folder_prune inbox "${inbox}" || prune_failed_any=1
     while IFS= read -r tag && [ -n "${tag}" ];
     do
-        folder_prune "${tag}" "$(notmuch config get user."${tag}")"
+        folder_prune "${tag}" "$(notmuch config get user."${tag}")" || prune_failed_any=1
     done <<eof
 ${tags}
 eof
-    [ -z "${gmail}" ] && folder_prune archive "${archive}"
+    if [ -z "${gmail}" ]; then
+        folder_prune archive "${archive}" || prune_failed_any=1
+    fi
 else
     printf "Copy phase failed; skipping folder pruning until the next run\n" >&2
 fi
 
-mbsync "${mbdir}"
+# Wait for mbsync before Notmuch scans the downloaded files. If any copies
+# or removals failed, tell Notmuch to leave post-new for later.
+mbsync -- "${mbdir}" || exit "$?"
+[ "${copy_failed}" -eq 0 ] && [ "${prune_failed_any}" -eq 0 ]
