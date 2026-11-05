@@ -170,11 +170,14 @@ export function warn(message: string) {
 }
 
 export function normalizeOptions(options?: LiteLLMOptions) {
+	const apiKeyEnv = options?.apiKeyEnv?.trim() || defaultApiKeyEnv;
+	const keyFile = expandHome(options?.keyFile ?? "~/.config/ai-keys/litellm");
 	return {
 		baseUrl: normalizeUrl(options?.baseUrl ?? defaultBaseUrl),
 		modelsUrl: options?.modelsUrl ? normalizeUrl(options.modelsUrl) : undefined,
-		apiKeyEnv: options?.apiKeyEnv?.trim() || defaultApiKeyEnv,
-		keyFile: expandHome(options?.keyFile ?? "~/.config/ai-keys/litellm"),
+		apiKeyEnv,
+		keyFile,
+		apiKey: process.env[apiKeyEnv]?.trim() || readKeyFile(keyFile),
 		headers: options?.headers ?? {},
 		providerName: options?.providerName ?? "LiteLLM",
 		routeOverrides: {
@@ -249,7 +252,7 @@ async function discover(
 
 function buildHeaders(options: NormalizedLiteLLMOptions) {
 	const headers = { ...options.headers };
-	const apiKey = process.env[options.apiKeyEnv] || readKeyFile(options.keyFile);
+	const apiKey = options.apiKey;
 	if (!apiKey) return headers;
 	if (!headers.Authorization) headers.Authorization = `Bearer ${apiKey}`;
 	return headers;

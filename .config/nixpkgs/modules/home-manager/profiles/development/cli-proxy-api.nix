@@ -174,10 +174,10 @@ in {
       };
     };
 
-    programs.opencode.settings.provider.cli_proxy_api = {
-      npm = "@ai-sdk/openai-compatible";
+    programs.opencode.settings.providers.cli_proxy_api = {
+      package = "@opencode/ai/providers/openai-compatible";
       name = "CLIProxyAPI (Codex subscriptions)";
-      options = {
+      settings = {
         baseURL = "http://127.0.0.1:${toString config.my.cliProxyApi.port}/v1";
         # The SDK requires a value even though the loopback proxy does not
         # authenticate local clients.

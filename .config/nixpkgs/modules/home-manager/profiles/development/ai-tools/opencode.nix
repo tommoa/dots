@@ -33,7 +33,7 @@ in {
       default = false;
       description = "Whether to disable Python formatters (ruff, uv) in opencode";
     };
-    package = lib.mkPackageOption pkgs "opencode" {};
+    package = lib.mkPackageOption pkgs "opencode2" {};
     enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -52,7 +52,12 @@ in {
       package = config.my.opencode.package;
       tui.theme = "one-dark";
       settings = {
-        plugin = lib.mkIf opencodeLiteLLMEnabled [["${opencodeLiteLLMDir}/plugin.ts" opencodeLiteLLMOptions]];
+        plugins = lib.mkIf opencodeLiteLLMEnabled [
+          {
+            package = opencodeLiteLLMDir;
+            options = opencodeLiteLLMOptions;
+          }
+        ];
         formatter =
           {
             alejandra = {

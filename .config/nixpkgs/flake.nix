@@ -314,7 +314,7 @@
           {
             my.opencode = {
               enable = true;
-              package = inputs.llm-agents.packages.x86_64-linux.opencode;
+              package = inputs.llm-agents.packages.x86_64-linux.opencode2;
               disablePythonFormatters = true;
             };
             # Remote SSH invokes Codex directly, so select the work proxy declaratively.

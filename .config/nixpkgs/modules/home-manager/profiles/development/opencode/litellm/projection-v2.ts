@@ -7,8 +7,8 @@ import type {
 } from "./discovery";
 
 const canonicalProviderOrder = ["openai", "anthropic", "google", "opencode"];
-const chatPackage = "@opencode-ai/ai/providers/openai-compatible";
-const responsesPackage = "@opencode-ai/ai/providers/openai/responses";
+const chatPackage = "@opencode/ai/providers/openai-compatible";
+const responsesPackage = "@opencode/ai/providers/openai/responses";
 
 export interface V2Variant {
 	id: string;
@@ -70,11 +70,14 @@ export interface V2Model {
 export interface V2Provider {
 	id: "litellm";
 	name: string;
+	activation: "enabled";
 	integrationID: "litellm";
 	package: string;
 	settings: {
 		baseURL: string;
 		provider: "litellm";
+		apiKey?: string;
+		headers?: Record<string, string>;
 	};
 	models: V2Model[];
 }
@@ -99,11 +102,6 @@ interface V2CatalogModel
 	package: string;
 }
 
-interface V2CatalogProviderRecord {
-	provider: { id: string };
-	models: ReadonlyMap<string, unknown>;
-}
-
 interface V2CatalogMetadata {
 	variants: V2Variant[];
 	compatibility?: V2Compatibility;
@@ -115,37 +113,6 @@ export interface V2CatalogSnapshot {
 	readonly metadata: ReadonlyMap<string, V2CatalogMetadata>;
 }
 
-type V2ProviderDefinition = Omit<V2Provider, "models">;
-type V2ProviderDraft = Omit<
-	V2ProviderDefinition,
-	"integrationID" | "settings"
-> &
-	Partial<Pick<V2ProviderDefinition, "integrationID" | "settings">>;
-
-type V2ModelDraft = Omit<V2Model, "family" | "package" | "settings"> &
-	Partial<Pick<V2Model, "family" | "package" | "settings">>;
-
-export interface V2CatalogDraft {
-	provider: {
-		list(): V2CatalogProviderRecord[];
-		update(providerID: string, update: (draft: V2ProviderDraft) => void): void;
-	};
-	model: {
-		remove(providerID: string, modelID: string): void;
-		update(
-			providerID: string,
-			modelID: string,
-			update: (draft: V2ModelDraft) => void,
-		): void;
-	};
-}
-
-export interface V2CatalogReader {
-	model: {
-		list(): Promise<{ data: V2CatalogModel[] }>;
-	};
-}
-
 export function toV2Provider(
 	discovery: DiscoveredLiteLLM,
 	catalog?: V2CatalogSnapshot,
@@ -154,6 +121,7 @@ export function toV2Provider(
 	return {
 		id: discovery.providerID,
 		name: discovery.providerName,
+		activation: "enabled",
 		integrationID: "litellm",
 		package: chatPackage,
 		settings: { baseURL: discovery.baseUrl, provider: "litellm" },
@@ -165,12 +133,6 @@ export function toV2Provider(
 			),
 		),
 	};
-}
-
-export async function snapshotV2Catalog(
-	catalog: V2CatalogReader,
-): Promise<V2CatalogSnapshot> {
-	return catalogSnapshotFromV2((await catalog.model.list()).data);
 }
 
 export function catalogSnapshotFromV2(
@@ -195,25 +157,6 @@ export function catalogSnapshotFromV2(
 		});
 	}
 	return { discovery, metadata };
-}
-
-export function syncLiteLLMCatalog(
-	catalog: V2CatalogDraft,
-	provider: V2Provider,
-) {
-	const { models, ...definition } = provider;
-	catalog.provider.update(provider.id, (draft) =>
-		Object.assign(draft, definition),
-	);
-
-	const modelIDs = new Set(models.map((model) => model.id));
-	for (const modelID of litellmCatalogModelIDs(catalog)) {
-		if (!modelIDs.has(modelID)) catalog.model.remove(provider.id, modelID);
-	}
-	for (const model of models)
-		catalog.model.update(provider.id, model.id, (draft) =>
-			Object.assign(draft, model),
-		);
 }
 
 function toV2Model(
@@ -378,11 +321,4 @@ function normalizeV2Cost(cost: V2CostTier[]) {
 function providerRank(providerID: string) {
 	const rank = canonicalProviderOrder.indexOf(providerID);
 	return rank === -1 ? canonicalProviderOrder.length : rank;
-}
-
-function litellmCatalogModelIDs(catalog: V2CatalogDraft): string[] {
-	const record = catalog.provider
-		.list()
-		.find((item) => item.provider.id === "litellm");
-	return record ? [...record.models.keys()] : [];
 }

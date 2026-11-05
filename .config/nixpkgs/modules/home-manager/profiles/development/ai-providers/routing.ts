@@ -83,9 +83,8 @@ export interface LiteLLMRouteOptions {
 
 const responseParams = new Set(["verbosity", "safety_identifier"]);
 const responsesPackages = new Set([
-	"@ai-sdk/openai",
-	"@opencode-ai/ai/providers/openai",
-	"@opencode-ai/ai/providers/openai/responses",
+	"@opencode/ai/providers/openai",
+	"@opencode/ai/providers/openai/responses",
 ]);
 
 export function classifyLiteLLMRoute(

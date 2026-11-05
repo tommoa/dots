@@ -21,6 +21,7 @@ in {
   chatgpt-desktop = inputs.codex-desktop-linux.packages.${super.stdenv.hostPlatform.system}.default;
   codex = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.codex;
   opencode = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode;
+  opencode2 = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode2;
   pi-coding-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.pi;
   t3code = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.t3code;
   t3code-desktop = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.t3code-desktop;

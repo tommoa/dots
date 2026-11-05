@@ -70,6 +70,10 @@ return {
           enabled = true,
         },
         tools = {
+          opencode = {
+            cmd = { "opencode2" },
+            is_proc = "\\<opencode2\\>",
+          },
           codex = {
             native_scroll = true,
             is_proc = function(_, proc)
