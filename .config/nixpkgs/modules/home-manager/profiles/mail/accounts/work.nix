@@ -77,6 +77,8 @@ in {
     aerc = {
       enable = true;
       extraAccounts = {
+        check-mail-cmd = "account=work exec ${mailRuntime}/bin/update-mail";
+        check-mail-timeout = "30m";
         source = "notmuch://${maildirPath}";
         # aerc needs a Maildir to save drafts, even though we read through Notmuch.
         maildir-store = maildirPath;

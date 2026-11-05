@@ -1,8 +1,4 @@
-{
-  pkgs,
-  mailRuntime,
-  ...
-}: let
+{pkgs, ...}: let
   # Applied to both the message list and viewer contexts below.
   tagBindings = {
     "a" = ":modify -inbox -deleted +archive<Enter>";
@@ -111,7 +107,6 @@ in {
         "\\[t" = ":prev-tab<Enter>";
         "\\]t" = ":next-tab<Enter>";
         "<C-t>" = ":term<Enter>";
-        "<C-r>" = ":exec ${mailRuntime}/bin/update-mail<Enter>";
         "?" = ":help keys<Enter>";
         "<C-c>" = ":prompt 'Quit?' quit<Enter>";
         "<C-q>" = ":prompt 'Quit?' quit<Enter>";
@@ -122,6 +117,7 @@ in {
       messages =
         {
           "q" = ":quit<Enter>";
+          "<C-r>" = ":check-mail<Enter>";
 
           # Navigation
           "n" = ":next<Enter>";
