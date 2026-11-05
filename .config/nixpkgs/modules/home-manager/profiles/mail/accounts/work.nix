@@ -58,6 +58,9 @@
       extraConfig = {
         account = {
           AuthMechs = "XOAUTH2";
+          # Large uploads can still be draining through TCP after mbsync's last
+          # socket callback. Give Gmail time to finish the upload and reply.
+          Timeout = 120;
         };
       };
     };
