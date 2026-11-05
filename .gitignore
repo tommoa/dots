@@ -15,7 +15,6 @@
 !/bin
 /bin/*
 !/bin/currency-convert
-!/bin/update-mail
 !/bin/update-nix
 !/bin/oauth2-gmail
 !/bin/ts-parser-smoke

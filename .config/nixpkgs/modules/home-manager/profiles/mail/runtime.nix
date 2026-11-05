@@ -5,6 +5,7 @@
   runtimeShell,
   python3,
   coreutils,
+  flock,
   gnugrep,
   gnused,
   notmuch,
@@ -16,8 +17,10 @@
   mbsync,
   gnupg,
 }: let
+  # The hooks and notification services don't inherit an interactive shell's
+  # PATH, so give them the commands they need.
   runtimePath = lib.makeBinPath (
-    [coreutils gnugrep gnused notmuch mbsync gnupg]
+    [coreutils flock gnugrep gnused notmuch mbsync gnupg]
     ++ lib.optionals stdenv.isDarwin [getconf]
     ++ lib.optionals stdenv.isLinux [util-linux libnotify]
   );

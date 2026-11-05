@@ -73,6 +73,13 @@ in {
 
   home.file.".config/notmuch/runtime-hooks".source = "${mailRuntime}/libexec/notmuch-hooks";
 
+  # Use the same updater from the shell as from aerc and imapnotify.
+  # force replaces the old symlink into this checkout.
+  home.file."bin/update-mail" = {
+    source = "${mailRuntime}/bin/update-mail";
+    force = true;
+  };
+
   # launchd does not inherit shell startup configuration. The packaged commands
   # carry their dependencies; capture startup failures in private, readable logs.
   launchd.agents = lib.mkIf pkgs.stdenv.isDarwin (lib.mapAttrs' (name: _: let
