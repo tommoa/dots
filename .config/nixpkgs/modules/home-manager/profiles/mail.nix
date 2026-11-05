@@ -43,16 +43,6 @@ in {
   # Configure base maildir path
   accounts.email.maildirBasePath = ".mail";
 
-  # Sent is a notmuch query folder, not a writable Maildir destination.
-  # Leaving the standard sent folder unset prevents Home Manager from
-  # generating aerc's incompatible `copy-to = Sent` setting.
-  accounts.email.accounts = {
-    personal.folders.sent = null;
-    shared.folders.sent = null;
-    tommoa.folders.sent = null;
-    work.folders.sent = null;
-  };
-
   # Enable mbsync with home-manager
   programs.mbsync = {
     enable = true;

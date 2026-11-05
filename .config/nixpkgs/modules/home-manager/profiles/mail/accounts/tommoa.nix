@@ -2,7 +2,9 @@
   config,
   mailRuntime,
   ...
-}: {
+}: let
+  maildirPath = "${config.accounts.email.maildirBasePath}/${config.accounts.email.accounts.tommoa.maildir.path}";
+in {
   # tommoa (iCloud) account configuration using home-manager
   # Password is read from agenix secret via passwordCommand
 
@@ -38,7 +40,12 @@
 
     maildir.path = "tommoa";
 
-    folders.inbox = "Inbox";
+    folders = {
+      inbox = "Inbox";
+      # Sent is a query folder, so aerc can't use it as a copy-to destination.
+      sent = null;
+      drafts = "Drafts";
+    };
 
     mbsync = {
       enable = true;
@@ -60,7 +67,9 @@
     aerc = {
       enable = true;
       extraAccounts = {
-        source = "notmuch://${config.accounts.email.maildirBasePath}/${config.accounts.email.accounts.tommoa.maildir.path}";
+        source = "notmuch://${maildirPath}";
+        # aerc needs a Maildir to save drafts, even though we read through Notmuch.
+        maildir-store = maildirPath;
         query-map = "~/.config/aerc/notmuch-map";
         folders-sort = "INBOX";
         default = "INBOX";

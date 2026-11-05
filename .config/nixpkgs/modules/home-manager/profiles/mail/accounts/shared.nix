@@ -2,7 +2,9 @@
   config,
   mailRuntime,
   ...
-}: {
+}: let
+  maildirPath = "${config.accounts.email.maildirBasePath}/${config.accounts.email.accounts.shared.maildir.path}";
+in {
   # Shared account configuration using home-manager
   # OAuth2 credentials are handled by oauth2-gmail script
 
@@ -42,7 +44,12 @@
 
     maildir.path = "shared";
 
-    folders.inbox = "Inbox";
+    folders = {
+      inbox = "Inbox";
+      # Sent is a query folder, so aerc can't use it as a copy-to destination.
+      sent = null;
+      drafts = "[Gmail]/Drafts";
+    };
 
     mbsync = {
       enable = true;
@@ -69,7 +76,9 @@
     aerc = {
       enable = true;
       extraAccounts = {
-        source = "notmuch://${config.accounts.email.maildirBasePath}/${config.accounts.email.accounts.shared.maildir.path}";
+        source = "notmuch://${maildirPath}";
+        # aerc needs a Maildir to save drafts, even though we read through Notmuch.
+        maildir-store = maildirPath;
         query-map = "~/.config/aerc/shared-map";
         folders-sort = "INBOX";
         default = "INBOX";

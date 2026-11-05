@@ -4,6 +4,7 @@ Archive=tag:archive
 Flagged=tag:flagged
 Deleted=tag:deleted
 Sent=tag:sent
+Drafts=tag:draft
 Escalations=tag:escalation
 Reviews=tag:review
 Packages=tag:package
