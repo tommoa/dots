@@ -8,6 +8,12 @@
     mbsync = config.programs.mbsync.package;
     gnupg = config.programs.gpg.package;
   };
+  tmuxStatus = pkgs.writeShellApplication {
+    name = "mail-sync-tmux-status";
+    text = lib.replaceStrings ["@updateMail@"] [
+      (lib.escapeShellArg "${mailRuntime}/bin/update-mail")
+    ] (builtins.readFile ./mail/tmux-status.sh);
+  };
   notifyAccounts = lib.filterAttrs (_: account: account.enable && account.imapnotify.enable) config.accounts.email.accounts;
   logDir = "${config.home.homeDirectory}/.local/state/imapnotify";
   # Match Home Manager's imapnotify service names when extending its agents.
@@ -79,6 +85,10 @@ in {
     source = "${mailRuntime}/bin/update-mail";
     force = true;
   };
+
+  home.file.".tmux-mail.conf".text = ''
+    set -g @mail_sync_segment "#(${tmuxStatus}/bin/mail-sync-tmux-status)"
+  '';
 
   # launchd does not inherit shell startup configuration. The packaged commands
   # carry their dependencies; capture startup failures in private, readable logs.
