@@ -4,11 +4,7 @@ import {
 	warn,
 	type LiteLLMOptions,
 } from "./discovery";
-import {
-	catalogSnapshotFromModels,
-	toProvider,
-	type Provider,
-} from "./projection";
+import { toProvider, type Provider } from "./projection";
 
 export default {
 	id: "litellm",
@@ -16,11 +12,8 @@ export default {
 		const options = normalizeOptions((ctx.options ?? {}) as LiteLLMOptions);
 		let provider: Provider | undefined;
 		try {
-			const snapshot = catalogSnapshotFromModels((await ctx.model.list()).data);
-			provider = toProvider(
-				await discoverLiteLLM(options, snapshot.discovery),
-				snapshot,
-			);
+			const catalog = (await ctx.model.list()).data;
+			provider = toProvider(await discoverLiteLLM(options), options, catalog);
 		} catch (error) {
 			warn(`Model discovery failed: ${errorMessage(error)}`);
 		}

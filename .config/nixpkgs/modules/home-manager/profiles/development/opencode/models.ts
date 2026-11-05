@@ -11,7 +11,6 @@ export type ModelMetadata = Omit<
 
 export type ModelVariant = ModelMetadata["variants"][number];
 export type ModelCostTier = ModelMetadata["cost"][number];
-export type ModelCompatibility = NonNullable<ModelMetadata["compatibility"]>;
 
 export function toReasoningVariants(
 	efforts: readonly string[],
