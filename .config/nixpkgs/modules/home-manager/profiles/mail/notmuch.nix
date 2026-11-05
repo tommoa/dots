@@ -88,10 +88,23 @@
 
   mkNotmuchConfig = accountName: metadata: let
     account = config.accounts.email.accounts.${accountName};
+    isGmail = (metadata.settings.type or "") == "gmail";
     user =
       {
         name = account.realName;
         primary_email = account.address;
+        archive =
+          if isGmail
+          then "[Gmail]/All Mail"
+          else "Archive";
+        sent =
+          if isGmail
+          then "[Gmail]/Sent Mail"
+          else "Sent";
+        trash =
+          if isGmail
+          then "[Gmail]/Trash"
+          else "Trash";
       }
       // lib.optionalAttrs (metadata.aliases != []) {
         other_email = metadata.aliases;

@@ -4,11 +4,12 @@
 
 # It requires some special setup to work correctly:
 #  - notmuch configurations are in .config/notmuch/{name}
-#  - mail is kept in ~/.mail/{name}
-#  - the database path is in ~/.mail/{name}/.notmuch
+#  - database.path names the account's Maildir root
 #  - the mbsync channel that needs to be run is called {name}
 #  - if gmail is being used, `notmuch config set user.type gmail` has been run
-#  - hook_dir is set to ~/.config/notmuch/hooks in the notmuch config
+#  - user.archive, user.sent and user.trash name the physical folders;
+#    defaults are resolved in notmuch.nix
+#  - hook_dir is set to ~/.config/notmuch/runtime-hooks in the notmuch config
 
 # NOTMUCH_CONFIG is set by notmuch when running hooks
 if [ -z "${NOTMUCH_CONFIG}" ]; then
@@ -18,25 +19,19 @@ fi
 
 conf_file="${NOTMUCH_CONFIG}"
 mbdir="${conf_file##*/}"
-dir="${HOME}/.mail/${mbdir}"
+dir=$(notmuch config get database.path) || exit "$?"
 
 # Are we using gmail or not?
 gmail=$(notmuch config get user.type 2>/dev/null)
 
 # The tag and folder that will be used for trash
-trash=$(notmuch config get user.trash 2>/dev/null)
-trash=${trash:-${gmail:+'[Gmail]/Trash'}}
-trash=${trash:-'Trash'}
+trash=$(notmuch config get user.trash) || exit "$?"
 
 # The tag and folder that will be used for archiving
-archive=$(notmuch config get user.archive 2>/dev/null)
-archive=${archive:-${gmail:+'[Gmail]/All Mail'}}
-archive=${archive:-'Archive'}
+archive=$(notmuch config get user.archive) || exit "$?"
 
 # The folder that will be used for sent mail
-sent=$(notmuch config get user.sent 2>/dev/null)
-sent=${sent:-${gmail:+'[Gmail]/Sent Mail'}}
-sent=${sent:-'Sent'}
+sent=$(notmuch config get user.sent) || exit "$?"
 
 tags="$(notmuch config get user.folder_tags 2>/dev/null)"
 

@@ -8,7 +8,7 @@ fi
 
 conf_file="${NOTMUCH_CONFIG}"
 mbdir="${conf_file##*/}"
-dir="${HOME}/.mail/${mbdir}"
+dir=$(notmuch config get database.path) || exit "$?"
 
 notify_send() {
     osascript -e 'on run argv
@@ -29,17 +29,11 @@ esac
 gmail=$(notmuch config get user.type 2>/dev/null)
 
 # The folder that will be used for trash
-trash=$(notmuch config get user.trash 2>/dev/null)
-trash=${trash:-${gmail:+'[Gmail]/Trash'}}
-trash=${trash:-'Trash'}
+trash=$(notmuch config get user.trash) || exit "$?"
 # The folder that will be used for archiving
-archive=$(notmuch config get user.archive 2>/dev/null)
-archive=${archive:-${gmail:+'[Gmail]/All Mail'}}
-archive=${archive:-'Archive'}
+archive=$(notmuch config get user.archive) || exit "$?"
 # The folder that will be used for sent mail
-sent=$(notmuch config get user.sent 2>/dev/null)
-sent=${sent:-${gmail:+'[Gmail]/Sent Mail'}}
-sent=${sent:-'Sent'}
+sent=$(notmuch config get user.sent) || exit "$?"
 
 tags="$(notmuch config get user.folder_tags 2>/dev/null)"
 
