@@ -65,7 +65,7 @@
     aerc = {
       enable = true;
       extraAccounts = {
-        source = "notmuch://~/.mail/work";
+        source = "notmuch://${config.accounts.email.maildirBasePath}/${config.accounts.email.accounts.work.maildir.path}";
         query-map = "~/.config/aerc/work-map";
         folders-sort = "INBOX,Reviews,Escalations,CI,Packages,Archive";
         default = "INBOX";

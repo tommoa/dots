@@ -58,7 +58,7 @@
     aerc = {
       enable = true;
       extraAccounts = {
-        source = "notmuch://~/.mail/tommoa";
+        source = "notmuch://${config.accounts.email.maildirBasePath}/${config.accounts.email.accounts.tommoa.maildir.path}";
         query-map = "~/.config/aerc/notmuch-map";
         folders-sort = "INBOX";
         default = "INBOX";

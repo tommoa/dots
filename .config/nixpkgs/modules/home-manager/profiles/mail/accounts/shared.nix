@@ -67,7 +67,7 @@
     aerc = {
       enable = true;
       extraAccounts = {
-        source = "notmuch://~/.mail/shared";
+        source = "notmuch://${config.accounts.email.maildirBasePath}/${config.accounts.email.accounts.shared.maildir.path}";
         query-map = "~/.config/aerc/shared-map";
         folders-sort = "INBOX";
         default = "INBOX";
