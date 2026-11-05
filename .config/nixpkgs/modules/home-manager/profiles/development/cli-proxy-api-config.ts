@@ -24,6 +24,7 @@ interface DiscoveredModel {
 	displayName: string;
 	route: LiteLLMRoute;
 	contextLength?: number;
+	outputLength?: number;
 	inputModalities: string[];
 	reasoningEfforts: ReasoningEffort[];
 }
@@ -33,6 +34,7 @@ interface CLIProxyModel {
 	alias: string;
 	"display-name": string;
 	"max-context-length"?: number;
+	"max-completion-tokens"?: number;
 	"input-modalities": string[];
 	thinking: { levels: ReasoningEffort[] };
 }
@@ -74,6 +76,7 @@ export function transformModels(entries: LiteLLMModelEntry[], options: Pick<AIPr
 		const id = entryID(entry)?.trim();
 		if (!id || isEmbedding(entry, id) || models.has(id)) continue;
 		const info = modelInfo(entry);
+		if (info.supports_function_calling === false) continue;
 		models.set(id, {
 			id,
 			displayName: entry.name?.trim() || id,
@@ -86,6 +89,7 @@ export function transformModels(entries: LiteLLMModelEntry[], options: Pick<AIPr
 				entry.max_tokens,
 			),
 			inputModalities: inputModalities(info),
+			outputLength: positiveInteger(info.max_output_tokens, entry.max_output_tokens),
 			reasoningEfforts: reasoningEfforts(info),
 		});
 	}
@@ -98,6 +102,7 @@ function modelConfig(model: DiscoveredModel): CLIProxyModel {
 		alias: model.id,
 		"display-name": `${model.displayName} (ai-proxy)`,
 		...(model.contextLength ? { "max-context-length": model.contextLength } : {}),
+		...(model.outputLength ? { "max-completion-tokens": model.outputLength } : {}),
 		"input-modalities": model.inputModalities,
 		thinking: { levels: model.reasoningEfforts },
 	};

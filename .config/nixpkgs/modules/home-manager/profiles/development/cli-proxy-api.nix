@@ -4,12 +4,13 @@
   pkgs,
   ...
 }: let
-  # Remove this override once CLIProxyAPI supports input modalities upstream.
+  # Preserve configured limits and expose client metadata through an opt-in catalog.
   proxyPackage = pkgs.llm-agents.cli-proxy-api.overrideAttrs (old: {
     patches =
       (old.patches or [])
       ++ [
         ./cli-proxy-api-codex-input-modalities.patch
+        ./cli-proxy-api-model-capabilities.patch
       ];
   });
   proxyBinary = "${proxyPackage}/bin/cli-proxy-api";

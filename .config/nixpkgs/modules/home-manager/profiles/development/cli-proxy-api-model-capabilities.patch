@@ -1,0 +1,123 @@
+--- a/internal/config/config_types.go
++++ b/internal/config/config_types.go
+@@ -865,6 +865,9 @@
+ 	// DisplayName is the optional human-readable name shown in model catalogs.
+ 	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
+ 
++	// MaxCompletionTokens overrides the output limit advertised to local clients.
++	MaxCompletionTokens int `yaml:"max-completion-tokens,omitempty" json:"max-completion-tokens,omitempty"`
++
+ 	// MaxContextLength overrides the context window advertised to Codex clients.
+ 	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
+ 
+@@ -893,6 +896,8 @@
+ 
+ func (m CodexModel) GetAlias() string { return m.Alias }
+ 
++func (m CodexModel) GetMaxCompletionTokens() int { return m.MaxCompletionTokens }
++
+ func (m CodexModel) GetDisplayName() string       { return m.DisplayName }
+ func (m CodexModel) GetMaxContextLength() int     { return m.MaxContextLength }
+ func (m CodexModel) GetInputModalities() []string { return m.InputModalities }
+@@ -1083,6 +1088,9 @@
+ 	// DisplayName is the optional human-readable name shown in model catalogs.
+ 	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
+ 
++	// MaxCompletionTokens overrides the output limit advertised to local clients.
++	MaxCompletionTokens int `yaml:"max-completion-tokens,omitempty" json:"max-completion-tokens,omitempty"`
++
+ 	// MaxContextLength overrides the context window advertised to Codex clients.
+ 	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
+ 
+@@ -1115,6 +1123,8 @@
+ func (m OpenAICompatibilityModel) GetName() string { return m.Name }
+ 
+ func (m OpenAICompatibilityModel) GetAlias() string { return m.Alias }
++
++func (m OpenAICompatibilityModel) GetMaxCompletionTokens() int { return m.MaxCompletionTokens }
+ 
+ func (m OpenAICompatibilityModel) GetDisplayName() string          { return m.DisplayName }
+ func (m OpenAICompatibilityModel) GetMaxContextLength() int        { return m.MaxContextLength }
+--- a/internal/modelconfig/model_hash.go
++++ b/internal/modelconfig/model_hash.go
+@@ -20,7 +20,7 @@
+ 			if name == "" && alias == "" {
+ 				continue
+ 			}
+-			out(strings.ToLower(name) + "|" + strings.ToLower(alias) + "|" + strings.TrimSpace(model.DisplayName) + "|" + fmt.Sprintf("image=%t", model.Image) + "|" + fmt.Sprintf("force-mapping=%t", model.ForceMapping) + "|" + fmt.Sprintf("is-compat=%t", model.IsCompat) + "|" + fmt.Sprintf("use-max-completion-tokens=%t", model.UseMaxCompletionTokens) + "|input=" + strings.Join(normalizeModalities(model.InputModalities), ",") + "|output=" + strings.Join(normalizeModalities(model.OutputModalities), ",") + thinkingHashSuffix(model.Thinking))
++			out(strings.ToLower(name) + "|" + strings.ToLower(alias) + "|" + strings.TrimSpace(model.DisplayName) + "|" + fmt.Sprintf("image=%t", model.Image) + "|" + fmt.Sprintf("force-mapping=%t", model.ForceMapping) + "|" + fmt.Sprintf("is-compat=%t", model.IsCompat) + "|" + fmt.Sprintf("use-max-completion-tokens=%t", model.UseMaxCompletionTokens) + "|input=" + strings.Join(normalizeModalities(model.InputModalities), ",") + "|output=" + strings.Join(normalizeModalities(model.OutputModalities), ",") + fmt.Sprintf("|context=%d|output=%d", model.MaxContextLength, model.MaxCompletionTokens) + thinkingHashSuffix(model.Thinking))
+ 		}
+ 	})
+ 	return hashJoined(keys)
+@@ -69,7 +69,7 @@
+ 			if name == "" && alias == "" {
+ 				continue
+ 			}
+-			out(strings.ToLower(name) + "|" + strings.ToLower(alias) + "|" + strings.TrimSpace(model.DisplayName) + "|" + fmt.Sprintf("force-mapping=%t", model.ForceMapping) + "|" + fmt.Sprintf("is-compat=%t", model.IsCompat) + thinkingHashSuffix(model.Thinking))
++			out(strings.ToLower(name) + "|" + strings.ToLower(alias) + "|" + strings.TrimSpace(model.DisplayName) + "|" + fmt.Sprintf("force-mapping=%t", model.ForceMapping) + "|" + fmt.Sprintf("is-compat=%t", model.IsCompat) + "|input=" + strings.Join(normalizeModalities(model.InputModalities), ",") + fmt.Sprintf("|context=%d|output=%d", model.MaxContextLength, model.MaxCompletionTokens) + thinkingHashSuffix(model.Thinking))
+ 		}
+ 	})
+ 	return hashJoined(keys)
+--- a/internal/registry/model_registry.go
++++ b/internal/registry/model_registry.go
+@@ -1902,6 +1902,18 @@
+ 		if len(model.SupportedParameters) > 0 {
+ 			result["supported_parameters"] = append([]string(nil), model.SupportedParameters...)
+ 		}
++		// Local clients use this metadata instead of querying upstream catalogs.
++		if model.Thinking != nil {
++			thinking := *model.Thinking
++			thinking.Levels = append([]string(nil), model.Thinking.Levels...)
++			result["thinking"] = &thinking
++		}
++		if len(model.SupportedInputModalities) > 0 {
++			result["supportedInputModalities"] = append([]string(nil), model.SupportedInputModalities...)
++		}
++		if len(model.SupportedOutputModalities) > 0 {
++			result["supportedOutputModalities"] = append([]string(nil), model.SupportedOutputModalities...)
++		}
+ 		return result
+ 
+ 	case "claude":
+--- a/sdk/cliproxy/service_models.go
++++ b/sdk/cliproxy/service_models.go
+@@ -803,6 +803,10 @@
+ 	GetThinking() *registry.ThinkingSupport
+ }
+ 
++type modelMaxCompletionTokensEntry interface {
++	GetMaxCompletionTokens() int
++}
++
+ type modelMaxContextLengthEntry interface {
+ 	GetMaxContextLength() int
+ }
+@@ -844,6 +848,11 @@
+ 		Type:            modelType,
+ 		DisplayName:     displayName,
+ 		UserDefined:     userDefined,
++	}
++	if outputModel, ok := any(model).(modelMaxCompletionTokensEntry); ok {
++		if output := outputModel.GetMaxCompletionTokens(); output > 0 {
++			info.MaxCompletionTokens = output
++		}
+ 	}
+ 	if maxContextModel, okMaxContext := any(model).(modelMaxContextLengthEntry); okMaxContext {
+ 		if maxContextLength := maxContextModel.GetMaxContextLength(); maxContextLength > 0 {
+--- a/sdk/api/handlers/openai/openai_handlers.go
++++ b/sdk/api/handlers/openai/openai_handlers.go
+@@ -63,6 +63,14 @@
+ // It returns a list of available AI models with their capabilities
+ // and specifications in OpenAI-compatible format.
+ func (h *OpenAIAPIHandler) OpenAIModels(c *gin.Context) {
++	// An explicit selector exposes deployment metadata without changing the standard list.
++	if c.Query("metadata") == "true" {
++		h.WriteModelListResponse(c, h.HandlerType(), gin.H{
++			"object": "list",
++			"data":   h.Models(),
++		})
++		return
++	}
+ 	if _, ok := c.Request.URL.Query()["client_version"]; ok {
+ 		clientVersion := c.Query("client_version")
+ 		body, errMarshal := codexmodels.MarshalCompact(h.codexClientModelsResponse(clientVersion))

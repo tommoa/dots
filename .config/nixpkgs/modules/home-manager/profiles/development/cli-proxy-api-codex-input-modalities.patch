@@ -13,7 +13,7 @@ index 783f666..1f19ee7 100644
  	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
  
  	// IsCompat converts Codex MultiAgentV2 agent_message items into portable
- 	// Responses message/user input when codex.optimize-multi-agent-v2 is also true.
+ 	// Responses message/user input when client.codex.optimize-multi-agent-v2 is also true.
 @@ -535,10 +538,11 @@ func (m CodexModel) GetName() string { return m.Name }
  
  func (m CodexModel) GetAlias() string { return m.Alias }
