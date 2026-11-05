@@ -10,7 +10,7 @@ import {
 	modelInfo as getModelInfo,
 	type LiteLLMModelEntry,
 	type LiteLLMRouteOverrides,
-} from "./routing";
+} from "../../ai-providers/routing";
 
 type InputKind = "text" | "image";
 

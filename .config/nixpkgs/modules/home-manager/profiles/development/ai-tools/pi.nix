@@ -5,13 +5,12 @@
   ...
 }: let
   piLiteLLMEnabled = config.my.pi.enable && config.my.pi.litellm.enable;
-  piLiteLLMProviderDir = "${config.home.homeDirectory}/.pi/agent/litellm-provider";
   piLiteLLMProviderSource = pkgs.runCommandLocal "pi-litellm-provider" {} ''
-    mkdir -p "$out"
-    cp -R ${../pi/litellm-provider}/. "$out/"
-    rm -f "$out/routing.ts"
-    cp ${../ai-providers/routing.ts} "$out/routing.ts"
+    mkdir -p "$out/pi/litellm-provider" "$out/ai-providers"
+    cp -R ${../pi/litellm-provider}/. "$out/pi/litellm-provider/"
+    cp ${../ai-providers/routing.ts} "$out/ai-providers/routing.ts"
   '';
+  piLiteLLMProviderDir = "${piLiteLLMProviderSource}/pi/litellm-provider";
 in {
   options.my.pi = {
     enable = lib.mkOption {
@@ -29,7 +28,6 @@ in {
   config = {
     home.packages = lib.optionals config.my.pi.enable [config.my.pi.package];
     home.file = lib.mkIf piLiteLLMEnabled {
-      ".pi/agent/litellm-provider".source = piLiteLLMProviderSource;
       ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" {
         extensions = [piLiteLLMProviderDir];
         litellmProvider = {
