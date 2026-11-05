@@ -10,7 +10,7 @@
     mkdir -p "$out"
     cp -R ${../pi/litellm-provider}/. "$out/"
     rm -f "$out/routing.ts"
-    cp ${../litellm/routing.ts} "$out/routing.ts"
+    cp ${../ai-providers/routing.ts} "$out/routing.ts"
   '';
 in {
   options.my.pi = {
@@ -29,7 +29,6 @@ in {
   config = {
     home.packages = lib.optionals config.my.pi.enable [config.my.pi.package];
     home.file = lib.mkIf piLiteLLMEnabled {
-      ".pi/litellm".source = ../litellm;
       ".pi/agent/litellm-provider".source = piLiteLLMProviderSource;
       ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" {
         extensions = [piLiteLLMProviderDir];

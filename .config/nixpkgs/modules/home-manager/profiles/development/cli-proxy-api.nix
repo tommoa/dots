@@ -53,9 +53,9 @@
       };
     };
   proxyConfigGeneratorSource = pkgs.runCommandLocal "cli-proxy-api-config-generator" {} ''
-    mkdir -p "$out/litellm"
+    mkdir -p "$out/ai-providers"
     cp ${./cli-proxy-api-config.ts} "$out/cli-proxy-api-config.ts"
-    cp ${./litellm/routing.ts} "$out/litellm/routing.ts"
+    cp ${./ai-providers/routing.ts} "$out/ai-providers/routing.ts"
   '';
   proxyConfigRefresh = pkgs.writeShellApplication {
     name = "cli-proxy-api-refresh";

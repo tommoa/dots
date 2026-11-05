@@ -25,7 +25,7 @@
     mkdir -p "$out"
     cp -R ${../opencode/litellm}/. "$out/"
     rm -f "$out/routing.ts"
-    cp ${../litellm/routing.ts} "$out/routing.ts"
+    cp ${../ai-providers/routing.ts} "$out/routing.ts"
   '';
 in {
   options.my.opencode = {
@@ -49,7 +49,6 @@ in {
   config = {
     home.file = lib.mkIf opencodeLiteLLMEnabled {
       ".config/opencode/litellm".source = opencodeLiteLLMSource;
-      ".config/litellm".source = ../litellm;
     };
     programs.opencode = {
       enable = config.my.opencode.enable;

@@ -9,7 +9,7 @@ import {
 	type LiteLLMModelInfo,
 	type LiteLLMRoute,
 	type ReasoningEffort,
-} from "./litellm/routing";
+} from "./ai-providers/routing";
 
 interface AIProxyOptions {
 	baseUrl: string;
