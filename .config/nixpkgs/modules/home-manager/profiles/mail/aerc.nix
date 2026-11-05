@@ -204,7 +204,8 @@ in {
         }
         // tagBindings // replyBindings;
 
-      # Drafts folder bindings
+      # Don't use -f here: Drafts is a query view. Remembering it as the save
+      # destination would put Gmail drafts in Drafts rather than [Gmail]/Drafts.
       "messages:folder=Drafts" = {
         "<Enter>" = ":recall<Enter>";
       };
