@@ -12,6 +12,7 @@ self: super: {
       ++ [
         ./aerc-notmuch-query-map.patch
         ./aerc-notmuch-message-updates.patch
+        ./aerc-notmuch-all-refresh.patch
       ];
 
     # Switch from proxyVendor to vendored mode so we can patch the

@@ -1,0 +1,21 @@
+--- a/worker/notmuch/eventhandlers.go
++++ b/worker/notmuch/eventhandlers.go
+@@ -10,6 +10,7 @@ import (
+ 	"strconv"
+ 
+ 	"git.sr.ht/~rjarry/aerc/lib/log"
++	notmuch "git.sr.ht/~rjarry/aerc/worker/notmuch/lib"
+ 	"git.sr.ht/~rjarry/aerc/worker/types"
+ )
+ 
+@@ -71,7 +72,9 @@ func (w *worker) updateChangedMessages() error {
+ 		return nil
+ 	}
+ 	w.w.Logger.Debugf("State change: %d to %d", w.state, newState)
+-	query := fmt.Sprintf("lastmod:%d..%d and (%s)", w.state, newState, w.query)
++	// AndQueries treats "*" as all messages, rather than a literal term.
++	query := notmuch.AndQueries(
++		fmt.Sprintf("lastmod:%d..%d", w.state, newState), w.query)
+ 	uids, err := w.uidsFromQuery(context.TODO(), query)
+ 	if err != nil {
+ 		return fmt.Errorf("Couldn't get updates messages: %w", err)
