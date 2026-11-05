@@ -35,16 +35,17 @@ export function warn(message: string) {
 	console.warn(`[opencode-litellm] ${message}`);
 }
 
-export function normalizeOptions(options?: LiteLLMOptions) {
+export function resolveOptions(options?: LiteLLMOptions) {
 	const apiKeyEnv = options?.apiKeyEnv?.trim() || defaultApiKeyEnv;
-	const keyFile = expandHome(options?.keyFile ?? "~/.config/ai-keys/litellm");
+	const apiKey =
+		process.env[apiKeyEnv]?.trim() ||
+		readKeyFile(expandHome(options?.keyFile ?? "~/.config/ai-keys/litellm"));
 	return {
 		baseUrl: normalizeUrl(options?.baseUrl ?? defaultBaseUrl),
 		modelsUrl: options?.modelsUrl ? normalizeUrl(options.modelsUrl) : undefined,
 		apiKeyEnv,
-		keyFile,
-		apiKey: process.env[apiKeyEnv]?.trim() || readKeyFile(keyFile),
-		headers: options?.headers ?? {},
+		apiKey,
+		headers: { ...options?.headers },
 		providerName: options?.providerName ?? "LiteLLM",
 		routeOverrides: {
 			responses: new Set(options?.routeOverrides?.responses ?? []),
@@ -58,9 +59,9 @@ export function normalizeOptions(options?: LiteLLMOptions) {
 	};
 }
 
-export type NormalizedLiteLLMOptions = ReturnType<typeof normalizeOptions>;
+export type ResolvedLiteLLMOptions = ReturnType<typeof resolveOptions>;
 
-export async function discoverLiteLLM(options: NormalizedLiteLLMOptions) {
+export async function discoverLiteLLM(options: ResolvedLiteLLMOptions) {
 	const payload = await fetchModels(
 		modelUrls(options.baseUrl, options.modelsUrl),
 		buildHeaders(options),
@@ -73,7 +74,7 @@ export async function discoverLiteLLM(options: NormalizedLiteLLMOptions) {
 
 export type DiscoveredLiteLLM = Awaited<ReturnType<typeof discoverLiteLLM>>;
 
-function buildHeaders(options: NormalizedLiteLLMOptions) {
+function buildHeaders(options: ResolvedLiteLLMOptions) {
 	const headers = { ...options.headers };
 	const apiKey = options.apiKey;
 	if (!apiKey) return headers;

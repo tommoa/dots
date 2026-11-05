@@ -13,7 +13,7 @@ import {
 	type ModelMetadata,
 	type ModelCostTier,
 } from "../models";
-import type { NormalizedLiteLLMOptions, DiscoveredLiteLLM } from "./discovery";
+import type { ResolvedLiteLLMOptions, DiscoveredLiteLLM } from "./discovery";
 
 type Modality = string;
 type CatalogModel = ModelMetadata & { providerID: string; modelID: string };
@@ -44,7 +44,7 @@ const COST_MULTIPLIER = 1_000_000;
 
 export function toProvider(
 	discovery: DiscoveredLiteLLM,
-	options: NormalizedLiteLLMOptions,
+	options: ResolvedLiteLLMOptions,
 	nativeModels: CatalogModel[],
 ): Provider {
 	// Keep native metadata in OpenCode's format; only selection precedence is indexed.
@@ -88,7 +88,7 @@ export function toProvider(
 function projectModel(
 	entry: LiteLLMModelEntry,
 	source: CatalogModel | undefined,
-	options: NormalizedLiteLLMOptions,
+	options: ResolvedLiteLLMOptions,
 ): Model | undefined {
 	const id = entryID(entry);
 	if (!id || isEmbeddingModel(id, entry)) return;
@@ -184,7 +184,7 @@ function isEmbeddingModel(id: string, entry: LiteLLMModelEntry) {
 function inputModalities(
 	info: LiteLLMModelInfo,
 	catalogModel: CatalogModel | undefined,
-	options: NormalizedLiteLLMOptions,
+	options: ResolvedLiteLLMOptions,
 ): Modality[] {
 	const fallback = catalogModel?.capabilities.input ?? options.defaults.input;
 	const input = fallback.filter(
