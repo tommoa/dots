@@ -20,13 +20,12 @@
     };
     headers = config.my.aiProxy.headers;
   };
-  opencodeLiteLLMDir = "${config.home.homeDirectory}/.config/opencode/litellm";
   opencodeLiteLLMSource = pkgs.runCommandLocal "opencode-litellm" {} ''
-    mkdir -p "$out"
-    cp -R ${../opencode/litellm}/. "$out/"
-    rm -f "$out/routing.ts"
-    cp ${../ai-providers/routing.ts} "$out/routing.ts"
+    mkdir -p "$out/opencode/litellm" "$out/ai-providers"
+    cp -R ${../opencode/litellm}/. "$out/opencode/litellm/"
+    cp ${../ai-providers/routing.ts} "$out/ai-providers/routing.ts"
   '';
+  opencodeLiteLLMDir = "${opencodeLiteLLMSource}/opencode/litellm";
 in {
   options.my.opencode = {
     disablePythonFormatters = lib.mkOption {
@@ -47,9 +46,6 @@ in {
     };
   };
   config = {
-    home.file = lib.mkIf opencodeLiteLLMEnabled {
-      ".config/opencode/litellm".source = opencodeLiteLLMSource;
-    };
     programs.opencode = {
       enable = config.my.opencode.enable;
       enableMcpIntegration = true;

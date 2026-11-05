@@ -11,7 +11,7 @@ import {
 	type LiteLLMModelEntry,
 	type LiteLLMModelInfo,
 	type LiteLLMRoute as RouteKind,
-} from "./routing";
+} from "../../ai-providers/routing";
 
 type Modality = string;
 
@@ -33,7 +33,7 @@ export interface LiteLLMOptions {
 	};
 }
 
-export type { LiteLLMModelEntry } from "./routing";
+export type { LiteLLMModelEntry } from "../../ai-providers/routing";
 
 interface LiteLLMModelsPayload {
 	data?: LiteLLMModelEntry[];
