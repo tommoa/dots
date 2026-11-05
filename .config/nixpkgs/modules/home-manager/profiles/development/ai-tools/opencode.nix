@@ -5,21 +5,6 @@
   ...
 }: let
   opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.provider == "litellm";
-  opencodeLiteLLMOptions = {
-    baseUrl = config.my.aiProxy.baseUrl;
-    apiKeyEnv = config.my.aiProxy.apiKeyEnv;
-    keyFile = config.my.aiProxy.keyFile;
-    routeOverrides = {
-      responses = config.my.aiProxy.routeOverrides.responses;
-      chat = config.my.aiProxy.routeOverrides.chat;
-    };
-    defaults = {
-      context = config.my.aiProxy.defaults.context;
-      output = config.my.aiProxy.defaults.output;
-      input = config.my.aiProxy.defaults.input;
-    };
-    headers = config.my.aiProxy.headers;
-  };
   opencodeLiteLLMSource = pkgs.runCommandLocal "opencode-litellm" {} ''
     mkdir -p "$out/opencode/litellm" "$out/ai-providers"
     cp -R ${../opencode/litellm}/. "$out/opencode/litellm/"
@@ -56,7 +41,9 @@ in {
         plugins = lib.mkIf opencodeLiteLLMEnabled [
           {
             package = opencodeLiteLLMDir;
-            options = opencodeLiteLLMOptions;
+            options = {
+              inherit (config.my.aiProxy) baseUrl apiKeyEnv keyFile headers defaults routeOverrides;
+            };
           }
         ];
         formatter =
