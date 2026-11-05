@@ -5,6 +5,10 @@ self: super: {
   # images in HTML email filters on terminals that support kitty
   # graphics (like ghostty).
   aerc = super.aerc.overrideAttrs (old: {
+    # Keep the sidebar's query folders when there's a writable Maildir too.
+    # The Maildir is there so aerc can save drafts.
+    patches = (old.patches or []) ++ [./aerc-notmuch-query-map.patch];
+
     # Switch from proxyVendor to vendored mode so we can patch the
     # vaxis source in vendor/. The vendorHash changes because the
     # output format differs (vendor/ tree vs module cache).

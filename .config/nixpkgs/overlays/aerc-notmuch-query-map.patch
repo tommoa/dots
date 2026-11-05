@@ -1,0 +1,36 @@
+--- a/worker/notmuch/worker.go
++++ b/worker/notmuch/worker.go
+@@ -287,7 +287,8 @@
+ }
+ 
+ func (w *worker) handleListDirectories(msg *types.ListDirectories) error {
+-	if w.store != nil {
++	// Use the query map for browsing; we still need the Maildir to save drafts.
++	if w.store != nil && len(w.nameQueryMap) == 0 {
+ 		folders, err := w.store.FolderMap()
+ 		if err != nil {
+ 			w.w.Errorf("failed listing directories: %v", err)
+@@ -359,9 +360,9 @@
+ 	}
+ 	w.w.Tracef("opening %s with query %s", msg.Directory, msg.Query)
+ 
+-	var exists bool
+-	q := ""
+-	if w.store != nil {
++	// If a query view shares a name with a folder, open the query view.
++	q, exists := w.nameQueryMap[msg.Directory]
++	if !exists && w.store != nil {
+ 		folders, _ := w.store.FolderMap()
+ 		var dir maildir.Dir
+ 		dir, exists = folders[msg.Directory]
+--- a/worker/notmuch/eventhandlers.go
++++ b/worker/notmuch/eventhandlers.go
+@@ -32,7 +32,7 @@
+ }
+ 
+ func (w *worker) updateDirCounts() error {
+-	if w.store != nil {
++	if w.store != nil && len(w.nameQueryMap) == 0 {
+ 		folders, err := w.store.FolderMap()
+ 		if err != nil {
+ 			w.w.Errorf("failed listing directories: %v", err)
