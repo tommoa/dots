@@ -155,11 +155,11 @@ format_reset_credits_summary_json() {
   no_expiry="$(printf '%s\n' "$usage_json" | jq -er '.rate_limit_reset_credits.no_expiry_count // 0' 2>/dev/null || printf 0)"
   case "$no_expiry" in ''|*[!0-9]*) no_expiry=0 ;; esac
   visible=0 total=0 summary=''
-  if [ -n "$expiry_rows" ]; then while IFS= read -r expiry; do [ -n "$expiry" ] || continue; total=$((total + 1)); if [ "$visible" -lt 4 ]; then item="$(format_seconds "$expiry")"; summary="${summary:+$summary·}$item"; visible=$((visible + 1)); fi; done <<EOF
+  if [ -n "$expiry_rows" ]; then while IFS= read -r expiry; do [ -n "$expiry" ] || continue; total=$((total + 1)); if [ "$visible" -lt 4 ]; then item="$(format_seconds "$expiry")"; summary="${summary:+${summary}·}$item"; visible=$((visible + 1)); fi; done <<EOF
 $expiry_rows
 EOF
   fi
-  while [ "$no_expiry" -gt 0 ]; do total=$((total + 1)); if [ "$visible" -lt 4 ]; then summary="${summary:+$summary·}noexp"; visible=$((visible + 1)); fi; no_expiry=$((no_expiry - 1)); done
+  while [ "$no_expiry" -gt 0 ]; do total=$((total + 1)); if [ "$visible" -lt 4 ]; then summary="${summary:+${summary}·}noexp"; visible=$((visible + 1)); fi; no_expiry=$((no_expiry - 1)); done
   [ "$total" -gt 0 ] || return 1
   [ "$total" -le "$visible" ] || summary="${summary}·+$((total - visible))"
   printf '%s\n' "$summary"
