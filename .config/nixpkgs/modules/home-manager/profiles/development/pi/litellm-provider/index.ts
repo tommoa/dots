@@ -307,7 +307,7 @@ async function fetchModels(
 	let lastError: Error | null = null;
 	for (const modelsUrl of modelsUrls) {
 		try {
-			const response = await fetch(modelsUrl, { headers });
+			const response = await fetch(modelsUrl, { headers, signal: AbortSignal.timeout(10_000) });
 			if (!response.ok) {
 				lastError = new Error(`GET ${modelsUrl} failed with ${response.status} ${response.statusText}`);
 				continue;
