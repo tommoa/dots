@@ -4,7 +4,7 @@
   config,
   ...
 }: let
-  opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.litellm.enable;
+  opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.provider == "litellm";
   piLiteLLMEnabled = config.my.pi.enable && config.my.pi.provider == "litellm";
   codexAIProxyAvailable =
     config.my.aiProxy.enable

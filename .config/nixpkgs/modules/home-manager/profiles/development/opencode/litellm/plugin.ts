@@ -5,19 +5,19 @@ import {
 	type LiteLLMOptions,
 } from "./discovery";
 import {
-	catalogSnapshotFromV2,
-	toV2Provider,
-	type V2Provider,
-} from "./projection-v2";
+	catalogSnapshotFromModels,
+	toProvider,
+	type Provider,
+} from "./projection";
 
 export default {
 	id: "litellm",
 	async setup(ctx) {
 		const options = normalizeOptions((ctx.options ?? {}) as LiteLLMOptions);
-		let provider: V2Provider | undefined;
+		let provider: Provider | undefined;
 		try {
-			const snapshot = catalogSnapshotFromV2((await ctx.model.list()).data);
-			provider = toV2Provider(
+			const snapshot = catalogSnapshotFromModels((await ctx.model.list()).data);
+			provider = toProvider(
 				await discoverLiteLLM(options, snapshot.discovery),
 				snapshot,
 			);

@@ -57,12 +57,13 @@ in {
     '';
   };
 
-  # Set LITELLM_API_KEY from the decrypted secret for opencode's {env:VAR} syntax
+  # Share the corporate AI proxy key with CLI tools.
   programs.zsh.initContent = ''
     [ -f ~/.config/ai-keys/litellm ] && export LITELLM_API_KEY="$(cat ~/.config/ai-keys/litellm)"
   '';
 
   my.pi.provider = lib.mkDefault "litellm";
+  my.opencode.provider = lib.mkDefault "litellm";
 
   my.aiProxy = {
     enable = true;
@@ -72,8 +73,6 @@ in {
   };
 
   my.modelSelection.profile = "work";
-
-  my.opencode.litellm.enable = true;
 
   programs.codex.settings = {
     model_providers.ai_proxy = {

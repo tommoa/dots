@@ -14,6 +14,12 @@
       ];
   });
   proxyBinary = "${proxyPackage}/bin/cli-proxy-api";
+  opencodeProxySource = pkgs.runCommandLocal "opencode-cli-proxy-api" {} ''
+    mkdir -p "$out/opencode/cli-proxy-api" "$out/ai-providers"
+    cp ${./opencode/cli-proxy-api/index.ts} "$out/opencode/cli-proxy-api/index.ts"
+    cp ${./opencode/models.ts} "$out/opencode/models.ts"
+    cp ${./ai-providers/routing.ts} "$out/ai-providers/routing.ts"
+  '';
   proxyHome = "${config.home.homeDirectory}/.cli-proxy-api";
   proxyRuntimeBase = "${proxyHome}/base.json";
   proxyRuntimeConfig = "${proxyHome}/config.json";
@@ -74,17 +80,6 @@
     if config.my.aiProxy.enable
     then proxyRuntimeConfig
     else proxyConfigBase;
-  proxyModels = lib.unique (
-    [
-      "gpt-6.1-sol"
-      "gpt-6.0-luna"
-      "gpt-5.6-sol"
-      "gpt-5.6-luna"
-      config.my.codex.defaultModel
-    ]
-    ++ (with config.my.modelSelection.defaults.personal; [subagentModel coordinatorModel])
-    ++ config.my.cliProxyApi.models
-  );
   codexLogin = pkgs.writeShellApplication {
     name = "cli-proxy-api-codex-login";
     text = ''
@@ -98,15 +93,11 @@ in {
       default = 8317;
       description = "Local port for CLIProxyAPI";
     };
-
-    models = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [];
-      description = "Additional model IDs exposed to OpenCode through CLIProxyAPI";
-    };
   };
 
   config = {
+    # The direct provider remains available on work hosts without CLIProxyAPI.
+    my.opencode.provider = "cli-proxy-api";
     my.pi.provider = "cli-proxy-api";
     # The same local provider serves subscription and corporate models;
     # work defaults must select the corporate upstream explicitly.
@@ -174,16 +165,26 @@ in {
       };
     };
 
-    programs.opencode.settings.providers.cli_proxy_api = {
-      package = "@opencode/ai/providers/openai-compatible";
-      name = "CLIProxyAPI (Codex subscriptions)";
+    programs.opencode.settings.plugins = lib.mkIf (config.my.opencode.provider == "cli-proxy-api") [
+      {
+        package = "${opencodeProxySource}/opencode/cli-proxy-api";
+        options = {
+          baseUrl = "http://127.0.0.1:${toString config.my.cliProxyApi.port}/v1";
+        };
+      }
+    ];
+    programs.opencode.settings.providers.cli_proxy_api = lib.mkIf (config.my.opencode.provider == "cli-proxy-api") {
+      package = "@opencode/ai/providers/openai/responses";
+      name =
+        if config.my.aiProxy.enable
+        then "CLIProxyAPI (subscriptions + ai-proxy)"
+        else "CLIProxyAPI (Codex subscriptions)";
       settings = {
         baseURL = "http://127.0.0.1:${toString config.my.cliProxyApi.port}/v1";
         # The SDK requires a value even though the loopback proxy does not
         # authenticate local clients.
         apiKey = "local";
       };
-      models = lib.genAttrs proxyModels (model: {name = model;});
     };
 
     launchd.agents.cli-proxy-api = lib.mkIf pkgs.stdenv.isDarwin {

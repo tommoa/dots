@@ -1,73 +1,31 @@
 import type {
 	CatalogModelSnapshot,
-	CatalogSnapshot,
+	CatalogSnapshot as DiscoveryCatalogSnapshot,
 	DiscoveredLiteLLM,
 	DiscoveredModel,
-	ModelStatus,
 } from "./discovery";
+
+import type {
+	ModelMetadata,
+	ModelCostTier,
+	ModelVariant,
+	ModelCompatibility,
+} from "../models";
 
 const canonicalProviderOrder = ["openai", "anthropic", "google", "opencode"];
 const chatPackage = "@opencode/ai/providers/openai-compatible";
 const responsesPackage = "@opencode/ai/providers/openai/responses";
 
-export interface V2Variant {
-	id: string;
-	settings?: Record<string, unknown>;
-	headers?: Record<string, string>;
-	body?: Record<string, unknown>;
-}
-
-export interface V2Compatibility {
-	reasoningField?: string;
-	maxTokensField?: "max_completion_tokens" | "max_tokens";
-	requireFinishReason?: boolean;
-}
-
-export interface V2CostTier {
-	input: number;
-	output: number;
-	cache: {
-		read: number;
-		write: number;
-	};
-	tier?: {
-		type: "context";
-		size: number;
-	};
-}
-
-export interface V2Model {
-	id: string;
+export interface Model extends ModelMetadata {
 	modelID: string;
 	providerID: "litellm";
-	name: string;
-	package: string;
 	settings: {
 		baseURL: string;
 		provider: "litellm";
 	};
-	compatibility?: V2Compatibility;
-	capabilities: {
-		tools: boolean;
-		input: string[];
-		output: string[];
-	};
-	cost: V2CostTier[];
-	limit: {
-		context: number;
-		input?: number;
-		output: number;
-	};
-	variants: V2Variant[];
-	time: {
-		released: number;
-	};
-	status: ModelStatus;
-	enabled: boolean;
-	family?: string;
 }
 
-export interface V2Provider {
+export interface Provider {
 	id: "litellm";
 	name: string;
 	activation: "enabled";
@@ -79,12 +37,12 @@ export interface V2Provider {
 		apiKey?: string;
 		headers?: Record<string, string>;
 	};
-	models: V2Model[];
+	models: Model[];
 }
 
-interface V2CatalogModel
+interface CatalogModel
 	extends Pick<
-		V2Model,
+		Model,
 		| "id"
 		| "modelID"
 		| "name"
@@ -102,21 +60,21 @@ interface V2CatalogModel
 	package: string;
 }
 
-interface V2CatalogMetadata {
-	variants: V2Variant[];
-	compatibility?: V2Compatibility;
-	cost: V2CostTier[];
+interface CatalogMetadata {
+	variants: ModelVariant[];
+	compatibility?: ModelCompatibility;
+	cost: ModelCostTier[];
 }
 
-export interface V2CatalogSnapshot {
-	discovery: CatalogSnapshot;
-	readonly metadata: ReadonlyMap<string, V2CatalogMetadata>;
+export interface CatalogSnapshot {
+	discovery: DiscoveryCatalogSnapshot;
+	readonly metadata: ReadonlyMap<string, CatalogMetadata>;
 }
 
-export function toV2Provider(
+export function toProvider(
 	discovery: DiscoveredLiteLLM,
-	catalog?: V2CatalogSnapshot,
-): V2Provider {
+	catalog?: CatalogSnapshot,
+): Provider {
 	const metadata = catalog?.metadata;
 	return {
 		id: discovery.providerID,
@@ -126,7 +84,7 @@ export function toV2Provider(
 		package: chatPackage,
 		settings: { baseURL: discovery.baseUrl, provider: "litellm" },
 		models: discovery.models.map((model) =>
-			toV2Model(
+			toModel(
 				model,
 				discovery.baseUrl,
 				model.catalogModelID ? metadata?.get(model.catalogModelID) : undefined,
@@ -135,11 +93,11 @@ export function toV2Provider(
 	};
 }
 
-export function catalogSnapshotFromV2(
-	models: V2CatalogModel[],
-): V2CatalogSnapshot {
+export function catalogSnapshotFromModels(
+	models: CatalogModel[],
+): CatalogSnapshot {
 	const discovery = new Map<string, CatalogModelSnapshot>();
-	const metadata = new Map<string, V2CatalogMetadata>();
+	const metadata = new Map<string, CatalogMetadata>();
 	const sorted = models
 		.filter((model) => model.providerID !== "litellm")
 		.toSorted(
@@ -149,7 +107,7 @@ export function catalogSnapshotFromV2(
 		);
 	for (const model of sorted) {
 		if (discovery.has(model.id)) continue;
-		discovery.set(model.id, normalizeV2CatalogModel(model));
+		discovery.set(model.id, normalizeCatalogModel(model));
 		metadata.set(model.id, {
 			variants: model.variants,
 			compatibility: model.compatibility,
@@ -159,11 +117,11 @@ export function catalogSnapshotFromV2(
 	return { discovery, metadata };
 }
 
-function toV2Model(
+function toModel(
 	model: DiscoveredModel,
 	baseUrl: string,
-	metadata?: V2CatalogMetadata,
-): V2Model {
+	metadata?: CatalogMetadata,
+): Model {
 	return {
 		id: model.id,
 		modelID: model.id,
@@ -179,7 +137,7 @@ function toV2Model(
 			input: model.capabilities.input,
 			output: model.capabilities.output,
 		},
-		cost: mergeV2Cost(metadata?.cost ?? [], model.cost),
+		cost: mergeCost(metadata?.cost ?? [], model.cost),
 		limit: model.limit,
 		variants: metadata?.variants.length
 			? metadata.variants.map(copyVariant)
@@ -196,7 +154,7 @@ function toV2Model(
 	};
 }
 
-function normalizeV2CatalogModel(model: V2CatalogModel): CatalogModelSnapshot {
+function normalizeCatalogModel(model: CatalogModel): CatalogModelSnapshot {
 	const input = model.capabilities.input;
 	return {
 		id: model.id,
@@ -214,7 +172,7 @@ function normalizeV2CatalogModel(model: V2CatalogModel): CatalogModelSnapshot {
 			input,
 			output: model.capabilities.output,
 		},
-		cost: normalizeV2Cost(model.cost),
+		cost: normalizeCost(model.cost),
 		limit: model.limit,
 		variants: model.variants.length
 			? Object.fromEntries(
@@ -227,7 +185,7 @@ function normalizeV2CatalogModel(model: V2CatalogModel): CatalogModelSnapshot {
 	};
 }
 
-function effectiveCostTiers(cost: DiscoveredModel["cost"]): V2CostTier[] {
+function effectiveCostTiers(cost: DiscoveredModel["cost"]): ModelCostTier[] {
 	if (!cost) return [];
 	const base = {
 		input: cost.input ?? 0,
@@ -249,10 +207,10 @@ function effectiveCostTiers(cost: DiscoveredModel["cost"]): V2CostTier[] {
 	];
 }
 
-function mergeV2Cost(
-	catalog: V2CostTier[],
+function mergeCost(
+	catalog: ModelCostTier[],
 	effective: DiscoveredModel["cost"],
-): V2CostTier[] {
+): ModelCostTier[] {
 	const overrides = effectiveCostTiers(effective);
 	if (overrides.length === 0) return catalog.map(copyCostTier);
 	const overridesByTier = new Map(
@@ -272,11 +230,11 @@ function mergeV2Cost(
 	];
 }
 
-function costTierIdentity(tier: V2CostTier) {
+function costTierIdentity(tier: ModelCostTier) {
 	return tier.tier ? `context:${tier.tier.size}` : "base";
 }
 
-function copyCostTier(tier: V2CostTier): V2CostTier {
+function copyCostTier(tier: ModelCostTier): ModelCostTier {
 	return {
 		input: tier.input,
 		output: tier.output,
@@ -285,7 +243,7 @@ function copyCostTier(tier: V2CostTier): V2CostTier {
 	};
 }
 
-function copyVariant(variant: V2Variant): V2Variant {
+function copyVariant(variant: ModelVariant): ModelVariant {
 	return {
 		id: variant.id,
 		...(variant.settings ? { settings: { ...variant.settings } } : {}),
@@ -294,7 +252,7 @@ function copyVariant(variant: V2Variant): V2Variant {
 	};
 }
 
-function normalizeV2Cost(cost: V2CostTier[]) {
+function normalizeCost(cost: ModelCostTier[]) {
 	const base = cost.find((tier) => tier.tier === undefined);
 	if (!base) return undefined;
 	const contextOver200k = cost.find(

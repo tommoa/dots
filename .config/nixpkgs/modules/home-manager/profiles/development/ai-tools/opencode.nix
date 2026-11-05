@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.litellm.enable;
+  opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.provider == "litellm";
   opencodeLiteLLMOptions = {
     baseUrl = config.my.aiProxy.baseUrl;
     apiKeyEnv = config.my.aiProxy.apiKeyEnv;
@@ -24,6 +24,7 @@
     mkdir -p "$out/opencode/litellm" "$out/ai-providers"
     cp -R ${../opencode/litellm}/. "$out/opencode/litellm/"
     cp ${../ai-providers/routing.ts} "$out/ai-providers/routing.ts"
+    cp ${../opencode/models.ts} "$out/opencode/models.ts"
   '';
   opencodeLiteLLMDir = "${opencodeLiteLLMSource}/opencode/litellm";
 in {
@@ -39,10 +40,10 @@ in {
       default = true;
       description = "Enable the opencode package to be installed";
     };
-    litellm.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Enable the LiteLLM provider integration for opencode";
+    provider = lib.mkOption {
+      type = lib.types.enum ["none" "litellm" "cli-proxy-api"];
+      default = "none";
+      description = "Custom model provider for OpenCode";
     };
   };
   config = {
