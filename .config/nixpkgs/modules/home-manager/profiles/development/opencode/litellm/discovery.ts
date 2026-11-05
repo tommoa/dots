@@ -433,22 +433,25 @@ function inputModalities(
 	catalogModel: CatalogModelSnapshot | undefined,
 	options: NormalizedLiteLLMOptions,
 ): Modality[] {
-	const input: Modality[] = ["text"];
-	if (info.supports_vision) input.push("image");
-	if (info.supports_pdf_input) input.push("pdf");
-	if (info.supports_audio_input) input.push("audio");
-	if (input.length > 1) return input;
-	return catalogModel?.capabilities?.input ?? options.defaults.input;
+	const fallback = catalogModel?.capabilities?.input ?? options.defaults.input;
+	const input = fallback.filter(
+		(modality) => !["image", "pdf", "audio"].includes(modality),
+	);
+	if (info.supports_vision ?? fallback.includes("image")) input.push("image");
+	if (info.supports_pdf_input ?? fallback.includes("pdf")) input.push("pdf");
+	if (info.supports_audio_input ?? fallback.includes("audio")) input.push("audio");
+	return input;
 }
 
 function outputModalities(
 	info: LiteLLMModelInfo,
 	catalogModel: CatalogModelSnapshot | undefined,
 ): Modality[] {
-	const output: Modality[] = ["text"];
-	if (info.supports_audio_output) output.push("audio");
-	if (output.length > 1) return output;
-	return catalogModel?.capabilities?.output ?? output;
+	const fallback = catalogModel?.capabilities?.output ?? ["text"];
+	const output = fallback.filter((modality) => modality !== "audio");
+	if (info.supports_audio_output ?? fallback.includes("audio"))
+		output.push("audio");
+	return output;
 }
 
 function attachmentCapability(
