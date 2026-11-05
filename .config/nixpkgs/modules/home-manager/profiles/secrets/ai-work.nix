@@ -1,6 +1,7 @@
 {
   config,
   pkgs,
+  lib,
   ...
 }: let
   aiKey = pkgs.writeShellApplication {
@@ -61,7 +62,7 @@ in {
     [ -f ~/.config/ai-keys/litellm ] && export LITELLM_API_KEY="$(cat ~/.config/ai-keys/litellm)"
   '';
 
-  my.pi.litellm.enable = true;
+  my.pi.provider = lib.mkDefault "litellm";
 
   my.aiProxy = {
     enable = true;

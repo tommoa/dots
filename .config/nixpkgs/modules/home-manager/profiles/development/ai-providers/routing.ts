@@ -1,5 +1,23 @@
 export type LiteLLMRoute = "chat" | "responses";
 
+export interface ProxyModel {
+	id: string;
+	created?: number;
+	display_name?: string;
+	type?: string;
+	context_length?: number;
+	max_context_length?: number;
+	max_completion_tokens?: number;
+	supportedInputModalities?: string[];
+	supportedOutputModalities?: string[];
+	thinking?: { levels?: string[] };
+}
+
+export function proxyModelRoute(model: ProxyModel): LiteLLMRoute {
+	// CLIProxyAPI's Codex routes use Responses; compatibility routes use Chat.
+	return model.type === "openai-compatibility" ? "chat" : "responses";
+}
+
 export interface LiteLLMRouteOverrides {
 	responses?: Iterable<string>;
 	chat?: Iterable<string>;

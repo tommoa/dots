@@ -107,6 +107,7 @@ in {
   };
 
   config = {
+    my.pi.provider = "cli-proxy-api";
     # The same local provider serves subscription and corporate models;
     # work defaults must select the corporate upstream explicitly.
     my.codex = lib.mkIf (config.my.modelSelection.profile == "work" && config.my.aiProxy.enable) {

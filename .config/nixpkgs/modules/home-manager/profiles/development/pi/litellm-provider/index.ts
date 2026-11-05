@@ -5,7 +5,9 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getModels } from "@earendil-works/pi-ai";
 import {
 	classifyLiteLLMRoute,
+	proxyModelRoute,
 	reasoningEfforts,
+	type ProxyModel,
 	entryID as getEntryId,
 	modelInfo as getModelInfo,
 	type LiteLLMModelEntry,
@@ -36,6 +38,7 @@ interface LiteLLMSettings {
 
 interface PiSettings {
 	litellmProvider?: LiteLLMSettings;
+	cliProxyProvider?: { baseUrl: string };
 }
 
 interface LiteLLMModelsPayload {
@@ -66,7 +69,7 @@ function getAgentDir(): string {
 	return process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
 }
 
-function readSettings(): LiteLLMSettings | null {
+function readSettings(): PiSettings | null {
 	const settingsPath = join(getAgentDir(), "settings.json");
 	if (!existsSync(settingsPath)) {
 		warn(`Missing Pi settings file at ${settingsPath}; skipping provider registration.`);
@@ -76,11 +79,7 @@ function readSettings(): LiteLLMSettings | null {
 	try {
 		const raw = readFileSync(settingsPath, "utf8");
 		const settings = JSON.parse(raw) as PiSettings;
-		if (!settings.litellmProvider) {
-			warn(`Missing "litellmProvider" in ${settingsPath}; skipping provider registration.`);
-			return null;
-		}
-		return settings.litellmProvider;
+		return settings;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		warn(`Could not parse ${settingsPath}: ${message}`);
@@ -308,7 +307,12 @@ async function fetchModels(
 }
 
 export default async function registerLiteLLMProvider(pi: ExtensionAPI) {
-	const settings = readSettings();
+	const allSettings = readSettings();
+	if (allSettings?.cliProxyProvider) {
+		await registerCliProxyProvider(pi, allSettings.cliProxyProvider);
+		return;
+	}
+	const settings = allSettings?.litellmProvider;
 	if (!settings?.baseUrl || settings.baseUrl.trim() === "REPLACE_ME") {
 		warn(`Set "litellmProvider.baseUrl" in Pi settings to enable LiteLLM model discovery.`);
 		return;
@@ -381,4 +385,80 @@ function reasoningOptions(
 			),
 		),
 	};
+}
+
+// CLIProxyAPI owns inventory, capabilities and authentication for every upstream.
+async function registerCliProxyProvider(
+	pi: ExtensionAPI,
+	config: { baseUrl: string },
+) {
+	const baseUrl = normalizeUrl(config.baseUrl);
+	let entries: ProxyModel[];
+	try {
+		const result = await fetchModels([`${baseUrl}/models?metadata=true`], {});
+		if (
+			result.entries.some(
+				(entry) => typeof entry.id !== "string" || !entry.id.trim(),
+			)
+		) {
+			throw new Error("Model listing has an invalid id");
+		}
+		entries = result.entries as ProxyModel[];
+	} catch (error) {
+		warn(`CLIProxyAPI model discovery failed: ${String(error)}`);
+		return;
+	}
+	const models = [];
+	for (const entry of entries) {
+		const id = entry.id;
+		if (!id) continue;
+		const isCorporate = id.startsWith("ai-proxy/");
+		const upstreamID = isCorporate ? id.slice("ai-proxy/".length) : id;
+		if (/^gpt-image-|embedding/i.test(upstreamID)) continue;
+		const family = getModelFamily(upstreamID, { id: upstreamID });
+		// The proxy owns availability; Pi's bundled catalog only enriches metadata.
+		const source = family ? builtInModels[family].get(upstreamID) : undefined;
+		const api =
+			proxyModelRoute(entry) === "responses"
+				? "openai-responses"
+				: "openai-completions";
+		const input = entry.supportedInputModalities?.filter(
+			(value): value is InputKind => value === "text" || value === "image",
+		);
+		models.push({
+			id,
+			name: entry.display_name ?? source?.name ?? id,
+			api,
+			...reasoningOptions(
+				entry.thinking === undefined
+					? undefined
+					: (entry.thinking.levels ?? []),
+				source,
+			),
+			input: input?.length ? input : (source?.input ?? ["text"]),
+			contextWindow:
+				entry.max_context_length ??
+				entry.context_length ??
+				source?.contextWindow ??
+				128000,
+			maxTokens: entry.max_completion_tokens ?? source?.maxTokens ?? 16384,
+			cost: isCorporate
+				? (source?.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 })
+				: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			// Native transport options are incompatible with the proxy's chat protocol.
+			compat: source?.api === api ? source.compat : undefined,
+		});
+	}
+	if (!models.length) {
+		warn(
+			"CLIProxyAPI has no supported chat models; skipping provider registration.",
+		);
+		return;
+	}
+	pi.registerProvider("cli_proxy_api", {
+		name: "CLIProxyAPI",
+		baseUrl,
+		apiKey: "local",
+		models,
+	});
 }
