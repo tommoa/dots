@@ -71,12 +71,14 @@ return {
         },
         tools = {
           codex = {
+            native_scroll = true,
             is_proc = function(_, proc)
               return not is_lcodex_proc(proc) and codex_re:match_str(proc.cmd) ~= nil
             end,
           },
           lcodex = {
             cmd = { "lcodex" },
+            native_scroll = true,
             env = { SIDEKICK_TOOL = "lcodex" },
             is_proc = function(_, proc)
               return is_lcodex_proc(proc)
