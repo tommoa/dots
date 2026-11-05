@@ -72,7 +72,11 @@ folder_to_tag() {
     # Usage: folder_to_tag "tag" "folder"
     folder="$2"
     tag="$1"
-    notmuch tag "+${tag}" -- folder:"\"${folder}\"" and not "tag:${tag}"
+    query="folder:\"${folder}\" and not tag:${tag}"
+    if [ "${tag}" = "archive" ]; then
+        query="${query} and not tag:draft"
+    fi
+    notmuch tag "+${tag}" -- "${query}"
 }
 
 ensure_tag_in_folder() {
@@ -96,7 +100,7 @@ done <<eof
 $(notmuch search --output=files tag:inbox | grep 'T$' || true)
 eof
 # If its already been archived, mark it as such
-notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not "${inbox_query}" and not tag:archive
+notmuch tag +archive -inbox -- folder:"\"${archive}\"" and not "${inbox_query}" and not tag:archive and not tag:draft
 # If mail comes back into the inbox on the server, put it back here too.
 # A local archive removed its inbox copy before mbsync ran, so a copy here
 # now means it's back in the inbox. Don't restore deleted mail.

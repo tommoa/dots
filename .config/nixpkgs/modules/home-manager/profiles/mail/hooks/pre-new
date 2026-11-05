@@ -48,13 +48,19 @@ tag_to_folder() {
     # Usage: tag_to_folder "tag" "folder"
     tag="$1"
     folder="$2"
+    query="tag:${tag}"
+    # Don't make archive copies of drafts. aerc needs a single file when it
+    # replaces a recalled draft.
+    if [ "${tag}" = "archive" ]; then
+        query="${query} and not tag:draft"
+    fi
     # Some accounts don't have a folder for every tag. Without a folder,
     # insert would put the message in the account root instead.
     if [ -z "${folder}" ]; then
         printf 'Skipping tag_to_folder for tag "%s": no folder configured\n' "${tag}" >&2
         return 0
     fi
-    messages=$(notmuch search --output=messages --exclude=false tag:${tag} and not folder:"\"${folder}\"") || return 1
+    messages=$(notmuch search --output=messages --exclude=false "${query}" and not folder:"\"${folder}\"") || return 1
     while IFS= read -r message && [ -n "${message}" ];
     do
         files="$(notmuch search --output=files --exclude=false ${message})" || return 1
@@ -83,6 +89,10 @@ folder_prune() {
     tag="$1"
     folder="$2"
     query="folder:\"${folder}\" and not tag:${tag}"
+    # Leave any existing archive copies of drafts alone.
+    if [ "${tag}" = "archive" ]; then
+        query="${query} and not tag:draft"
+    fi
     # If this account doesn't use the tag, there's no folder to prune.
     if [ -z "${folder}" ]; then
         printf 'Skipping folder_prune for tag "%s": no folder configured\n' "${tag}" >&2
@@ -132,8 +142,15 @@ done <<eof
 ${tags}
 eof
 
-# If it doesn't have a tag, then mark it as archived
-notmuch tag +archive -- not tag:archive and not tag:inbox and not tag:deleted and not tag:sent $(printf "${tags}" | sed 's/^/and not tag:/') || copy_failed=1
+# If it doesn't have a routing tag, then mark it as archived.
+# Leave drafts where aerc saved them.
+archive_query='not tag:archive and not tag:inbox and not tag:deleted and not tag:sent and not tag:draft'
+while IFS= read -r tag && [ -n "${tag}" ]; do
+    archive_query="${archive_query} and not tag:${tag}"
+done <<eof
+${tags}
+eof
+notmuch tag +archive -- "${archive_query}" || copy_failed=1
 
 tag_to_folder archive "${archive}" || copy_failed=1
 
