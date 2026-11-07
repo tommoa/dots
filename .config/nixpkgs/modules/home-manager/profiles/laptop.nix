@@ -68,6 +68,9 @@ in {
   };
 
   xdg.configFile = {
+    # Walker discovers providers with `elephant listproviders` without --config.
+    # Expose the service's menus at the default path for that discovery too.
+    "elephant/menus".source = ./laptop/walker/menus;
     "walker/config.toml".source = ./laptop/walker/config.toml;
     "walker/themes/one-dark/style.css".text =
       builtins.replaceStrings
