@@ -8,29 +8,17 @@
   hex = color: "#${color}";
   defaultModel = config.my.codex.defaultModel;
   reasoningEffort = config.programs.codex.settings.model_reasoning_effort;
-  settings = pkgs.writeText "t3code-managed-settings.json" (builtins.toJSON {
-    "client-settings.json" = {
-      fontFamilySans = "DejaVu Sans Mono";
-      fontFamilyCode = "";
-      fontFamilyComposer = "";
-      fontFamilyTerminal = "";
-      fontSizeInterface = 16;
-      fontSizePrompt = 14;
-      fontSizeCode = 13;
-      fontSizeTerminal = 12;
-      fontSmoothing = true;
-      notificationMode = "off";
-      inAppNotificationsEnabled = false;
-      panelAnimationDurationMs = 0;
-    };
-    "settings.json" =
-      {
-        defaultTheme = "one-dark";
-        # Reapply palette changes once per client, without resetting on every rebuild.
-        defaultThemeSetAt = builtins.hashString "sha256" (builtins.toJSON themeDefinition);
-        defaultModelSelection = {
-          instanceId = "codex";
-          model = defaultModel;
+  defaultModelSelection = {
+    instanceId = "codex";
+    model = defaultModel;
+  };
+  # Home Manager replaces arrays. Merge these by identity before its settings
+  # activation so unrelated model options and custom models are retained.
+  modelSettings = pkgs.writeText "t3code-model-settings.json" (builtins.toJSON (
+    {
+      defaultModelSelection =
+        defaultModelSelection
+        // {
           options = [
             {
               id = "reasoningEffort";
@@ -38,31 +26,28 @@
             }
           ];
         };
-      }
-      # Corporate proxy IDs are absent from Codex's built-in model catalog.
-      // lib.optionalAttrs (lib.hasPrefix "ai-proxy/" defaultModel) {
-        providerInstances.codex = {
-          driver = "codex";
-          config.customModels = [
+    }
+    # Corporate proxy IDs are absent from Codex's built-in model catalog.
+    // lib.optionalAttrs (lib.hasPrefix "ai-proxy/" defaultModel) {
+      customModels = [
+        {
+          slug = defaultModel;
+          capabilities.optionDescriptors = [
             {
-              slug = defaultModel;
-              capabilities.optionDescriptors = [
-                {
-                  id = "reasoningEffort";
-                  label = "Reasoning";
-                  type = "select";
-                  options = map (effort: {
-                    id = effort;
-                    label = effort;
-                    isDefault = effort == reasoningEffort;
-                  }) (lib.unique ["low" "medium" "high" "xhigh" reasoningEffort]);
-                }
-              ];
+              id = "reasoningEffort";
+              label = "Reasoning";
+              type = "select";
+              options = map (effort: {
+                id = effort;
+                label = effort;
+                isDefault = effort == reasoningEffort;
+              }) (lib.unique ["low" "medium" "high" "xhigh" reasoningEffort]);
             }
           ];
-        };
-      };
-  });
+        }
+      ];
+    }
+  ));
   themeDefinition = {
     name = "One Dark";
     appearance = "dark";
@@ -93,13 +78,50 @@
   };
   theme = pkgs.writeText "t3code-one-dark.json" (builtins.toJSON themeDefinition);
 in {
-  home.packages = with pkgs; [t3code];
+  programs.t3code = {
+    enable = true;
+    package = pkgs.t3code;
+    mutableUserSettings = true;
+    mutableClientSettings = true;
+    userSettings = {
+      inherit defaultModelSelection;
+      defaultTheme = "one-dark";
+      # Reapply palette changes once per client, without resetting on every rebuild.
+      defaultThemeSetAt = builtins.hashString "sha256" (builtins.toJSON themeDefinition);
+      providerInstances = {
+        codex = {
+          driver = "codex";
+          enabled = config.programs.codex.enable;
+          config.binaryPath = lib.getExe config.programs.codex.package;
+        };
+        opencode = {
+          driver = "opencode";
+          enabled = config.programs.opencode.enable;
+          config.binaryPath = lib.getExe config.programs.opencode.package;
+        };
+      };
+    };
+    clientSettings = {
+      fontFamilySans = "DejaVu Sans Mono";
+      fontFamilyCode = "";
+      fontFamilyComposer = "";
+      fontFamilyTerminal = "";
+      fontSizeInterface = 16;
+      fontSizePrompt = 14;
+      fontSizeCode = 13;
+      fontSizeTerminal = 12;
+      fontSmoothing = true;
+      notificationMode = "off";
+      inAppNotificationsEnabled = false;
+      panelAnimationDurationMs = 0;
+    };
+  };
 
-  # T3 writes these files itself. Merge only managed preferences into regular,
-  # writable files, leaving provider configuration and UI state intact.
-  # Close T3 before activation so its cached settings cannot overwrite the merge.
-  home.activation.t3codeSettings = lib.hm.dag.entryAfter ["t3codeTheme"] ''
-    run ${lib.getExe pkgs.python3} ${./t3code-settings.py} "$HOME/.t3/userdata" ${settings}
+  # Normalize legacy client settings and merge model arrays before Home Manager
+  # merges ordinary preferences. Close T3 first to avoid its cached settings
+  # overwriting activation's changes.
+  home.activation.t3codeSettingsCompatibility = lib.hm.dag.entryBetween ["t3codeSettingsActivation" "t3codeClientSettingsActivation"] ["linkGeneration"] ''
+    run ${lib.getExe pkgs.python3} ${./t3code-settings.py} "$HOME/.t3/userdata" ${modelSettings}
   '';
 
   # T3 rejects symlinked themes. Publish a regular file atomically instead.

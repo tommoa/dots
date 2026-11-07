@@ -1,4 +1,4 @@
-"""Merge Nix-managed preferences into T3 Code's mutable settings files."""
+"""Prepare model arrays and legacy client settings for Home Manager's merger."""
 
 import json
 import os
@@ -19,36 +19,36 @@ def merge_model_selection(current, managed):
     return {**current, **managed, "options": options + managed["options"]}
 
 
-def merge_document(path, managed):
+def read_document(path):
     document = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     if not isinstance(document, dict):
         raise ValueError(f"{path}: expected a settings object; file left unchanged")
-    # Older desktop clients wrapped their preferences in a settings property.
-    wrapped = path.name == "client-settings.json" and "settings" in document
-    current = document["settings"] if wrapped else document
-    if not isinstance(current, dict):
-        raise ValueError(f"{path}: expected a settings object; file left unchanged")
-    updated = {**current, **managed}
-    if "defaultModelSelection" in managed:
-        updated["defaultModelSelection"] = merge_model_selection(
+    return document
+
+
+def merge_model_settings(current, managed):
+    updated = {
+        **current,
+        "defaultModelSelection": merge_model_selection(
             current.get("defaultModelSelection"), managed["defaultModelSelection"]
-        )
-    if "providerInstances" in managed:
+        ),
+    }
+    if "customModels" in managed:
+        instance_id = managed["defaultModelSelection"]["instanceId"]
         instances = dict(current.get("providerInstances", {}))
-        for instance_id, preferences in managed["providerInstances"].items():
-            instance = instances.get(instance_id, {})
-            existing_config = instance.get("config", {})
-            provider_config = {**existing_config, **preferences["config"]}
-            managed_models = preferences["config"]["customModels"]
-            managed_slugs = {model["slug"] for model in managed_models}
-            provider_config["customModels"] = [
-                model for model in existing_config.get("customModels", [])
-                if (model if isinstance(model, str) else model.get("slug")) not in managed_slugs
-            ] + managed_models
-            instances[instance_id] = {**instance, **preferences, "config": provider_config}
+        instance = instances.get(instance_id, {})
+        existing_config = instance.get("config", {})
+        managed_slugs = {model["slug"] for model in managed["customModels"]}
+        custom_models = [
+            model for model in existing_config.get("customModels", [])
+            if (model if isinstance(model, str) else model.get("slug")) not in managed_slugs
+        ] + managed["customModels"]
+        instances[instance_id] = {
+            **instance,
+            "config": {**existing_config, "customModels": custom_models},
+        }
         updated["providerInstances"] = instances
-    result = {**document, "settings": updated} if wrapped else updated
-    return result, result != document or path.is_symlink() or not path.exists()
+    return updated
 
 
 def write_document(path, document):
@@ -65,14 +65,25 @@ def write_document(path, document):
 
 
 def apply_settings(directory, managed):
+    settings_path = directory / "settings.json"
+    current = read_document(settings_path)
+    updates = [(settings_path, current, merge_model_settings(current, managed))]
+    client_path = directory / "client-settings.json"
+    if client_path.exists():
+        client = read_document(client_path)
+        normalized = client
+        # Older clients read only the wrapped settings. Flatten them before
+        # Home Manager merges its preferences into the top-level object.
+        if "settings" in client:
+            if not isinstance(client["settings"], dict):
+                raise ValueError(f"{client_path}: expected a settings object; file left unchanged")
+            normalized = {**client, **client["settings"]}
+            del normalized["settings"]
+        updates.append((client_path, client, normalized))
     # Decode every input before writing, so a malformed file prevents all changes.
-    updates = [
-        (directory / name, *merge_document(directory / name, preferences))
-        for name, preferences in managed.items()
-    ]
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    for path, document, changed in updates:
-        if changed:
+    for path, current, document in updates:
+        if document != current or path.is_symlink() or not path.exists():
             write_document(path, document)
 
 
