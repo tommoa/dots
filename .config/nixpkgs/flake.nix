@@ -351,6 +351,7 @@
       homeConfig =
         personalHomeConfig
         // {
+          # Automatic login needs a separate secret to unlock the keyring.
           profiles = personalHomeConfig.profiles ++ ["secrets/keyring-unlock"];
           extraModules = [
             {
@@ -366,12 +367,7 @@
       homeConfig =
         personalHomeConfig
         // {
-          profiles =
-            personalHomeConfig.profiles
-            ++ [
-              "secrets/keyring-unlock"
-              "laptop"
-            ];
+          profiles = personalHomeConfig.profiles ++ ["laptop"];
           extraModules = [
             {
               # Select the AMD CPU sensor on Peter's hardware.
