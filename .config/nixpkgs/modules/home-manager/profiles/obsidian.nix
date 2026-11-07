@@ -23,7 +23,14 @@
     "Outputs/site/result"
     "Outputs/site/target"
   ];
+  # Desktop Sync must be disconnected locally when headless Sync owns the vault.
   syncConfigs = [
+    "app"
+    "appearance"
+    "appearance-data"
+    "hotkey"
+    "community-plugin"
+    "community-plugin-data"
     "core-plugin"
     "core-plugin-data"
   ];
