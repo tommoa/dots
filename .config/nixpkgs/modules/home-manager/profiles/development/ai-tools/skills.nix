@@ -4,8 +4,13 @@
   config,
   ...
 }: let
+  opencodeAIProxyAvailable =
+    config.my.opencode.enable
+    && config.my.aiProxy.enable
+    && config.my.opencode.provider == "cli-proxy-api";
   opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.provider == "litellm";
   piLiteLLMEnabled = config.my.pi.enable && config.my.pi.provider == "litellm";
+  piCliProxyEnabled = config.my.pi.enable && config.my.pi.provider == "cli-proxy-api";
   codexAIProxyAvailable =
     config.my.aiProxy.enable
     && (config.programs.codex.settings.model_provider or null) == "cli_proxy_api";
@@ -36,18 +41,44 @@
     codexAIProxy = ''
       ## Provider continuity
 
-      This configuration exposes corporate models through CLIProxyAPI under
-      `ai-proxy/*`. Use those slugs or other approved corporate models for
-      proprietary work. Inspect `~/.codex/config.toml` when the active model or
-      subagent provider matters.
+      CLIProxyAPI serves both corporate `ai-proxy/*` models and unprefixed
+      subscription models. Identify the active parent model's upstream route
+      before selecting a subagent: preserve `ai-proxy/` for a corporate parent
+      and use the unprefixed route for a subscription parent. The shared
+      `cli_proxy_api` provider name alone does not identify the upstream.
+      Inspect the active session's model when available; `~/.codex/config.toml`
+      provides defaults, which may differ from the active session.
+
+      Check the configured subagent default as well: it may point to a different
+      upstream from the active parent. Select the matching supported model ID
+      explicitly when necessary and permitted by the harness. If continuity
+      cannot be established or enforced, ask before delegating. Proprietary
+      work must stay on an approved corporate provider.
+
+    '';
+    opencodeAIProxy = ''
+      ## Provider continuity
+
+      CLIProxyAPI serves both corporate `ai-proxy/*` models and unprefixed
+      subscription models under the same `cli_proxy_api` provider. Inspect the
+      active parent model and available models in the current harness; preserve
+      the parent's upstream route when selecting a subagent.
+      The provider name alone does not identify the upstream. Check any configured
+      subagent default before relying on it, and select a matching supported ID
+      when necessary and permitted. If continuity cannot be established or
+      enforced, ask before delegating. Proprietary work must stay on an approved
+      corporate provider.
 
     '';
     liteLLM = ''
       ## Provider continuity
 
-      Use model IDs discovered from the configured corporate AI proxy. If the
-      selected model uses LiteLLM, choose alternatives from that same provider.
-      If it does not use LiteLLM, do not introduce a LiteLLM model ID.
+      Identify the active parent model's provider before selecting a subagent.
+      If it uses LiteLLM, choose a supported model ID discovered from that same
+      corporate provider. Otherwise, preserve the parent's provider and do not
+      introduce a LiteLLM model ID. Check any configured subagent default before
+      relying on it. If continuity cannot be established or enforced, ask before
+      delegating. Proprietary work must stay on an approved corporate provider.
 
     '';
   };
@@ -70,10 +101,14 @@
     guidance = lib.optionalString codexAIProxyAvailable providerGuidance.codexAIProxy;
   };
   opencodeModelSelectionSkill = modelSelectionSkill {
-    guidance = lib.optionalString opencodeLiteLLMEnabled providerGuidance.liteLLM;
+    guidance =
+      lib.optionalString opencodeAIProxyAvailable providerGuidance.opencodeAIProxy
+      + lib.optionalString opencodeLiteLLMEnabled providerGuidance.liteLLM;
   };
   piModelSelectionSkill = modelSelectionSkill {
-    guidance = lib.optionalString piLiteLLMEnabled providerGuidance.liteLLM;
+    guidance =
+      lib.optionalString piCliProxyEnabled providerGuidance.opencodeAIProxy
+      + lib.optionalString piLiteLLMEnabled providerGuidance.liteLLM;
   };
   sharedSkillSources = {
     api-design-evaluation = ../ai-skills/api-design-evaluation;
