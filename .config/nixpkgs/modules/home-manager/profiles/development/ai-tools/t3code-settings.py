@@ -1,4 +1,4 @@
-"""Prepare model arrays and legacy client settings for Home Manager's merger."""
+"""Merge desktop preferences and prepare model/client settings for Home Manager."""
 
 import json
 import os
@@ -68,6 +68,10 @@ def apply_settings(directory, managed):
     settings_path = directory / "settings.json"
     current = read_document(settings_path)
     updates = [(settings_path, current, merge_model_settings(current, managed))]
+    if desktop_settings := managed.get("desktopSettings"):
+        desktop_path = directory / "desktop-settings.json"
+        desktop = read_document(desktop_path)
+        updates.append((desktop_path, desktop, {**desktop, **desktop_settings}))
     client_path = directory / "client-settings.json"
     if client_path.exists():
         client = read_document(client_path)

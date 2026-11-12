@@ -356,6 +356,9 @@
           profiles = personalHomeConfig.profiles ++ ["secrets/keyring-unlock"];
           extraModules = [
             {
+              # James runs T3 as a background service; the desktop pairs with it.
+              my.t3code.desktopLocalEnvironmentEnabled = false;
+
               # This sensor path is specific to James's hardware.
               programs.waybar.settings.mainBar.temperature."hwmon-path-abs" = "/sys/devices/pci0000:00/0000:00:18.3/hwmon";
             }

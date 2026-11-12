@@ -14,8 +14,11 @@
   };
   # Home Manager replaces arrays. Merge these by identity before its settings
   # activation so unrelated model options and custom models are retained.
-  modelSettings = pkgs.writeText "t3code-model-settings.json" (builtins.toJSON (
+  managedSettings = pkgs.writeText "t3code-managed-settings.json" (builtins.toJSON (
     {
+      desktopSettings = lib.optionalAttrs (config.my.t3code.desktopLocalEnvironmentEnabled != null) {
+        localEnvironmentEnabled = config.my.t3code.desktopLocalEnvironmentEnabled;
+      };
       defaultModelSelection =
         defaultModelSelection
         // {
@@ -78,57 +81,69 @@
   };
   theme = pkgs.writeText "t3code-one-dark.json" (builtins.toJSON themeDefinition);
 in {
-  programs.t3code = {
-    enable = true;
-    package = pkgs.t3code;
-    mutableUserSettings = true;
-    mutableClientSettings = true;
-    userSettings = {
-      inherit defaultModelSelection;
-      defaultTheme = "one-dark";
-      # Reapply palette changes once per client, without resetting on every rebuild.
-      defaultThemeSetAt = builtins.hashString "sha256" (builtins.toJSON themeDefinition);
-      providerInstances = {
-        codex = {
-          driver = "codex";
-          enabled = config.programs.codex.enable;
-          config.binaryPath = lib.getExe config.programs.codex.package;
-        };
-        opencode = {
-          driver = "opencode";
-          enabled = config.programs.opencode.enable;
-          config.binaryPath = lib.getExe config.programs.opencode.package;
-        };
-      };
-    };
-    clientSettings = {
-      fontFamilySans = "monospace";
-      fontFamilyCode = "monospace";
-      fontFamilyComposer = "monospace";
-      fontFamilyTerminal = "monospace";
-      fontSizeInterface = 16;
-      fontSizePrompt = 14;
-      fontSizeCode = 13;
-      fontSizeTerminal = 12;
-      fontSmoothing = true;
-      notificationMode = "off";
-      inAppNotificationsEnabled = false;
-      panelAnimationDurationMs = 0;
-    };
+  options.my.t3code.desktopLocalEnvironmentEnabled = lib.mkOption {
+    type = lib.types.nullOr lib.types.bool;
+    default = null;
+    description = ''
+      Whether the T3 desktop app starts its own local server. Null leaves the
+      desktop preference unmanaged. Set false to use an independently running
+      server, which must be paired with the desktop once outside Nix.
+    '';
   };
 
-  # Normalize legacy client settings and merge model arrays before Home Manager
-  # merges ordinary preferences. Close T3 first to avoid its cached settings
-  # overwriting activation's changes.
-  home.activation.t3codeSettingsCompatibility = lib.hm.dag.entryBetween ["t3codeSettingsActivation" "t3codeClientSettingsActivation"] ["linkGeneration"] ''
-    run ${lib.getExe pkgs.python3} ${./t3code-settings.py} "$HOME/.t3/userdata" ${modelSettings}
-  '';
+  config = {
+    programs.t3code = {
+      enable = true;
+      package = pkgs.t3code;
+      mutableUserSettings = true;
+      mutableClientSettings = true;
+      userSettings = {
+        inherit defaultModelSelection;
+        defaultTheme = "one-dark";
+        # Reapply palette changes once per client, without resetting on every rebuild.
+        defaultThemeSetAt = builtins.hashString "sha256" (builtins.toJSON themeDefinition);
+        providerInstances = {
+          codex = {
+            driver = "codex";
+            enabled = config.programs.codex.enable;
+            config.binaryPath = lib.getExe config.programs.codex.package;
+          };
+          opencode = {
+            driver = "opencode";
+            enabled = config.programs.opencode.enable;
+            config.binaryPath = lib.getExe config.programs.opencode.package;
+          };
+        };
+      };
+      clientSettings = {
+        fontFamilySans = "monospace";
+        fontFamilyCode = "monospace";
+        fontFamilyComposer = "monospace";
+        fontFamilyTerminal = "monospace";
+        fontSizeInterface = 16;
+        fontSizePrompt = 14;
+        fontSizeCode = 13;
+        fontSizeTerminal = 12;
+        fontSmoothing = true;
+        notificationMode = "off";
+        inAppNotificationsEnabled = false;
+        panelAnimationDurationMs = 0;
+      };
+    };
 
-  # T3 rejects symlinked themes. Publish a regular file atomically instead.
-  home.activation.t3codeTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    theme_dir="$HOME/.t3/userdata/themes"
-    run mkdir -p "$theme_dir"
-    run install -m 644 ${theme} "$theme_dir/.one-dark.json.tmp"
-    run mv -f "$theme_dir/.one-dark.json.tmp" "$theme_dir/one-dark.json"
-  '';
+    # Merge desktop preferences, normalize legacy client settings, and merge model
+    # arrays before Home Manager merges ordinary preferences. Close the desktop
+    # first to avoid its cached settings overwriting activation's changes.
+    home.activation.t3codeSettingsCompatibility = lib.hm.dag.entryBetween ["t3codeSettingsActivation" "t3codeClientSettingsActivation"] ["linkGeneration"] ''
+      run ${lib.getExe pkgs.python3} ${./t3code-settings.py} "$HOME/.t3/userdata" ${managedSettings}
+    '';
+
+    # T3 rejects symlinked themes. Publish a regular file atomically instead.
+    home.activation.t3codeTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
+      theme_dir="$HOME/.t3/userdata/themes"
+      run mkdir -p "$theme_dir"
+      run install -m 644 ${theme} "$theme_dir/.one-dark.json.tmp"
+      run mv -f "$theme_dir/.one-dark.json.tmp" "$theme_dir/one-dark.json"
+    '';
+  };
 }
