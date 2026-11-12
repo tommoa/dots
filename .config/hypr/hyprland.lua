@@ -2,15 +2,16 @@
 -- Monitors
 ----------------
 
--- High-refresh VRR display: DP-3 at 2560x1440@165Hz.
+-- High-refresh display: DP-3 at 2560x1440@165Hz.
 hl.monitor({
     output = "DP-3",
     mode = "2560x1440@165",
     position = "auto",
     scale = "auto",
-    bitdepth = 10,
+    bitdepth = 8,
     -- cm = "hdr",
-    vrr = 2,
+    -- Fullscreen VRR causes the display to lose its picture in CS2.
+    vrr = 0,
 })
 
 hl.monitor({
@@ -203,11 +204,11 @@ hl.window_rule({ name = "discord-workspace", match = { class = "discord" }, work
 hl.window_rule({ name = "obsidian-workspace", match = { class = "obsidian" }, workspace = "5 silent" })
 hl.window_rule({ name = "steam-workspace", match = { class = "steam" }, workspace = "6 silent" })
 
-hl.window_rule({ name = "cs2-workspace", match = { class = "^(cs2)$" }, workspace = "7 silent", immediate = true })
+hl.window_rule({ name = "cs2-workspace", match = { class = "^(cs2)$" }, workspace = "7 silent" }) --, immediate = true })
 hl.window_rule({ name = "gamescope-workspace", match = { class = "^(gamescope)$" }, workspace = "7 silent", immediate = true })
 hl.window_rule({ name = "deadlock-workspace", match = { class = "^(deadlock)$" }, workspace = "7 silent", immediate = true })
 hl.window_rule({ name = "hollow-knight-workspace", match = { class = "^(Hollow Knight Silksong)$" }, workspace = "7 silent", immediate = true })
-hl.window_rule({ name = "aoe-workspace", match = { title = "Age of Empires .*" }, workspace = "7 silent", immediate = true })
+hl.window_rule({ name = "aoe-workspace", match = { title = "Age of Empires .*" }, workspace = "7 silent", }) --immediate = true })
 
 -- Picture-in-picture overlays.
 hl.window_rule({ name = "tag-pip", match = { title = "(Picture.?in.?[Pp]icture)" }, tag = "+pip" })
