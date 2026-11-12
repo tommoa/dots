@@ -9,8 +9,8 @@
     patches =
       (old.patches or [])
       ++ [
-        ./cli-proxy-api-codex-input-modalities.patch
-        ./cli-proxy-api-model-capabilities.patch
+        ./cli-proxy-api/patches/codex-input-modalities.patch
+        ./cli-proxy-api/patches/model-capabilities.patch
       ];
   });
   proxyBinary = "${proxyPackage}/bin/cli-proxy-api";
@@ -65,8 +65,8 @@
       };
     };
   proxyConfigGeneratorSource = pkgs.runCommandLocal "cli-proxy-api-config-generator" {} ''
-    mkdir -p "$out/ai-providers"
-    cp ${./cli-proxy-api-config.ts} "$out/cli-proxy-api-config.ts"
+    mkdir -p "$out/cli-proxy-api" "$out/ai-providers"
+    cp ${./cli-proxy-api/config.ts} "$out/cli-proxy-api/config.ts"
     cp ${./ai-providers/routing.ts} "$out/ai-providers/routing.ts"
   '';
   proxyConfigRefresh = pkgs.writeShellApplication {
@@ -77,7 +77,7 @@
     ];
     text = ''
       exec flock "${proxyRuntimeConfig}.lock" \
-        bun run ${proxyConfigGeneratorSource}/cli-proxy-api-config.ts \
+        bun run ${proxyConfigGeneratorSource}/cli-proxy-api/config.ts \
           "${proxyRuntimeBase}" ${aiProxyOptions} "${proxyRuntimeConfig}"
     '';
   };
