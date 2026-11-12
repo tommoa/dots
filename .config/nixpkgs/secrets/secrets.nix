@@ -32,10 +32,6 @@ let
   personalSecrets = users ++ [apollo];
 in {
   # AI API keys
-  "ai/anthropic.age".publicKeys = all;
-  "ai/openai.age".publicKeys = all;
-  "ai/opencode-zen.age".publicKeys = all;
-  "ai/openrouter.age".publicKeys = all;
   "ai/litellm.age".publicKeys = workSecrets;
 
   # Mozilla Add-ons signing credentials
@@ -66,11 +62,6 @@ in {
   "arista-report/arista-report-format.age".publicKeys = workSecrets;
   "arista-report/arista-report-lib.age".publicKeys = workSecrets;
   "arista-report/arista-status-report-skill.age".publicKeys = workSecrets;
-
-  # Search engine API keys
-  "search-engines/google-api-key.age".publicKeys = all;
-  "search-engines/google-engine-id.age".publicKeys = all;
-  "search-engines/tavily-api-key.age".publicKeys = all;
 
   # SSH deploy keys
   # Provision the user decryption identity separately at age.identityPaths;

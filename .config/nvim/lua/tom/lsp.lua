@@ -148,25 +148,6 @@ M.configs['ts_ls'] = {}
 -- Zig
 M.configs['zls'] = {}
 
-local ai_lsp_path = vim.fs.joinpath(vim.uv.os_homedir(), 'docs', 'ai-lsp', 'src', 'index.ts')
-if vim.uv.fs_stat(ai_lsp_path) then
-    -- My own LSP check
-    M.configs['ai-lsp'] = {
-        init_options = {
-            -- providers = {
-            --     google = {
-            --         model = "gemini-flash-latest",
-            --     },
-            -- },
-            model = "google-vertex/gemini-2.5-flash",
-            -- model = "openrouter/google/gemini-2.5-flash",
-            -- model = "openrouter/openai/gpt-4.1-mini",
-            -- model = "openai/gpt-5-nano",
-        },
-        cmd = { 'bun', 'run', ai_lsp_path, '--stdio' },
-    }
-end
-
 -- Rust will be setup by `rustaceanvim`
 
 for server, config in pairs(M.configs) do

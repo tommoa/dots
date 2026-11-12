@@ -21,61 +21,10 @@ export PYTHONPATH="${HOME}/lib/python:${PYTHONPATH}"
 export CARGO_HOME="${HOME}/.cargo"
 export RUSTUP_HOME="${HOME}/.rustup"
 
-if [ -e "${HOME}/.config/search-engines/google-api-key" ]
-then
-    read -r GOOGLE_SEARCH_API_KEY < "${HOME}/.config/search-engines/google-api-key"
-    read -r GOOGLE_SEARCH_ENGINE_ID < "${HOME}/.config/search-engines/google-engine-id"
-    export GOOGLE_SEARCH_API_KEY GOOGLE_SEARCH_ENGINE_ID
-fi
-
-if [ -e "${HOME}/.config/search-engines/tavily-api-key" ]
-then
-    read -r TAVILY_API_KEY < "${HOME}/.config/search-engines/tavily-api-key"
-    export TAVILY_API_KEY
-fi
-
-if [ -e "${HOME}/.config/ai-keys/gemini" ]
-then
-    read -r GEMINI_API_KEY < "${HOME}/.config/ai-keys/gemini"
-    export GEMINI_API_KEY
-fi
-
-if [ -e "${HOME}/.config/ai-keys/openai" ]
-then
-    read -r OPENAI_API_KEY < "${HOME}/.config/ai-keys/openai"
-    export OPENAI_API_KEY
-fi
-
-if [ -e "${HOME}/.config/ai-keys/anthropic" ]
-then
-    read -r ANTHROPIC_API_KEY < "${HOME}/.config/ai-keys/anthropic"
-    export ANTHROPIC_API_KEY
-fi
-
-if [ -e "${HOME}/.config/ai-keys/openrouter" ]
-then
-    read -r OPENROUTER_API_KEY < "${HOME}/.config/ai-keys/openrouter"
-    export OPENROUTER_API_KEY
-fi
-
-if [ -e "${HOME}/.config/ai-keys/opencode-zen" ]
-then
-    read -r OPENCODE_API_KEY < "${HOME}/.config/ai-keys/opencode-zen"
-    export OPENCODE_API_KEY
-fi
-
 if [ -e "${HOME}/.config/ai-keys/litellm" ]
 then
     read -r LITELLM_API_KEY < "${HOME}/.config/ai-keys/litellm"
     export LITELLM_API_KEY
-fi
-
-if [ -e "${HOME}/.config/ai-keys/vertex" ]
-then
-    read -r GOOGLE_API_KEY < "${HOME}/.config/ai-keys/vertex"
-    read -r GOOGLE_CLOUD_PROJECT < "${HOME}/.config/ai-keys/vertex-project"
-    export GOOGLE_API_KEY GOOGLE_CLOUD_PROJECT
-    export GOOGLE_CLOUD_LOCATION=global
 fi
 
 case "$(uname)" in
