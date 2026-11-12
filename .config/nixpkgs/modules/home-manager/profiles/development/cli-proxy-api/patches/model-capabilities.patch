@@ -1,6 +1,15 @@
 --- a/internal/config/config_types.go
 +++ b/internal/config/config_types.go
-@@ -865,6 +865,9 @@
+@@ -922,24 +922,27 @@
+ 
+ // CodexModel describes a mapping between an alias and the actual upstream model name.
+ type CodexModel struct {
+ 	// Name is the upstream model identifier used when issuing requests.
+ 	Name string `yaml:"name" json:"name"`
+ 
+ 	// Alias is the client-facing model name that maps to Name.
+ 	Alias string `yaml:"alias" json:"alias"`
+ 
  	// DisplayName is the optional human-readable name shown in model catalogs.
  	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
  
@@ -10,7 +19,25 @@
  	// MaxContextLength overrides the context window advertised to Codex clients.
  	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
  
-@@ -893,6 +896,8 @@
+ 	// InputModalities declares supported input capabilities for Codex clients.
+ 	InputModalities []string `yaml:"input-modalities,omitempty" json:"input-modalities,omitempty"`
+ 
+ 	// ForceMapping rewrites upstream response model fields back to Alias.
+ 	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
+ 
+ 	// IsCompat converts Codex MultiAgentV2 agent_message items into portable
+ 	// Responses message/user input when client.codex.optimize-multi-agent-v2 is also true.
+ 	// Use this for third-party Responses-compatible endpoints that do not accept
+@@ -951,24 +954,26 @@
+ 	// SupportConfigurationUpdate enables configuration_update for this API-key model.
+ 	// It defaults to false, independently of the built-in OAuth model catalog.
+ 	SupportConfigurationUpdate bool `yaml:"support-configuration-update,omitempty" json:"support-configuration-update,omitempty"`
+ 
+ 	// Thinking configures the thinking/reasoning capability for this model.
+ 	Thinking *registry.ThinkingSupport `yaml:"thinking,omitempty" json:"thinking,omitempty"`
+ }
+ 
+ func (m CodexModel) GetName() string { return m.Name }
  
  func (m CodexModel) GetAlias() string { return m.Alias }
  
@@ -19,7 +46,25 @@
  func (m CodexModel) GetDisplayName() string       { return m.DisplayName }
  func (m CodexModel) GetMaxContextLength() int     { return m.MaxContextLength }
  func (m CodexModel) GetInputModalities() []string { return m.InputModalities }
-@@ -1083,6 +1088,9 @@
+ func (m CodexModel) GetForceMapping() bool        { return m.ForceMapping }
+ func (m CodexModel) GetIsCompat() bool            { return m.IsCompat }
+ 
+ func (m CodexModel) GetThinking() *registry.ThinkingSupport { return m.Thinking }
+ 
+ // XAIKey uses the Codex API key structure for native xAI execution.
+ type XAIKey = CodexKey
+ 
+ // XAIModel uses the Codex model mapping structure for xAI models.
+@@ -1141,24 +1146,27 @@
+ // OpenAICompatibilityModel represents a model configuration for OpenAI compatibility,
+ // including the actual model name and its alias for API routing.
+ type OpenAICompatibilityModel struct {
+ 	// Name is the actual model name used by the external provider.
+ 	Name string `yaml:"name" json:"name"`
+ 
+ 	// Alias is the model name alias that clients will use to reference this model.
+ 	Alias string `yaml:"alias" json:"alias"`
+ 
  	// DisplayName is the optional human-readable name shown in model catalogs.
  	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
  
@@ -29,7 +74,25 @@
  	// MaxContextLength overrides the context window advertised to Codex clients.
  	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
  
-@@ -1115,6 +1123,8 @@
+ 	// ForceMapping rewrites upstream response model fields back to Alias.
+ 	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
+ 
+ 	// Image marks this model as callable through /v1/images/generations and /v1/images/edits.
+ 	Image bool `yaml:"image,omitempty" json:"image,omitempty"`
+ 
+ 	// InputModalities declares chat/responses input capabilities (e.g. text, image) for Codex and other clients.
+ 	// This is separate from Image, which only enables /v1/images/* endpoints.
+ 	InputModalities []string `yaml:"input-modalities,omitempty" json:"input-modalities,omitempty"`
+@@ -1173,20 +1181,22 @@
+ 	// UseMaxCompletionTokens emits max_completion_tokens instead of legacy max_tokens for this model.
+ 	// Default false preserves max_tokens for older compatible upstreams.
+ 	UseMaxCompletionTokens bool `yaml:"use-max-completion-tokens,omitempty" json:"use-max-completion-tokens,omitempty"`
+ 
+ 	// Thinking configures the thinking/reasoning capability for this model.
+ 	// If nil, the model defaults to level-based reasoning with levels ["low", "medium", "high"].
+ 	Thinking *registry.ThinkingSupport `yaml:"thinking,omitempty" json:"thinking,omitempty"`
+ }
+ 
  func (m OpenAICompatibilityModel) GetName() string { return m.Name }
  
  func (m OpenAICompatibilityModel) GetAlias() string { return m.Alias }
@@ -38,6 +101,11 @@
  
  func (m OpenAICompatibilityModel) GetDisplayName() string          { return m.DisplayName }
  func (m OpenAICompatibilityModel) GetMaxContextLength() int        { return m.MaxContextLength }
+ func (m OpenAICompatibilityModel) GetForceMapping() bool           { return m.ForceMapping }
+ func (m OpenAICompatibilityModel) GetIsCompat() bool               { return m.IsCompat }
+ func (m OpenAICompatibilityModel) GetUseMaxCompletionTokens() bool { return m.UseMaxCompletionTokens }
+ 
+ func (m OpenAICompatibilityModel) GetThinking() *registry.ThinkingSupport { return m.Thinking }
 --- a/internal/modelconfig/model_hash.go
 +++ b/internal/modelconfig/model_hash.go
 @@ -20,7 +20,7 @@
