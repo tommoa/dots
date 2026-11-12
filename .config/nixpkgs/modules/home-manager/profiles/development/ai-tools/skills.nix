@@ -88,6 +88,7 @@
     obscurity-review = ../ai-skills/obscurity-review;
     rethink = ../ai-skills/rethink;
     simplification-loop = ../ai-skills/simplification-loop;
+    socratic-tutor = ../ai-skills/socratic-tutor;
     ui-design-evaluation = ../ai-skills/ui-design-evaluation;
   };
   withModelSelection = modelSelection: sharedSkillSources // {model-selection = modelSelection;};
