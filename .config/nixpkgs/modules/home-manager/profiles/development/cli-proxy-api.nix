@@ -42,7 +42,12 @@
       # Nix-store config with a bcrypt hash at startup.
       secret-key = "";
     };
-    routing.strategy = "fill-first";
+    routing = {
+      strategy = "fill-first";
+      session-affinity = false;
+    };
+    request-retry = 0;
+    max-retry-credentials = 0;
     ws-auth = true;
   };
   aiProxyOptions =
@@ -80,10 +85,22 @@
     if config.my.aiProxy.enable
     then proxyRuntimeConfig
     else proxyConfigBase;
+  applyAccountPriorities = pkgs.writeShellApplication {
+    name = "cli-proxy-api-apply-priorities";
+    runtimeInputs = [pkgs.coreutils pkgs.curl pkgs.jq];
+    text =
+      ''
+        default_auth_dir=${lib.escapeShellArg proxyHome}
+        priorities=${lib.escapeShellArg (builtins.toJSON config.my.cliProxyApi.accountPriorities)}
+        management_url=${lib.escapeShellArg "http://127.0.0.1:${toString config.my.cliProxyApi.port}/v0/management"}
+      ''
+      + builtins.readFile ./cli-proxy-api/apply-priorities.sh;
+  };
   codexLogin = pkgs.writeShellApplication {
     name = "cli-proxy-api-codex-login";
     text = ''
-      exec ${proxyBinary} -config "${proxyConfigBase}" -codex-login "$@"
+      ${proxyBinary} -config "${proxyConfigBase}" -codex-login "$@"
+      exec ${applyAccountPriorities}/bin/cli-proxy-api-apply-priorities
     '';
   };
 in {
@@ -92,6 +109,11 @@ in {
       type = lib.types.port;
       default = 8317;
       description = "Local port for CLIProxyAPI";
+    };
+    accountPriorities = lib.mkOption {
+      type = lib.types.attrsOf lib.types.int;
+      default = {};
+      description = "Codex OAuth account priorities by email. Higher values are preferred; unknown accounts are left unchanged.";
     };
   };
 
@@ -109,6 +131,7 @@ in {
     home.packages =
       [
         proxyPackage
+        applyAccountPriorities
         codexLogin
       ]
       ++ lib.optional config.my.aiProxy.enable proxyConfigRefresh;
@@ -116,6 +139,10 @@ in {
     home.activation.cliProxyApiDirectories = lib.hm.dag.entryAfter ["writeBoundary"] ''
       run mkdir -p "${proxyHome}/logs"
       run chmod 700 "${proxyHome}" "${proxyHome}/logs"
+    '';
+
+    home.activation.cliProxyApiAccountPriorities = lib.hm.dag.entryAfter ["cliProxyApiDirectories"] ''
+      run ${applyAccountPriorities}/bin/cli-proxy-api-apply-priorities
     '';
 
     # Preserve the last successful discovery across generations. The runtime

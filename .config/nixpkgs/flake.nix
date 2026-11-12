@@ -265,7 +265,7 @@
         "waybar"
         "walker"
         "development"
-        "development/cli-proxy-api"
+        "development/cli-proxy-api/personal"
         "mail"
         "obsidian"
         "secrets/ai"
@@ -343,7 +343,7 @@
       homeConfig =
         workHomeConfig
         // {
-          profiles = workHomeConfig.profiles ++ ["development/cli-proxy-api"];
+          profiles = workHomeConfig.profiles ++ ["development/cli-proxy-api/personal"];
         };
     };
 
