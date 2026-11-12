@@ -102,10 +102,10 @@ in {
       };
     };
     clientSettings = {
-      fontFamilySans = "DejaVu Sans Mono";
-      fontFamilyCode = "";
-      fontFamilyComposer = "";
-      fontFamilyTerminal = "";
+      fontFamilySans = "monospace";
+      fontFamilyCode = "monospace";
+      fontFamilyComposer = "monospace";
+      fontFamilyTerminal = "monospace";
       fontSizeInterface = 16;
       fontSizePrompt = 14;
       fontSizeCode = 13;
