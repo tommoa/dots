@@ -4,6 +4,13 @@ inputs: self: super: let
     config.allowUnfree = true;
   };
 
+  t3codePackages = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system};
+  t3codeUnwrapped = t3codePackages.t3code.unwrapped.overrideAttrs (old: {
+    # The frontend hides T3 Connect unless its build includes the JWT template.
+    # Upstream fix: https://github.com/numtide/llm-agents.nix/pull/11699
+    env = old.env // {T3CODE_CLERK_JWT_TEMPLATE = "t3-relay";};
+  });
+
   neovim-unwrapped-wasm =
     (unstable.neovim-unwrapped.override {
       wasmSupport = true;
@@ -23,6 +30,6 @@ in {
   opencode = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode;
   opencode2 = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode2;
   pi-coding-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.pi;
-  t3code = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.t3code;
-  t3code-desktop = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.t3code-desktop;
+  t3code = t3codePackages.t3code.override {t3code-unwrapped = t3codeUnwrapped;};
+  t3code-desktop = t3codePackages.t3code-desktop.override {t3code = self.t3code;};
 }
