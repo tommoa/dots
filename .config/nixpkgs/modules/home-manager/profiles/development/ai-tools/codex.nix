@@ -85,6 +85,37 @@ in {
         # The source-built Nix package does not provide the standalone package
         # layout required by Codex's managed background daemon.
         features.daemon_auto_start = false;
+        mcp_servers.cua_repl = lib.mkIf pkgs.stdenv.isDarwin {
+          # Reuse the installed desktop integration's environment and launch
+          # settings without pinning its changing cache version or copying them.
+          command = lib.getExe pkgs.python3;
+          args = [
+            "-c"
+            ''
+              import json
+              import os
+              from pathlib import Path
+
+              home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+              configs = list((home / "plugins/cache/openai-bundled/unified-computer-use").glob("*/.mcp.json"))
+              if not configs:
+                  raise SystemExit("Codex desktop computer-use integration is not installed.")
+              config = max(configs, key=lambda path: path.stat().st_mtime)
+              server = json.loads(config.read_text())["mcpServers"]["cua_repl"]
+              env = dict(os.environ, **server.get("env", {}))
+              os.execvpe(server["command"], [server["command"], *server.get("args", [])], env)
+            ''
+          ];
+          # Codex filters MCP environments before the launcher can read them.
+          env_vars = [
+            "CODEX_HOME"
+            "BROWSER_USE_ACCESS_EXECUTOR_ID"
+            "BROWSER_USE_ACCESS_PIPE_PATH"
+            "BROWSER_USE_ACCESS_VERIFYING_IDENTITY"
+          ];
+          enabled_tools = ["js" "js_reset" "turn_ended"];
+          startup_timeout_sec = 120;
+        };
         agents = {
           default_subagent_model = config.my.codex.subagentModel;
           default_subagent_reasoning_effort = "high";
