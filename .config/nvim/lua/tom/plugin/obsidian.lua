@@ -110,6 +110,14 @@ return {
         end,
       },
       callbacks = {
+        post_setup = function()
+          -- Use obsidian-embed.nvim until native embeds reach feature parity.
+          local ok, native_embeds = pcall(require, 'obsidian.embed')
+          if not ok then return end
+          native_embeds.detach_all()
+          native_embeds.attach = function() end
+          native_embeds.start = native_embeds.attach
+        end,
         enter_note = function()
           vim.keymap.set('n', 'gf', follow_obsidian_link_or_file, {
             buffer = true,
