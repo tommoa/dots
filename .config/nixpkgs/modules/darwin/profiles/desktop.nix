@@ -38,6 +38,7 @@
     extraConfig = ''
       yabai -m rule --add app='System Settings' manage=off
       yabai -m rule --add app='ChatGPT' space=3
+      yabai -m rule --add label=t3-code app='^(Electron|T3 Code( \(Beta\))?)$' title='^T3 Code' space=3
       yabai -m rule --add app='Zen' space=2
       yabai -m rule --add app='Obsidian' space=5
       yabai -m rule --add app='Discord' space=4

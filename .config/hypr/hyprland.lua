@@ -200,6 +200,7 @@ hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 ----------------
 
 hl.window_rule({ name = "chatgpt-workspace", match = { class = "codex-desktop" }, workspace = "3 silent" })
+hl.window_rule({ name = "t3code-workspace", match = { class = "^com\\.t3tools\\.T3Code$" }, workspace = "3 silent" })
 hl.window_rule({ name = "discord-workspace", match = { class = "discord" }, workspace = "4 silent" })
 hl.window_rule({ name = "obsidian-workspace", match = { class = "obsidian" }, workspace = "5 silent" })
 hl.window_rule({ name = "steam-workspace", match = { class = "steam" }, workspace = "6 silent" })
