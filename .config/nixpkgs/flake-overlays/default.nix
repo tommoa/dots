@@ -26,10 +26,17 @@ in {
   neovim = unstable.wrapNeovim neovim-unwrapped-wasm {};
 
   chatgpt-desktop = inputs.codex-desktop-linux.packages.${super.stdenv.hostPlatform.system}.default;
-  codex = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.codex;
+  codex = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.codex.overrideAttrs (old: {
+    # AWS-LC 5 uses prefixed symbols and no longer provides openssl.pc by
+    # default. Supply OpenSSL separately for Codex's native-tls dependency.
+    buildInputs = old.buildInputs ++ [unstable.openssl];
+  });
   opencode = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode;
   opencode2 = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode2;
   pi-coding-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.pi;
-  t3code = t3codePackages.t3code.override {t3code-unwrapped = t3codeUnwrapped;};
+  t3code = t3codePackages.t3code.override {
+    codex = self.codex;
+    t3code-unwrapped = t3codeUnwrapped;
+  };
   t3code-desktop = t3codePackages.t3code-desktop.override {t3code = self.t3code;};
 }
