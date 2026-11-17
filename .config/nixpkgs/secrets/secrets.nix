@@ -27,6 +27,9 @@ let
   # Work-specific secrets (user + work host only)
   workSecrets = users ++ [work];
 
+  # Shared desktop secrets; include each editing user only once.
+  sharedSecrets = users ++ [apollo work];
+
   # Personal desktop secrets (user + apollo host only). Keep these out of
   # work-host deployments even though the same user can edit them.
   personalSecrets = users ++ [apollo];
@@ -48,7 +51,6 @@ in {
   "mail/shared-oauth2-client-id.age".publicKeys = all;
   "mail/shared-oauth2-client-secret.age".publicKeys = all;
   "mail/tommoa-password.age".publicKeys = all;
-  "mail/aerc-keyring.age".publicKeys = all;
 
   # Arista status report pipeline
   "arista-report/arista-report.age".publicKeys = workSecrets;
@@ -68,11 +70,11 @@ in {
   # it must be available before agenix runs.
   "ssh/github-deploy.age".publicKeys = all;
   "ssh/github-deploy-pub.age".publicKeys = all;
-  "ssh/srht-deploy.age".publicKeys = all ++ workSecrets;
-  "ssh/srht-deploy-pub.age".publicKeys = all ++ workSecrets;
+  "ssh/srht-deploy.age".publicKeys = sharedSecrets;
+  "ssh/srht-deploy-pub.age".publicKeys = sharedSecrets;
 
   # SSH config fragments (sensitive host configurations)
-  "ssh/config-work.age".publicKeys = all ++ workSecrets;
+  "ssh/config-work.age".publicKeys = sharedSecrets;
   "ssh/config-servers.age".publicKeys = all;
   "ssh/config-home-bus.age".publicKeys = workSecrets;
 
