@@ -4,25 +4,21 @@
   lib,
   ...
 }: {
-  # Zen needs to update profiles.ini at runtime. Home Manager normally leaves
-  # this generated file as a read-only store symlink, so replace that symlink
-  # with an equivalent writable file after each activation on macOS.
+  # Replace the writable registry left by the previous activation workaround.
+  # Legacy profile selection lets Home Manager own profiles.ini directly.
   home.file = lib.mkIf pkgs.stdenv.isDarwin {
     "${config.home.homeDirectory}/Library/Application Support/Zen/profiles.ini".force = true;
   };
 
-  home.activation.zenUnlockProfilesIni = lib.mkIf pkgs.stdenv.isDarwin (
-    lib.hm.dag.entryAfter ["linkGeneration"] ''
-      profiles_ini="${config.home.homeDirectory}/Library/Application Support/Zen/profiles.ini"
-      if [ -L "$profiles_ini" ]; then
-        profiles_source="$(readlink "$profiles_ini")"
-        profiles_tmp="$(mktemp "$profiles_ini.XXXXXX")"
-        cp "$profiles_source" "$profiles_tmp"
-        chmod 0644 "$profiles_tmp"
-        mv -f "$profiles_tmp" "$profiles_ini"
-      fi
-    ''
-  );
+  # The GUI login environment covers the Dock, Finder, and `open` launches.
+  # Shell session variables alone do not reach apps launched by LaunchServices.
+  launchd.agents.zen-legacy-profiles = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = ["/bin/launchctl" "setenv" "MOZ_LEGACY_PROFILES" "1"];
+      RunAtLoad = true;
+    };
+  };
 
   programs.zen-browser = {
     enable = true;
