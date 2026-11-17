@@ -4,6 +4,26 @@
   lib,
   ...
 }: let
+  providerID =
+    if config.my.pi.provider == "cli-proxy-api"
+    then "cli_proxy_api"
+    else config.my.pi.provider;
+  # Old desktop processes can retain these after their shell exports disappear.
+  # Pi discovers providers from its environment independently of enabledModels.
+  retiredEnvironment = [
+    "ANTHROPIC_API_KEY"
+    "GEMINI_API_KEY"
+    "GOOGLE_API_KEY"
+    "GOOGLE_CLOUD_LOCATION"
+    "GOOGLE_CLOUD_PROJECT"
+    "OPENAI_API_KEY"
+    "OPENCODE_API_KEY"
+    "OPENROUTER_API_KEY"
+  ];
+  piLauncher = pkgs.writeShellScriptBin "pi" ''
+    exec ${pkgs.coreutils}/bin/env ${lib.concatMapStringsSep " " (name: "-u ${name}") retiredEnvironment} \
+      ${lib.getExe config.my.pi.package} "$@"
+  '';
   piLiteLLMProviderSource = pkgs.runCommandLocal "pi-litellm-provider" {} ''
     mkdir -p "$out/pi/litellm-provider" "$out/ai-providers"
     cp -R ${../pi/litellm-provider}/. "$out/pi/litellm-provider/"
@@ -46,10 +66,14 @@ in {
     };
   };
   config = {
-    home.packages = lib.optionals config.my.pi.enable [config.my.pi.package];
+    home.packages = lib.optionals config.my.pi.enable [piLauncher];
     home.file = lib.mkIf (config.my.pi.enable && config.my.pi.provider != "none") {
       ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" ({
           extensions = [piLiteLLMProviderDir];
+          defaultProvider = providerID;
+          defaultModel = config.my.codex.defaultModel;
+          defaultThinkingLevel = config.programs.codex.settings.model_reasoning_effort;
+          enabledModels = ["${providerID}/**" "openai-codex/*"];
         }
         // (
           if config.my.pi.provider == "cli-proxy-api"
