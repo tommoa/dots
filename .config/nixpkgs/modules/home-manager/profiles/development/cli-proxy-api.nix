@@ -121,6 +121,14 @@ in {
     # The direct provider remains available on work hosts without CLIProxyAPI.
     my.opencode.provider = "cli-proxy-api";
     my.pi.provider = "cli-proxy-api";
+    # Request routing and pooled usage reporting are separate T3 integrations.
+    programs.t3code.userSettings.usageLimitSources.cli-proxy-api = {
+      kind = "cliproxy";
+      label = "Local CLIProxyAPI";
+      url = "http://127.0.0.1:${toString config.my.cliProxyApi.port}";
+      managementKey = "local";
+      enabled = true;
+    };
     # The same local provider serves subscription and corporate models;
     # work defaults must select the corporate upstream explicitly.
     my.codex = lib.mkIf (config.my.modelSelection.profile == "work" && config.my.aiProxy.enable) {
