@@ -4,6 +4,11 @@ description: >-
   Compare or choose between materially different approaches to a consequential
   architecture, API, workflow, interface, implementation, or other artifact
   when competing shapes could materially affect the outcome.
+metadata:
+  upstream-source: https://github.com/cursor/plugins/blob/main/pstack/skills/arena/SKILL.md
+  # Original import revision is unknown; this records review, not synchronization.
+  upstream-reviewed-revision: 2f87c854fe3e2fcda44ca86b46ede35aad3c46b7
+  upstream-license: https://github.com/cursor/plugins/blob/2f87c854fe3e2fcda44ca86b46ede35aad3c46b7/pstack/LICENSE
 ---
 
 # Arena

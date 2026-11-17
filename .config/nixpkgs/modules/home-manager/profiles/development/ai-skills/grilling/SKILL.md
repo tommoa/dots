@@ -3,6 +3,10 @@ name: grilling
 description: >-
   Grill the user about a plan, decision, or idea when they ask to stress-test
   their thinking or unresolved preferences materially block progress.
+metadata:
+  upstream-source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md
+  upstream-revision: 85f83d3fde1d3a90d5c9a657f6998c79a6c37308
+  upstream-license: https://github.com/mattpocock/skills/blob/85f83d3fde1d3a90d5c9a657f6998c79a6c37308/LICENSE
 ---
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
