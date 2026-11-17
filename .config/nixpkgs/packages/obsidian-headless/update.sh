@@ -13,6 +13,7 @@ fi
 current="$(jq -r '.dependencies["obsidian-headless"]' "${package_dir}/package.json")"
 if [ "$current" = "$version" ]; then
     printf 'obsidian-headless is already at %s\n' "$version"
+    exit 0
 else
     printf 'Updating obsidian-headless from %s to %s\n' "$current" "$version"
 fi
