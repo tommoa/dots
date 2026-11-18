@@ -131,9 +131,10 @@ in {
     my.aiTools.localStatePaths = lib.mkIf (localStateEnabled && config.programs.t3code.enable) {
       "${config.home.homeDirectory}/.t3" = localHome;
     };
-    home.sessionVariables = lib.mkIf (localStateEnabled && config.programs.t3code.enable) {
-      T3CODE_HOME = localHome;
-    };
+    # Also opt out on hosts managed only by Home Manager.
+    home.sessionVariables.T3CODE_TELEMETRY_ENABLED = "false";
+    systemd.user.sessionVariables.T3CODE_TELEMETRY_ENABLED = lib.mkIf pkgs.stdenv.isLinux "false";
+    home.sessionVariables.T3CODE_HOME = lib.mkIf (localStateEnabled && config.programs.t3code.enable) localHome;
     home.packages = lib.optional (localStateEnabled && config.programs.t3code.enable) localBootstrap;
     programs.t3code = {
       enable = true;

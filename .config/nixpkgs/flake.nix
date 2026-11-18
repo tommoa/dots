@@ -134,6 +134,24 @@
           ++ extraModules;
       };
 
+    t3codePolicyModule = platform: {pkgs, ...}: let
+      policy = pkgs.writeText "t3code-policy.json" (builtins.toJSON {
+        schemaVersion = 1;
+        organization = "Local Nix configuration";
+        limits.telemetry = false;
+      });
+    in
+      if platform == "darwin"
+      then {
+        system.activationScripts.extraActivation.text = ''
+          install -d -m 0755 "/Library/Application Support/T3Code"
+          ln -sfn ${policy} "/Library/Application Support/T3Code/policy.json"
+        '';
+      }
+      else {
+        environment.etc."t3code/policy.json".source = policy;
+      };
+
     # Helper function to create darwin configurations
     mkDarwinConfig = {
       hostConfig,
@@ -142,6 +160,7 @@
       nix-darwin.lib.darwinSystem {
         modules = [
           hostConfig
+          (t3codePolicyModule "darwin")
           inputs.agenix.darwinModules.default
           {
             nixpkgs.overlays = [
@@ -185,6 +204,7 @@
       nixpkgs.lib.nixosSystem {
         modules = [
           hostConfig
+          (t3codePolicyModule "linux")
           inputs.agenix.nixosModules.default
           {
             nixpkgs.overlays = [
