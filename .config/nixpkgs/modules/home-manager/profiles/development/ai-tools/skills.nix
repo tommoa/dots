@@ -14,29 +14,10 @@
   codexAIProxyAvailable =
     config.my.aiProxy.enable
     && (config.programs.codex.settings.model_provider or null) == "cli_proxy_api";
-  codexNoImplicitInvocationPolicy = (pkgs.formats.yaml {}).generate "codex-skill-openai.yaml" {
-    policy.allow_implicit_invocation = false;
-  };
-  # Keep complete skill directories intact. Only copy a skill when Codex-specific
-  # metadata must be overlaid without changing the source used by other harnesses.
-  mkCodexSkill = {
-    name,
-    source,
-    allowImplicitInvocation ? true,
-  }:
-    if allowImplicitInvocation
-    then source
-    else
-      pkgs.runCommandLocal "codex-skill-${name}" {} ''
-        mkdir -p "$out"
-        cp -R ${source}/. "$out/"
-        if [ -e "$out/agents/openai.yaml" ]; then
-          echo "${name} already provides agents/openai.yaml; merge its policy explicitly" >&2
-          exit 1
-        fi
-        mkdir -p "$out/agents"
-        cp ${codexNoImplicitInvocationPolicy} "$out/agents/openai.yaml"
-      '';
+  codexNoImplicitInvocationPolicy = pkgs.writeText "codex-skill-openai.yaml" ''
+    policy:
+      allow_implicit_invocation: false
+  '';
   providerGuidance = {
     codexAIProxy = ''
       ## Provider continuity
@@ -132,28 +113,35 @@
   # on this machine; the model and effort policy remains shared.
   skillSourcesByHarness = {
     codex = withModelSelection codexModelSelectionSkill;
+    cursor = withModelSelection (pkgs.writeTextDir "SKILL.md" (modelSelectionSkill {}));
     opencode = withModelSelection opencodeModelSelectionSkill;
   };
-  explicitCodexSkills = ["arena-loop" "simplification-loop"];
-  codexSkills = lib.mapAttrs (name: source:
-    mkCodexSkill {
-      inherit name source;
-      # Multi-round loops are intentional, comparatively expensive
-      # workflows; keep them available only through `$skill`.
-      allowImplicitInvocation = !builtins.elem name explicitCodexSkills;
-    })
-  skillSourcesByHarness.codex;
+  # Multi-round loops require explicit invocation in both Codex and Cursor.
+  # Both harnesses can consume the same directory with their own metadata.
+  explicitSkills = lib.genAttrs ["arena-loop" "simplification-loop"] (name:
+    pkgs.runCommandLocal "explicit-skill-${name}" {} ''
+      mkdir -p "$out"
+      cp -R ${sharedSkillSources.${name}}/. "$out/"
+      if [ -e "$out/agents/openai.yaml" ]; then
+        echo "${name} already provides agents/openai.yaml; merge its policy explicitly" >&2
+        exit 1
+      fi
+      mkdir -p "$out/agents"
+      cp ${codexNoImplicitInvocationPolicy} "$out/agents/openai.yaml"
+      chmod u+w "$out/SKILL.md"
+      sed -i '1a disable-model-invocation: true' "$out/SKILL.md"
+    '');
   codexSkillsDir =
     if config.home.preferXdgDirectories
     then lib.removePrefix "${config.home.homeDirectory}/" "${config.xdg.configHome}/codex/skills"
     else ".codex/skills";
   # The skill option inspects directory paths during evaluation. home.file can
   # link these complete build outputs without realizing them while evaluating.
-  codexSkillFiles = lib.listToAttrs (map (name:
+  codexSkillFiles = lib.mapAttrs' (name: source:
     lib.nameValuePair "${codexSkillsDir}/${name}" {
-      source = codexSkills.${name};
+      inherit source;
     })
-  explicitCodexSkills);
+  explicitSkills;
   piSkillFiles =
     lib.mapAttrs' (
       name: source:
@@ -188,6 +176,7 @@ in {
   };
 
   config = {
+    my.cursor.skills = skillSourcesByHarness.cursor // explicitSkills;
     home.file = lib.mkMerge [
       (lib.mkIf config.my.pi.enable ({".pi/agent/AGENTS.md".source = ../context.md;} // piSkillFiles))
       (lib.mkIf config.programs.codex.enable codexSkillFiles)
@@ -199,7 +188,7 @@ in {
       }
     ];
     programs.opencode.skills = skillSourcesByHarness.opencode;
-    programs.codex.skills = builtins.removeAttrs codexSkills explicitCodexSkills;
+    programs.codex.skills = builtins.removeAttrs skillSourcesByHarness.codex (builtins.attrNames explicitSkills);
     xdg.configFile."opencode/AGENTS.md".source = ../context.md;
   };
 }

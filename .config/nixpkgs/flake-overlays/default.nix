@@ -37,6 +37,7 @@ in {
     # default. Supply OpenSSL separately for Codex's native-tls dependency.
     buildInputs = old.buildInputs ++ [unstable.openssl];
   });
+  cursor-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.cursor-agent;
   opencode = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode;
   opencode2 = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.opencode2;
   pi-coding-agent = inputs.llm-agents.packages.${super.stdenv.hostPlatform.system}.pi;

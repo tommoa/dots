@@ -117,3 +117,4 @@ vim.api.nvim_create_autocmd('LspAttach', {
 --     <leader>al  toggle local Codex side-panel
 --     <leader>as  toggle OpenCode side-panel
 --     <leader>ap  toggle PI side-panel
+--     <leader>au  toggle Cursor side-panel

@@ -129,6 +129,13 @@ return {
         end,
         desc = "Toggle the CLI (ai toggle)",
       },
+      {
+        "<leader>au",
+        function()
+          require("sidekick.cli").toggle({ name = "cursor", focus = true })
+        end,
+        desc = "Toggle the Cursor CLI (ai toggle)",
+      },
     },
   },
 }
