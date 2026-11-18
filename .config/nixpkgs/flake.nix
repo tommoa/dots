@@ -408,22 +408,7 @@
             overlays = [(import ./overlays)];
           };
         in
-          {
-            claude-to-opencode =
-              (import ./packages/claude-to-opencode {
-                inherit
-                  (pkgs)
-                  lib
-                  python3
-                  runCommand
-                  writeShellScriptBin
-                  symlinkJoin
-                  buildNpmPackage
-                  nodejs
-                  ;
-              }).package;
-          }
-          // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") (
+          nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") (
             {
               inherit (pkgs) arista-browser-extension;
             }

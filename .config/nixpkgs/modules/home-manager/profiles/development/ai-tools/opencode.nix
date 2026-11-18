@@ -47,8 +47,27 @@
     cp ${../opencode/models.ts} "$out/opencode/models.ts"
   '';
   opencodeLiteLLMDir = "${opencodeLiteLLMSource}/opencode/litellm";
+  codexPlugins = import ../opencode/codex-plugins.nix {
+    inherit lib pkgs;
+    plugins = config.my.opencode.codexPlugins;
+  };
+  codexHooks =
+    pkgs.runCommand "opencode-codex-hooks" {
+      nativeBuildInputs = [pkgs.bun pkgs.python3];
+      CODEX_HOOKS_PLUGINS = builtins.toJSON codexPlugins.hooks;
+    } ''
+      mkdir -p "$out"
+      cp ${../opencode/codex-hooks}/*.ts "$out/"
+      export HOME="$TMPDIR"
+      CODEX_HOOKS_SOURCE="$out" bun test ${../../../../../tests/opencode_codex_hooks.test.ts}
+    '';
 in {
   options.my.opencode = {
+    codexPlugins = lib.mkOption {
+      type = lib.types.listOf lib.types.path;
+      default = [];
+      description = "Native Codex plugin directories supplying OpenCode skills, MCP servers and hooks";
+    };
     disablePythonFormatters = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -68,9 +87,11 @@ in {
   };
   config = {
     my.aiTools.localStatePaths = lib.mkIf (localStateEnabled && config.my.opencode.enable) localPaths;
+    programs.mcp.servers = codexPlugins.mcpServers;
     programs.opencode = {
       enable = config.my.opencode.enable;
       enableMcpIntegration = true;
+      skills = codexPlugins.skills;
       package =
         if localStateEnabled
         then localPackage
@@ -118,14 +139,21 @@ in {
           then "openai"
           else providerID
         }/${config.my.codex.defaultModel}";
-        plugins = lib.mkIf opencodeLiteLLMEnabled [
-          {
+        plugins =
+          lib.optional opencodeLiteLLMEnabled {
             package = opencodeLiteLLMDir;
             options = {
               inherit (config.my.aiProxy) baseUrl apiKeyEnv keyFile headers defaults routeOverrides;
             };
           }
-        ];
+          ++ lib.optional (codexPlugins.hooks != []) {
+            package = "${codexHooks}";
+            options = {
+              plugins = codexPlugins.hooks;
+              shell = pkgs.runtimeShell;
+              path = lib.makeBinPath [pkgs.python3 pkgs.tmux];
+            };
+          };
         formatter =
           {
             alejandra = {

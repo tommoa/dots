@@ -5,20 +5,6 @@ self: super:
   arista-browser-extension-signed =
     super.callPackage ../packages/arista-browser-extension/signed.nix {};
 
-  # Claude Code to OpenCode plugin transformer
-  claude-to-opencode = import ../packages/claude-to-opencode {
-    inherit
-      (super)
-      lib
-      python3
-      runCommand
-      writeShellScriptBin
-      symlinkJoin
-      buildNpmPackage
-      nodejs
-      ;
-  };
-
   obsidian-headless = import ../packages/obsidian-headless {
     inherit
       (super)
