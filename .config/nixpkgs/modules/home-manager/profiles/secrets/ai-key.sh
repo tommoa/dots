@@ -1,19 +1,20 @@
 #!/bin/sh
 
 set -eu
+umask 077
+export LC_ALL=C
 
-PROXY_URL="${AIKEYS_PROXY_URL:-https://ai-proxy.infra.corp.arista.io}"
 KEY_FILE="${AIKEYS_KEY_FILE:-$HOME/.ai-proxy-api-key}"
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/aikeys-tmux-status"
-CACHE_FILE="$CACHE_DIR/spend"
+CACHE_DIR="${AIKEYS_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/aikeys-tmux-status}"
+USAGE_URL="${AIKEYS_BASE_URL:-https://aikeys.infra.corp.arista.io}"
+USAGE_URL="${USAGE_URL%/}/api/v1/spend"
 CACHE_TTL_SECS="${AIKEYS_CACHE_TTL_SECS:-5}"
+CACHE_FILE="$CACHE_DIR/spend"
 LOCK_DIR="$CACHE_DIR/refresh.lock"
 
 case "$CACHE_TTL_SECS" in
 	''|*[!0-9]*) CACHE_TTL_SECS=5;;
 esac
-
-PROXY_URL="${PROXY_URL%/}"
 
 now_epoch() {
 	date +%s
@@ -49,20 +50,13 @@ print_cache() {
 
 extract_status() {
 	jq -er '
-		def reset_epoch:
-			first(
-				.. | objects
-				| (.budget_reset_at? // .reset_at? // .budget_reset?)
-				| select(. != null)
-				| tostring
-				| sub("\\.[0-9]+"; "")
-				| sub("\\+00:00$"; "Z")
-				| fromdateiso8601?
-			) // "";
-
-		first(.. | objects | .spend? | select(. != null) | tonumber?) as $spend
-		| select($spend != null)
-		| [$spend, reset_epoch]
+		.info
+		| (.budget_reset_at // "" | sub("\\.[0-9]+"; "")
+			| sub("\\+00:00$"; "Z") | fromdateiso8601? // "") as $reset
+		# The top-level spend combines both providers. Keep their daily figures separate.
+		| [.providers.litellm.spend, .providers.cursor.spend][]
+		| numbers | select(isfinite and . >= 0)
+		| [., $reset]
 		| @tsv
 	' 2>/dev/null
 }
@@ -77,7 +71,7 @@ format_duration() {
 		printf 'now'
 	elif [ "$seconds" -lt 3600 ]; then
 		printf '%dm' $(((seconds + 59) / 60))
-	elif [ "$seconds" -lt 86400 ]; then
+	else
 		hours=$((seconds / 3600))
 		minutes=$(((seconds % 3600 + 59) / 60))
 		if [ "$minutes" -eq 60 ]; then
@@ -90,14 +84,6 @@ format_duration() {
 		else
 			printf '%dh' "$hours"
 		fi
-	else
-		days=$((seconds / 86400))
-		hours=$(((seconds % 86400) / 3600))
-		if [ "$hours" -gt 0 ]; then
-			printf '%dd%02dh' "$days" "$hours"
-		else
-			printf '%dd' "$days"
-		fi
 	fi
 }
 
@@ -105,14 +91,13 @@ format_status() {
 	spend=$1
 	reset_epoch=${2:-}
 
-	printf '$%.2f' "$spend"
 	if [ -n "$reset_epoch" ]; then
 		remaining=$((reset_epoch - $(now_epoch)))
 		if reset_in=$(format_duration "$remaining"); then
-			printf ' %s' "$reset_in"
+			printf '%s:' "$reset_in"
 		fi
 	fi
-	printf '\n'
+	printf '$%.2f\n' "$spend"
 }
 
 acquire_lock() {
@@ -126,36 +111,29 @@ acquire_lock() {
 }
 
 refresh_cache() {
-	if [ ! -r "$KEY_FILE" ]; then
-		return
-	fi
-
+	[ -r "$KEY_FILE" ] || return 0
 	api_key=$(tr -d '\r\n' < "$KEY_FILE")
-	if [ -z "$api_key" ]; then
-		return
-	fi
+	[ -n "$api_key" ] || return 0
 
 	response=$(
-		printf 'header = "Authorization: Bearer %s"\n' "$api_key" |
-			curl -sf --max-time 10 -K - "$PROXY_URL/key/info" 2>/dev/null || true
-	)
+		printf 'header = "Authorization: Bearer %s"\nheader = "Accept: application/json"\n' "$api_key" |
+			curl -sf --max-time 10 -K - "$USAGE_URL" 2>/dev/null
+	) || return 0
 
 	if status=$(printf '%s\n' "$response" | extract_status); then
-		tab=$(printf '\t')
-		spend=${status%%"$tab"*}
-		reset_epoch=
-		case "$status" in
-			*"$tab"*) reset_epoch=${status#*"$tab"} ;;
-		esac
-
 		tmp_file="$CACHE_FILE.$$"
-		format_status "$spend" "$reset_epoch" > "$tmp_file"
+		printf '%s\n' "$status" |
+			while IFS="$(printf '\t')" read -r spend reset_epoch; do
+				format_status "$spend" "$reset_epoch"
+			done | paste -sd ' ' - > "$tmp_file"
 		mv "$tmp_file" "$CACHE_FILE"
 	fi
 }
 
 if [ "$(cache_age_secs)" -ge "$CACHE_TTL_SECS" ] && acquire_lock; then
 	if [ "$(cache_age_secs)" -ge "$CACHE_TTL_SECS" ]; then
+		# Bound retries after failures while retaining the last spending value.
+		touch "$CACHE_FILE"
 		refresh_cache
 	fi
 fi

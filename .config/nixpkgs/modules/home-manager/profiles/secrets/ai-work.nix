@@ -11,7 +11,11 @@
       curl
       jq
     ];
-    text = builtins.readFile ./ai-key.sh;
+    text =
+      lib.optionalString (config.my.aiTools.localStateRoot != null) ''
+        export AIKEYS_CACHE_DIR=${lib.escapeShellArg "${config.my.aiTools.localStateRoot}/.cache/aikeys-tmux-status"}
+      ''
+      + builtins.readFile ./ai-key.sh;
   };
 
   aiKeyTmuxSegment = pkgs.writeShellApplication {
