@@ -66,6 +66,12 @@ in {
     };
   };
   config = {
+    assertions = [
+      {
+        assertion = config.my.aiTools.localStateRoot == null || !config.my.pi.enable;
+        message = "Pi must remain disabled on NFS-home servers until its PI_CODING_AGENT_DIR adapter also supplies managed settings, skills and writable local state.";
+      }
+    ];
     home.packages = lib.optionals config.my.pi.enable [piLauncher];
     home.file = lib.mkIf (config.my.pi.enable && config.my.pi.provider != "none") {
       ".pi/agent/settings.json".source = (pkgs.formats.json {}).generate "pi-coding-agent-settings.json" ({

@@ -2,6 +2,7 @@
   imports = [
     ./ai-tools/ai-proxy.nix
     ./ai-tools/codex.nix
+    ./ai-tools/local-state.nix
     ./ai-tools/opencode.nix
     ./ai-tools/pi.nix
     ./ai-tools/skills.nix

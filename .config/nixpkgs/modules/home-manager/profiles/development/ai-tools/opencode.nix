@@ -18,6 +18,27 @@
     "opencode"
     "openrouter"
   ];
+  localRoot = config.my.aiTools.localStateRoot;
+  localStateEnabled = localRoot != null;
+  localPaths = {
+    "${config.home.homeDirectory}/.opencode" = "${localRoot}/.opencode";
+    "${config.xdg.dataHome}/opencode" = "${localRoot}/.local/share/opencode";
+    "${config.xdg.stateHome}/opencode" = "${localRoot}/.local/state/opencode";
+    "${config.xdg.cacheHome}/opencode" = "${localRoot}/.cache/opencode";
+  };
+  package = config.my.opencode.package;
+  localPackage = pkgs.symlinkJoin {
+    name = "opencode-with-local-state";
+    inherit (package) meta version;
+    paths = [package];
+    nativeBuildInputs = [pkgs.makeWrapper];
+    postBuild = ''
+      # App-specific links keep state local without changing child tools' XDG
+      # roots (and consequently breaking a infra login's credential lookup).
+      wrapProgram $out/bin/${package.meta.mainProgram or "opencode"} \
+        --run ${lib.escapeShellArg "${pkgs.coreutils}/bin/mkdir -p -m 700 ${lib.escapeShellArgs (builtins.attrValues localPaths)}"}
+    '';
+  };
   opencodeLiteLLMEnabled = config.my.opencode.enable && config.my.opencode.provider == "litellm";
   opencodeLiteLLMSource = pkgs.runCommandLocal "opencode-litellm" {} ''
     mkdir -p "$out/opencode/litellm" "$out/ai-providers"
@@ -46,10 +67,14 @@ in {
     };
   };
   config = {
+    my.aiTools.localStatePaths = lib.mkIf (localStateEnabled && config.my.opencode.enable) localPaths;
     programs.opencode = {
       enable = config.my.opencode.enable;
       enableMcpIntegration = true;
-      package = config.my.opencode.package;
+      package =
+        if localStateEnabled
+        then localPackage
+        else package;
       tui.theme = "one-dark";
       settings = {
         # Saved credentials and inherited API keys also activate built-in providers.

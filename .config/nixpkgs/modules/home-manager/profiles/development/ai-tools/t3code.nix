@@ -8,13 +8,44 @@
   hex = color: "#${color}";
   defaultModel = config.my.codex.defaultModel;
   reasoningEffort = config.programs.codex.settings.model_reasoning_effort;
+  localStateEnabled = config.my.aiTools.localStateRoot != null;
+  localHome = "${config.my.aiTools.localStateRoot}/.t3";
+  settingsScript =
+    pkgs.runCommand "t3code-settings.py" {
+      nativeBuildInputs = [pkgs.python3];
+    } ''
+      cp ${./t3code-settings.py} "$out"
+      T3CODE_SETTINGS="$out" python3 ${../../../../../tests/test_t3code_settings.py} -v
+    '';
+  localBootstrap = pkgs.writeShellApplication {
+    name = "t3code-local-bootstrap";
+    runtimeInputs = [pkgs.python3];
+    # The shared pointer avoids a closure cycle: managed settings name the
+    # wrapped provider executables, which depend on this bootstrap.
+    text = ''
+      exec python3 ${settingsScript} --bootstrap \
+        ${lib.escapeShellArg "${localHome}/userdata"} \
+        ${lib.escapeShellArg "${config.xdg.configHome}/t3code/managed-settings.json"}
+    '';
+  };
+  localPackage = pkgs.symlinkJoin {
+    name = "t3code-with-local-state";
+    inherit (pkgs.t3code) meta version;
+    paths = [pkgs.t3code];
+    nativeBuildInputs = [pkgs.makeWrapper];
+    postBuild = ''
+      wrapProgram $out/bin/t3 \
+        --set T3CODE_HOME ${lib.escapeShellArg localHome} \
+        --run ${lib.escapeShellArg "${localBootstrap}/bin/t3code-local-bootstrap"}
+    '';
+  };
   defaultModelSelection = {
     instanceId = "codex";
     model = defaultModel;
   };
   # Home Manager replaces arrays. Merge these by identity before its settings
   # activation so unrelated model options and custom models are retained.
-  managedSettings = pkgs.writeText "t3code-managed-settings.json" (builtins.toJSON (
+  modelSettingsValue =
     {
       desktopSettings = lib.optionalAttrs (config.my.t3code.desktopLocalEnvironmentEnabled != null) {
         localEnvironmentEnabled = config.my.t3code.desktopLocalEnvironmentEnabled;
@@ -49,8 +80,8 @@
           ];
         }
       ];
-    }
-  ));
+    };
+  modelSettings = pkgs.writeText "t3code-model-settings.json" (builtins.toJSON modelSettingsValue);
   themeDefinition = {
     name = "One Dark";
     appearance = "dark";
@@ -80,6 +111,11 @@
     };
   };
   theme = pkgs.writeText "t3code-one-dark.json" (builtins.toJSON themeDefinition);
+  managedSettings = pkgs.writeText "t3code-managed-settings.json" (builtins.toJSON {
+    inherit (config.programs.t3code) userSettings clientSettings;
+    modelSettings = modelSettingsValue;
+    theme = themeDefinition;
+  });
 in {
   options.my.t3code.desktopLocalEnvironmentEnabled = lib.mkOption {
     type = lib.types.nullOr lib.types.bool;
@@ -92,9 +128,19 @@ in {
   };
 
   config = {
+    my.aiTools.localStatePaths = lib.mkIf (localStateEnabled && config.programs.t3code.enable) {
+      "${config.home.homeDirectory}/.t3" = localHome;
+    };
+    home.sessionVariables = lib.mkIf (localStateEnabled && config.programs.t3code.enable) {
+      T3CODE_HOME = localHome;
+    };
+    home.packages = lib.optional (localStateEnabled && config.programs.t3code.enable) localBootstrap;
     programs.t3code = {
       enable = true;
-      package = pkgs.t3code;
+      package =
+        if localStateEnabled
+        then localPackage
+        else pkgs.t3code;
       mutableUserSettings = true;
       mutableClientSettings = true;
       userSettings = {
@@ -134,16 +180,28 @@ in {
     # Merge desktop preferences, normalize legacy client settings, and merge model
     # arrays before Home Manager merges ordinary preferences. Close the desktop
     # first to avoid its cached settings overwriting activation's changes.
-    home.activation.t3codeSettingsCompatibility = lib.hm.dag.entryBetween ["t3codeSettingsActivation" "t3codeClientSettingsActivation"] ["linkGeneration"] ''
-      run ${lib.getExe pkgs.python3} ${./t3code-settings.py} "$HOME/.t3/userdata" ${managedSettings}
-    '';
+    home.activation.t3codeSettingsCompatibility = lib.mkIf (!localStateEnabled) (lib.hm.dag.entryBetween ["t3codeSettingsActivation" "t3codeClientSettingsActivation"] ["linkGeneration"] ''
+      run ${lib.getExe pkgs.python3} ${settingsScript} "$HOME/.t3/userdata" ${modelSettings}
+    '');
+
+    # Home Manager's upstream module always merges into ~/.t3 on activation.
+    # For shared homes, publish an immutable baseline instead and let each
+    # container apply it once, preserving runtime edits between generations.
+    xdg.configFile."t3code/managed-settings.json" = lib.mkIf localStateEnabled {
+      source = managedSettings;
+    };
+    home.activation.t3codeLocalSettings = lib.mkIf (localStateEnabled && config.programs.t3code.enable) (lib.hm.dag.entryAfter ["linkGeneration"] ''
+      run ${localBootstrap}/bin/t3code-local-bootstrap
+    '');
+    home.activation.t3codeSettingsActivation = lib.mkIf localStateEnabled (lib.mkForce (lib.hm.dag.entryAfter [] ""));
+    home.activation.t3codeClientSettingsActivation = lib.mkIf localStateEnabled (lib.mkForce (lib.hm.dag.entryAfter [] ""));
 
     # T3 rejects symlinked themes. Publish a regular file atomically instead.
-    home.activation.t3codeTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    home.activation.t3codeTheme = lib.mkIf (!localStateEnabled) (lib.hm.dag.entryAfter ["writeBoundary"] ''
       theme_dir="$HOME/.t3/userdata/themes"
       run mkdir -p "$theme_dir"
       run install -m 644 ${theme} "$theme_dir/.one-dark.json.tmp"
       run mv -f "$theme_dir/.one-dark.json.tmp" "$theme_dir/one-dark.json"
-    '';
+    '');
   };
 }
