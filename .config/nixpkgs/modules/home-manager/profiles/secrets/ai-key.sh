@@ -50,13 +50,15 @@ print_cache() {
 
 extract_status() {
 	jq -er '
+		def spend:
+			if type == "number" and isfinite and . >= 0 then . else "?" end;
 		.info
+		| select(type == "object")
 		| (.budget_reset_at // "" | sub("\\.[0-9]+"; "")
 			| sub("\\+00:00$"; "Z") | fromdateiso8601? // "") as $reset
 		# The top-level spend combines both providers. Keep their daily figures separate.
-		| [.providers.litellm.spend, .providers.cursor.spend][]
-		| numbers | select(isfinite and . >= 0)
-		| [., $reset]
+		# Preserve empty slots so a missing provider never changes the order.
+		| [(.providers.litellm.spend | spend), (.providers.cursor.spend | spend), $reset]
 		| @tsv
 	' 2>/dev/null
 }
@@ -89,15 +91,29 @@ format_duration() {
 
 format_status() {
 	spend=$1
-	reset_epoch=${2:-}
+	cursor_spend=$2
+	reset_epoch=${3:-}
+	[ "$spend" != '?' ] || [ "$cursor_spend" != '?' ] || return 0
 
 	if [ -n "$reset_epoch" ]; then
 		remaining=$((reset_epoch - $(now_epoch)))
 		if reset_in=$(format_duration "$remaining"); then
-			printf '%s:' "$reset_in"
+			printf '%s ' "$reset_in"
 		fi
 	fi
-	printf '$%.2f\n' "$spend"
+	printf '['
+	format_spend "$spend"
+	printf ', '
+	format_spend "$cursor_spend"
+	printf ']\n'
+}
+
+format_spend() {
+	if [ "$1" = '?' ]; then
+		printf '?'
+	else
+		printf '$%.2f' "$1"
+	fi
 }
 
 acquire_lock() {
@@ -122,10 +138,10 @@ refresh_cache() {
 
 	if status=$(printf '%s\n' "$response" | extract_status); then
 		tmp_file="$CACHE_FILE.$$"
-		printf '%s\n' "$status" |
-			while IFS="$(printf '\t')" read -r spend reset_epoch; do
-				format_status "$spend" "$reset_epoch"
-			done | paste -sd ' ' - > "$tmp_file"
+		IFS="$(printf '\t')" read -r spend cursor_spend reset_epoch <<EOF
+$status
+EOF
+		format_status "$spend" "$cursor_spend" "$reset_epoch" > "$tmp_file"
 		mv "$tmp_file" "$CACHE_FILE"
 	fi
 }
