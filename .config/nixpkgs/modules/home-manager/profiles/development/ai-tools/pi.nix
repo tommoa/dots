@@ -55,7 +55,9 @@ in {
   options.my.pi = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = true;
+      # Without a provider, Pi falls back to direct ChatGPT.
+      default = config.my.pi.provider != "none";
+      defaultText = lib.literalExpression ''config.my.pi.provider != "none"'';
       description = "Enable the pi coding-agent package";
     };
     package = lib.mkPackageOption pkgs "pi-coding-agent" {};
@@ -79,7 +81,8 @@ in {
           defaultProvider = providerID;
           defaultModel = config.my.codex.defaultModel;
           defaultThinkingLevel = config.programs.codex.settings.model_reasoning_effort;
-          enabledModels = ["${providerID}/**" "openai-codex/*"];
+          # ChatGPT goes through the configured provider, never direct.
+          enabledModels = ["${providerID}/**"];
         }
         // (
           if config.my.pi.provider == "cli-proxy-api"

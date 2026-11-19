@@ -79,6 +79,8 @@ in {
   my.modelSelection.profile = "work";
 
   programs.codex.settings = {
+    # Without CLIProxyAPI, Codex would otherwise fall back to direct OpenAI.
+    model_provider = lib.mkDefault "ai_proxy";
     model_providers.ai_proxy = {
       name = "Arista AI Proxy";
       base_url = "${config.my.aiProxy.baseUrl}/";

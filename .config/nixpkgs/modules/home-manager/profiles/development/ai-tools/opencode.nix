@@ -8,13 +8,15 @@
     if config.my.opencode.provider == "cli-proxy-api"
     then "cli_proxy_api"
     else config.my.opencode.provider;
-  enabledProviders = ["openai"] ++ lib.optional (providerID != "none") providerID;
+  # ChatGPT goes through the configured provider, never direct.
+  enabledProviders = lib.optional (providerID != "none") providerID;
   retiredIntegrations = lib.filter (id: !(lib.elem id enabledProviders)) [
     "anthropic"
     "google"
     "google-vertex"
     "google-vertex-anthropic"
     "litellm"
+    "openai"
     "opencode"
     "openrouter"
   ];
@@ -76,7 +78,9 @@ in {
     package = lib.mkPackageOption pkgs "opencode2" {};
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = true;
+      # Without a provider, OpenCode has no approved route to ChatGPT.
+      default = config.my.opencode.provider != "none";
+      defaultText = lib.literalExpression ''config.my.opencode.provider != "none"'';
       description = "Enable the opencode package to be installed";
     };
     provider = lib.mkOption {
@@ -99,7 +103,6 @@ in {
       tui.theme = "one-dark";
       settings = {
         # Saved credentials and inherited API keys also activate built-in providers.
-        # Keep direct ChatGPT available alongside the selected proxy.
         enabled_providers = enabledProviders;
         policies =
           lib.concatMap (resource: [
@@ -119,26 +122,9 @@ in {
               effect = "deny";
             }
           ])
-          retiredIntegrations
-          ++ [
-            # Account-scoped access keeps stale OPENAI_API_KEY environments out.
-            {
-              action = "integration.use";
-              resource = "openai";
-              effect = "deny";
-            }
-            {
-              action = "integration.use";
-              resource = "openai#*";
-              effect = "allow";
-            }
-          ];
+          retiredIntegrations;
         # An unset default can select a built-in provider such as OpenCode Go.
-        model = "${
-          if providerID == "none"
-          then "openai"
-          else providerID
-        }/${config.my.codex.defaultModel}";
+        model = "${providerID}/${config.my.codex.defaultModel}";
         plugins =
           lib.optional opencodeLiteLLMEnabled {
             package = opencodeLiteLLMDir;
