@@ -7,24 +7,17 @@ description: >-
 
 # Model Selection
 
-This installation uses the **@profile@** profile.
+Profile: **@profile@**. Prefer the cheapest model that reliably finishes the task.
 
-Optimise for the cheapest reliable completion using these defaults:
-
-@model-defaults@
-  Coordination means directing other agents and integrating their results;
-  a difficult individual task does not by itself qualify.
-
+- Ordinary subagent: `@subagent-model@`, high effort.
+- New coordinator (directs subagents and integrates their results; a hard task
+  alone does not qualify): `@coordinator-model@`, high effort.
+- Keep an existing coordinator's model and effort. Never select or retain Astra.
+- Use only IDs and options the harness lists; never invent or silently
+  substitute them.
+- Keep delegated work on the parent's provider unless the user asks otherwise,
+  and proprietary data on approved work providers.
+- Use other models only when the user asks. Ask when the role, model, effort or
+  provider is unclear, or the default may not finish the task; reuse settled
+  decisions.
 @provider-guidance@
-@coordinator-guidance@
-
-Use model IDs and effort supported by the configured harness. Keep delegated
-work on the same approved provider and proprietary data within approved work
-providers. Do not invent IDs or silently substitute an unsupported pair.
-
-Use other models or model families only when the user explicitly requests them.
-If there is uncertainty about the role, whether the default can complete the
-task reliably, or the available model, effort, or provider, ask the user before
-choosing. Reuse decisions already settled in the conversation.
-
-Use benchmarks only as evidence when reviewing these preferences with the user.
