@@ -1,8 +1,8 @@
 diff --git a/internal/config/config_types.go b/internal/config/config_types.go
-index 783f666..1f19ee7 100644
+index 9151df1..459fe46 100644
 --- a/internal/config/config_types.go
 +++ b/internal/config/config_types.go
-@@ -642,8 +642,11 @@ type CodexModel struct {
+@@ -971,6 +971,9 @@ type CodexModel struct {
  	// MaxContextLength overrides the context window advertised to Codex clients.
  	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
  
@@ -12,9 +12,7 @@ index 783f666..1f19ee7 100644
  	// ForceMapping rewrites upstream response model fields back to Alias.
  	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
  
- 	// IsCompat converts Codex MultiAgentV2 agent_message items into portable
- 	// Responses message/user input when client.codex.optimize-multi-agent-v2 is also true.
-@@ -535,10 +538,11 @@ func (m CodexModel) GetName() string { return m.Name }
+@@ -994,10 +997,11 @@ func (m CodexModel) GetName() string { return m.Name }
  
  func (m CodexModel) GetAlias() string { return m.Alias }
  
@@ -31,7 +29,7 @@ index 783f666..1f19ee7 100644
  func (m CodexModel) GetThinking() *registry.ThinkingSupport { return m.Thinking }
  
 diff --git a/sdk/cliproxy/config_model_max_context_length_test.go b/sdk/cliproxy/config_model_max_context_length_test.go
-index aff0edc..53f7055 100644
+index 63282d8..0f20d49 100644
 --- a/sdk/cliproxy/config_model_max_context_length_test.go
 +++ b/sdk/cliproxy/config_model_max_context_length_test.go
 @@ -90,3 +90,19 @@ func TestBuildConfigModelsPropagatesMaxContextLength(t *testing.T) {
@@ -55,10 +53,10 @@ index aff0edc..53f7055 100644
 +	}
 +}
 diff --git a/sdk/cliproxy/service_models.go b/sdk/cliproxy/service_models.go
-index 553123b..3c7701a 100644
+index 196a0fd..122b4b9 100644
 --- a/sdk/cliproxy/service_models.go
 +++ b/sdk/cliproxy/service_models.go
-@@ -670,6 +670,10 @@ type modelMaxContextLengthEntry interface {
+@@ -807,6 +807,10 @@ type modelMaxContextLengthEntry interface {
  	GetMaxContextLength() int
  }
  
@@ -69,7 +67,7 @@ index 553123b..3c7701a 100644
  type modelCompatEntry interface {
  	GetIsCompat() bool
  }
-@@ -705,6 +709,9 @@ func buildConfiguredModelInfo(model modelEntry, ownedBy, modelType string, creat
+@@ -847,6 +851,9 @@ func buildConfiguredModelInfo(model modelEntry, ownedBy, modelType string, creat
  			info.MaxContextLength = maxContextLength
  		}
  	}
