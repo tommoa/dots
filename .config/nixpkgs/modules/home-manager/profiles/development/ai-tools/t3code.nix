@@ -160,6 +160,10 @@ in {
             enabled = config.programs.opencode.enable;
             config.binaryPath = lib.getExe config.programs.opencode.package;
           };
+          cursor = {
+            driver = "cursor";
+            enabled = config.my.cursor.enable;
+          };
         };
       };
       clientSettings = {
