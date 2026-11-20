@@ -24,12 +24,19 @@
 
     ${builtins.readFile ../context.md}
   '';
-  # Keep managed inputs in the store so every container can load them without
-  # copying settings or credentials into its writable runtime directory.
-  sharedPlugin = pkgs.runCommandLocal "cursor-shared-ai-tools" {} ''
-    mkdir -p "$out/.cursor-plugin" "$out/rules"
-    cp ${manifest} "$out/.cursor-plugin/plugin.json"
-    cp ${instructions} "$out/rules/context.mdc"
+  # The SDK discovers user-local plugins, but rejects child symlinks that escape
+  # their parent directory. Keep the complete plugin contents in one store tree.
+  pluginDirectory = pkgs.runCommandLocal "cursor-plugins" {} ''
+    mkdir -p "$out/shared-ai-tools/.cursor-plugin" "$out/shared-ai-tools/rules"
+    cp ${manifest} "$out/shared-ai-tools/.cursor-plugin/plugin.json"
+    cp ${instructions} "$out/shared-ai-tools/rules/context.mdc"
+    ${lib.concatMapStringsSep "\n" (source: let
+        name = (builtins.fromJSON (builtins.readFile "${source}/.cursor-plugin/plugin.json")).name;
+      in ''
+        mkdir "$out/"${lib.escapeShellArg name}
+        cp -RL ${lib.escapeShellArg "${source}/."} "$out/"${lib.escapeShellArg name}
+      '')
+      cfg.plugins}
   '';
   skillsSource = pkgs.runCommandLocal "cursor-skills" {} ''
     mkdir -p "$out"
@@ -42,10 +49,15 @@
   # names in the manifest (or a pending list from an interrupted run) are
   # replaced or removed; any other skill in the way is backed up first. Work
   # files live outside the skills tree so Cursor never loads a partial copy.
-  skillsSync = pkgs.writeShellApplication {
-    name = "cursor-skills-sync";
+  cursorSetup = pkgs.writeShellApplication {
+    name = "cursor-setup";
     runtimeInputs = [pkgs.coreutils pkgs.flock];
     text = ''
+      umask 077
+      ${lib.optionalString localStateEnabled "mkdir -p -- ${lib.escapeShellArgs (builtins.attrValues localPaths)}"}
+      mkdir -p "$HOME/.cursor/plugins"
+      ln -sfnT ${lib.escapeShellArg "${config.xdg.dataHome}/cursor/plugins"} "$HOME/.cursor/plugins/local"
+
       shopt -s nullglob
       root=${lib.escapeShellArg "${cursorHome}/skills"}
       work=${lib.escapeShellArg "${cursorHome}/.skills-sync"}
@@ -86,7 +98,7 @@
           mkdir -p "$work/backup"
           backup="$work/backup/$name.$(date +%s)"
           mv -T "$target" "$backup"
-          echo "cursor-skills-sync: moved unmanaged $target to $backup" >&2
+          echo "cursor-setup: moved unmanaged $target to $backup" >&2
         fi
       done
       printf '%s\n' "$source" "''${names[@]}" > "$work/pending"
@@ -111,9 +123,8 @@
       wrapProgram $out/bin/cursor-agent \
         --set CURSOR_CONFIG_DIR ${lib.escapeShellArg cursorHome} \
         --prefix PATH : ${lib.makeBinPath [pkgs.python3 pkgs.tmux]} \
-        --add-flags ${lib.escapeShellArg (lib.escapeShellArgs (["--disable-auto-update"] ++ lib.concatMap (plugin: ["--plugin-dir" (toString plugin)]) ([sharedPlugin] ++ cfg.plugins)))} \
-        ${lib.optionalString localStateEnabled "--run ${lib.escapeShellArg "${pkgs.coreutils}/bin/mkdir -p -m 700 ${lib.escapeShellArgs (builtins.attrValues localPaths)}"}"} \
-        --run ${lib.escapeShellArg (lib.getExe skillsSync)}
+        --add-flags --disable-auto-update \
+        --run ${lib.escapeShellArg (lib.getExe cursorSetup)}
     '';
   };
 in {
@@ -134,7 +145,7 @@ in {
     plugins = lib.mkOption {
       type = lib.types.listOf lib.types.path;
       default = [];
-      description = "Native Cursor plugin directories loaded at launch";
+      description = "Native Cursor plugin directories available to the CLI and SDK";
     };
   };
 
@@ -146,9 +157,10 @@ in {
       }
     ];
     home.packages = [package];
+    xdg.dataFile."cursor/plugins".source = pluginDirectory;
     my.aiTools.localStatePaths = lib.mkIf localStateEnabled localPaths;
-    home.activation.cursorSkills = lib.hm.dag.entryAfter ["linkGeneration"] ''
-      run ${lib.getExe skillsSync}
+    home.activation.cursorSetup = lib.hm.dag.entryAfter ["linkGeneration"] ''
+      run ${lib.getExe cursorSetup}
     '';
   };
 }
